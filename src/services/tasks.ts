@@ -271,8 +271,11 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
       }
 
       await db.transaction(async (tx) => {
-        if (Object.keys(patch).length > 0) await updateTaskFields(tx, id, userId, patch);
+        // moveToIndex's listSiblings takes its FOR UPDATE lock in siblingOrder first; only
+        // then do we touch the single row with updateTaskFields, so two concurrent patches
+        // under the same parent can never lock rows in opposite orders (no ABBA deadlock).
         if (input.position !== undefined) await moveToIndex(tx, task, input.position);
+        if (Object.keys(patch).length > 0) await updateTaskFields(tx, id, userId, patch);
       });
       return loadTaskDetail(db, id, userId);
     },
@@ -280,14 +283,20 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
     async acceptAll(userId, id) {
       const task = await findOwnedTask(db, id, userId);
       if (!task) throw notFound("Task not found");
-      await setSuggestionStateForAll(db, task.id, userId, "suggested", "accepted");
+      await db.transaction(async (tx) => {
+        await listSiblings(tx, userId, task.id);
+        await setSuggestionStateForAll(tx, task.id, userId, "suggested", "accepted");
+      });
       return loadTaskDetail(db, id, userId);
     },
 
     async dismissAll(userId, id) {
       const task = await findOwnedTask(db, id, userId);
       if (!task) throw notFound("Task not found");
-      await setSuggestionStateForAll(db, task.id, userId, "suggested", "dismissed");
+      await db.transaction(async (tx) => {
+        await listSiblings(tx, userId, task.id);
+        await setSuggestionStateForAll(tx, task.id, userId, "suggested", "dismissed");
+      });
       return loadTaskDetail(db, id, userId);
     },
 

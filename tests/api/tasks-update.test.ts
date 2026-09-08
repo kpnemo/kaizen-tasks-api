@@ -151,6 +151,26 @@ describe("PATCH /tasks/:id", () => {
     expect((await patch(owner, task.id, {})).status).toBe(400);
     expect((await patch(other, task.id, { title: "Taken" })).status).toBe(404);
   });
+
+  it("does not deadlock when two siblings are patched concurrently (title and position both)", async () => {
+    const user = await registerUser(ctx.app);
+    const root = await createTask(ctx.app, user.token, { title: "Root for concurrent patch" });
+    const names = ["A", "B", "C", "D"];
+    const ids: Record<string, string> = {};
+    for (const n of names)
+      ids[n] = (await createTask(ctx.app, user.token, { title: n, parentId: root.id })).id;
+
+    const [r1, r2] = await Promise.all([
+      patch(user, ids.A!, { title: "A2", position: 3 }),
+      patch(user, ids.C!, { title: "C2", position: 0 }),
+    ]);
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+
+    const d = await detail(user, root.id);
+    expect(d.children.map((c) => c.position).sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+    expect(new Set(d.children.map((c) => c.id)).size).toBe(4);
+  });
 });
 
 describe("accept-all and dismiss-all", () => {
@@ -186,6 +206,14 @@ describe("accept-all and dismiss-all", () => {
     expect(accepted.body.data.progress).toEqual({ done: 0, total: 3 });
     expect(accepted.body.data.suggestionCount).toBe(0);
 
+    // Idempotent: a second accept-all touches nothing (no children are still "suggested"),
+    // so the detail comes back identical.
+    const acceptedAgain = await request(ctx.app)
+      .post(`${TASKS}/${root.id}/suggestions/accept-all`)
+      .set(auth(user.token));
+    expect(acceptedAgain.status).toBe(200);
+    expect(acceptedAgain.body.data).toEqual(accepted.body.data);
+
     const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, dismissed.id));
     expect(row?.suggestionState).toBe("dismissed");
 
@@ -202,6 +230,23 @@ describe("accept-all and dismiss-all", () => {
     ).toEqual(["dismissed", "dismissed"]);
     expect(res.body.data.progress).toEqual({ done: 0, total: 0 });
     expect(res.body.data.suggestionCount).toBe(0);
+  });
+
+  it("hides other users' tasks with 404 on both endpoints", async () => {
+    const owner = await registerUser(ctx.app);
+    const other = await registerUser(ctx.app);
+    const root = await createTask(ctx.app, owner.token, { title: "Root for cross-user bulk" });
+    await aiChild(owner, root.id, "S1", 0);
+
+    const acceptRes = await request(ctx.app)
+      .post(`${TASKS}/${root.id}/suggestions/accept-all`)
+      .set(auth(other.token));
+    expect(acceptRes.status).toBe(404);
+
+    const dismissRes = await request(ctx.app)
+      .post(`${TASKS}/${root.id}/suggestions/dismiss-all`)
+      .set(auth(other.token));
+    expect(dismissRes.status).toBe(404);
   });
 });
 
@@ -240,5 +285,22 @@ describe("PUT /tasks/:id/tags", () => {
           .send({ tagIds: [] })
       ).status,
     ).toBe(404);
+  });
+
+  it("de-duplicates repeated tag ids in the body", async () => {
+    const owner = await registerUser(ctx.app);
+    const tagRes = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(owner.token))
+      .send({ name: "dup-tag", color: "#123456" });
+    const tagId = tagRes.body.data.id as string;
+    const task = await createTask(ctx.app, owner.token, { title: "Tag me twice" });
+
+    const res = await request(ctx.app)
+      .put(`${TASKS}/${task.id}/tags`)
+      .set(auth(owner.token))
+      .send({ tagIds: [tagId, tagId] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.tags.map((t: { id: string }) => t.id)).toEqual([tagId]);
   });
 });
