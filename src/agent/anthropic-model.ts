@@ -1,11 +1,35 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { BreakdownSchema } from "../schemas/breakdown.js";
+import { BreakdownSchema, type BreakdownResult } from "../schemas/breakdown.js";
 import { ModelNonRetryableError, ModelRetryableError } from "./errors.js";
 import type { BreakdownInput, BreakdownModel, BreakdownOutcome } from "./model.js";
 
 export const MODEL_TIMEOUT_MS = 45_000;
 export const MAX_OUTPUT_TOKENS = 4096;
+
+/**
+ * The narrowest shape `complete()` needs from a client: just the one `messages.parse` call it
+ * makes, and the three response fields it reads. `Messages["parse"]` is generic over the whole
+ * `MessageCreateParamsNonStreaming` union, which a plain mock function cannot satisfy — this
+ * concrete shape lets a fake stand in for the real `Anthropic` client in tests without touching
+ * the network, while a real client still satisfies it structurally (its `parse` handles every
+ * shape this one accepts, including this narrower one).
+ */
+export interface AnthropicMessagesClient {
+  messages: {
+    parse(params: {
+      model: string;
+      max_tokens: number;
+      system: Array<{ type: "text"; text: string; cache_control: { type: "ephemeral" } }>;
+      messages: Array<{ role: "user"; content: string }>;
+      output_config: { format: Anthropic.JSONOutputFormat; effort: "medium" };
+    }): Promise<{
+      stop_reason: string | null;
+      stop_details: { explanation?: string | null } | null;
+      parsed_output: BreakdownResult | null;
+    }>;
+  };
+}
 
 /** 429, 5xx, connection and timeout failures retry through BullMQ; other API errors do not. */
 export function toModelError(err: unknown): Error {
@@ -22,15 +46,25 @@ export function toModelError(err: unknown): Error {
 }
 
 export class AnthropicBreakdownModel implements BreakdownModel {
-  private readonly client: Anthropic;
+  private readonly client: AnthropicMessagesClient;
 
-  constructor(private readonly options: { apiKey: string; model: string; systemPrompt: string }) {
+  constructor(
+    private readonly options: {
+      apiKey: string;
+      model: string;
+      systemPrompt: string;
+      /** Test seam: an injected fake stands in for the real SDK client. Production omits it. */
+      client?: AnthropicMessagesClient;
+    },
+  ) {
     // BullMQ owns retries (spec 5.1): one bounded attempt per job attempt.
-    this.client = new Anthropic({
-      apiKey: options.apiKey,
-      timeout: MODEL_TIMEOUT_MS,
-      maxRetries: 0,
-    });
+    this.client =
+      options.client ??
+      new Anthropic({
+        apiKey: options.apiKey,
+        timeout: MODEL_TIMEOUT_MS,
+        maxRetries: 0,
+      });
   }
 
   async complete(input: BreakdownInput): Promise<BreakdownOutcome> {
