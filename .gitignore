@@ -6,3 +6,5 @@ dist/
 coverage/
 .DS_Store
 .claude/.docs-check-blocks
+!.env.test
+.claude/DOCS-CHECK-FAILED

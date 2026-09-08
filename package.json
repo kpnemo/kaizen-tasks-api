@@ -1,0 +1,57 @@
+{
+  "name": "kaizen-tasks-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kaizen Tasks API: tasks broken into small steps by an AI assistant, with the human in control",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json && scripts/copy-assets.sh",
+    "start": "node dist/server.js",
+    "test": "vitest run --project unit --project integration",
+    "test:live": "vitest run --project live",
+    "lint": "eslint . && prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "openapi": "tsx scripts/generate-openapi.ts",
+    "docs:check": "bash scripts/docs-check.sh --hook"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.4",
+    "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
+    "jose": "^6.2.12",
+    "octokit": "^5.0.5",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.3",
+    "@types/supertest": "^7.2.1",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.10.0",
+    "prettier": "^3.9.6",
+    "railway": "^3.11.0",
+    "supertest": "^7.2.2",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.0"
+  }
+}
