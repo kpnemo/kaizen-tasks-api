@@ -215,7 +215,7 @@ Codes and status, from one function `statusFor(code)` in `lib/errors.ts`:
 
 ### 4.4 Endpoints
 
-All under `/api/v1`. User auth (bearer token) required everywhere except register, login, refresh, health, the OpenAPI document, and the admin seed-reset endpoint, which is guarded by its own `x-admin-token` header instead.
+All under `/api/v1`. User auth (bearer token) required everywhere except register, login, refresh, logout (which works from the refresh cookie alone, so an expired access token never prevents logging out), health, the OpenAPI document, and the admin seed-reset endpoint, which is guarded by its own `x-admin-token` header instead.
 
 | Method and path                           | Request                                                                   | Response                                                                            | Notes                                                                                                                                                                                                                           |
 | ----------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
