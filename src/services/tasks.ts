@@ -13,13 +13,25 @@ import {
   findOwnedTask,
   insertTask,
   listChildren,
+  listSiblings,
   listTasks,
   maxSiblingPosition,
+  setPositions,
+  setSuggestionStateForAll,
   updateAiState,
+  updateTaskFields,
   type ChildAggregate,
+  type TaskFieldPatch,
 } from "../repositories/tasks.js";
 import type { Tag } from "../schemas/tags.js";
-import type { CreateTaskInput, ListTasksInput, TaskDetail, TaskSummary } from "../schemas/tasks.js";
+import type {
+  CreateTaskInput,
+  ListTasksInput,
+  TaskDetail,
+  TaskSummary,
+  UpdateTaskInput,
+} from "../schemas/tasks.js";
+import { canTransitionSuggestion } from "./suggestions.js";
 import { toTag } from "./tags.js";
 
 /**
@@ -48,6 +60,10 @@ export interface TasksService {
   create(userId: string, input: CreateTaskInput): Promise<TaskDetail>;
   get(userId: string, id: string): Promise<TaskDetail>;
   remove(userId: string, id: string): Promise<void>;
+  update(userId: string, id: string, input: UpdateTaskInput): Promise<TaskDetail>;
+  acceptAll(userId: string, id: string): Promise<TaskDetail>;
+  dismissAll(userId: string, id: string): Promise<TaskDetail>;
+  replaceTags(userId: string, id: string, tagIds: string[]): Promise<TaskDetail>;
 }
 
 const NO_CHILDREN: ChildAggregate = { done: 0, total: 0, suggestionCount: 0 };
@@ -114,6 +130,26 @@ export async function assertOwnedTagIds(
       missing.map((id) => ({ path: "body.tagIds", message: `Unknown tag id ${id}` })),
     );
   }
+}
+
+/**
+ * Moves the row to the target index among its siblings and renumbers the siblings densely
+ * from 0, so the rows between the old and new index shift by one. Runs inside the caller's transaction.
+ */
+async function moveToIndex(tx: DbOrTx, task: TaskRow, target: number): Promise<void> {
+  const siblings = await listSiblings(tx, task.userId, task.parentId);
+  const from = siblings.findIndex((s) => s.id === task.id);
+  if (from === -1) return;
+  const to = Math.min(Math.max(target, 0), siblings.length - 1);
+  const reordered = [...siblings];
+  const [moved] = reordered.splice(from, 1);
+  if (!moved) return;
+  reordered.splice(to, 0, moved);
+  const before = new Map(siblings.map((s) => [s.id, s.position]));
+  const updates = reordered
+    .map((row, index) => ({ id: row.id, position: index }))
+    .filter((u) => before.get(u.id) !== u.position);
+  await setPositions(tx, updates);
 }
 
 export function createTasksService(deps: TasksServiceDeps): TasksService {
@@ -204,6 +240,66 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
     async remove(userId, id) {
       const deleted = await deleteTask(db, id, userId);
       if (!deleted) throw notFound("Task not found");
+    },
+
+    async update(userId, id, input) {
+      const task = await findOwnedTask(db, id, userId);
+      if (!task) throw notFound("Task not found");
+
+      const patch: TaskFieldPatch = {};
+      if (input.title !== undefined) patch.title = input.title;
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.status !== undefined) patch.status = input.status;
+      if (input.suggestionState !== undefined) {
+        if (task.origin !== "ai") {
+          throw validationError([
+            {
+              path: "body.suggestionState",
+              message: "Only AI-suggested steps have a suggestion state",
+            },
+          ]);
+        }
+        if (!canTransitionSuggestion(task.suggestionState, input.suggestionState)) {
+          throw validationError([
+            {
+              path: "body.suggestionState",
+              message: `Cannot change suggestion state from ${task.suggestionState} to ${input.suggestionState}`,
+            },
+          ]);
+        }
+        patch.suggestionState = input.suggestionState;
+      }
+
+      await db.transaction(async (tx) => {
+        if (Object.keys(patch).length > 0) await updateTaskFields(tx, id, userId, patch);
+        if (input.position !== undefined) await moveToIndex(tx, task, input.position);
+      });
+      return loadTaskDetail(db, id, userId);
+    },
+
+    async acceptAll(userId, id) {
+      const task = await findOwnedTask(db, id, userId);
+      if (!task) throw notFound("Task not found");
+      await setSuggestionStateForAll(db, task.id, userId, "suggested", "accepted");
+      return loadTaskDetail(db, id, userId);
+    },
+
+    async dismissAll(userId, id) {
+      const task = await findOwnedTask(db, id, userId);
+      if (!task) throw notFound("Task not found");
+      await setSuggestionStateForAll(db, task.id, userId, "suggested", "dismissed");
+      return loadTaskDetail(db, id, userId);
+    },
+
+    async replaceTags(userId, id, tagIds) {
+      const task = await findOwnedTask(db, id, userId);
+      if (!task) throw notFound("Task not found");
+      const unique = [...new Set(tagIds)];
+      await assertOwnedTagIds(db, userId, unique);
+      await db.transaction(async (tx) => {
+        await replaceTaskTags(tx, task.id, unique);
+      });
+      return loadTaskDetail(db, id, userId);
     },
   };
 }

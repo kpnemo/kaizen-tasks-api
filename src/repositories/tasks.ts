@@ -2,7 +2,7 @@ import { and, asc, desc, eq, exists, inArray, isNull, sql, type SQL } from "driz
 import type { DbOrTx } from "../db/client.js";
 import { tasks, taskTags, type NewTaskRow, type TaskRow } from "../db/schema.js";
 import type { Cursor } from "../lib/cursor.js";
-import type { AiSkipReason, AiStatus, TaskStatus } from "../schemas/tasks.js";
+import type { AiSkipReason, AiStatus, SuggestionState, TaskStatus } from "../schemas/tasks.js";
 
 const owned = (id: string, userId: string) => and(eq(tasks.id, id), eq(tasks.userId, userId));
 
@@ -150,6 +150,72 @@ export async function updateAiState(
     .update(tasks)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(tasks.id, id), eq(tasks.generationId, generationId)))
+    .returning({ id: tasks.id });
+  return rows.length;
+}
+
+export type TaskFieldPatch = Partial<
+  Pick<TaskRow, "title" | "description" | "status" | "suggestionState">
+>;
+
+export async function updateTaskFields(
+  db: DbOrTx,
+  id: string,
+  userId: string,
+  patch: TaskFieldPatch,
+): Promise<TaskRow | undefined> {
+  const [row] = await db
+    .update(tasks)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(owned(id, userId))
+    .returning();
+  return row;
+}
+
+/** Siblings in order, locked for the duration of the transaction so concurrent reorders serialize. */
+export async function listSiblings(
+  db: DbOrTx,
+  userId: string,
+  parentId: string | null,
+): Promise<TaskRow[]> {
+  return db
+    .select()
+    .from(tasks)
+    .where(siblingScope(userId, parentId))
+    .orderBy(...siblingOrder)
+    .for("update");
+}
+
+export async function setPositions(
+  db: DbOrTx,
+  updates: { id: string; position: number }[],
+): Promise<void> {
+  for (const update of updates) {
+    await db
+      .update(tasks)
+      .set({ position: update.position, updatedAt: new Date() })
+      .where(eq(tasks.id, update.id));
+  }
+}
+
+export async function setSuggestionStateForAll(
+  db: DbOrTx,
+  parentId: string,
+  userId: string,
+  from: SuggestionState,
+  to: SuggestionState,
+): Promise<number> {
+  const rows = await db
+    .update(tasks)
+    .set({ suggestionState: to, updatedAt: new Date() })
+    .where(
+      and(
+        eq(tasks.parentId, parentId),
+        eq(tasks.userId, userId),
+        eq(tasks.origin, "ai"),
+        eq(tasks.suggestionState, from),
+      ),
+    )
     .returning({ id: tasks.id });
   return rows.length;
 }
