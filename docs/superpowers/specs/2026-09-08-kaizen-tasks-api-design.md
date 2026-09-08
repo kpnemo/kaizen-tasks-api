@@ -239,13 +239,13 @@ All under `/api/v1`. Auth required everywhere except register, login, refresh, h
 | DELETE `/tags/:id` | | 204 | Removes links |
 | POST `/feature-requests` | title, problem, proposedBehavior, acceptanceCriteria, outOfScope? | 201 `{ issueNumber, issueUrl }` | Mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set. Body includes the submitter's display name. Labeled `feature-request`. GitHub failures give `UPSTREAM_ERROR` |
 | POST `/admin/seed-reset` | header `x-admin-token` | 200 `{ demoUserId }` | Mounted only when `ADMIN_TOKEN` is set. Wrong or missing token gives `NOT_FOUND`, so the route is invisible to guessing. Runs `seed.reset()` |
-| GET `/health` | | 200 `{ status, commit, env, checks: { db, redis } }` | 503 `UNAVAILABLE` if a check fails |
+| GET `/health` | | 200 `{ status, commit, env, checks: { db, redis }, features: { featureRequests } }` | 503 `UNAVAILABLE` if a check fails. `features.featureRequests` is true exactly when the feature-requests route is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set); added 2026-09-08 for the web app (master plan section 4) |
 | GET `/openapi.json` | | 200 document | Served from the committed file |
 
 Shapes:
 
-- `TaskSummary`: id, parentId, title, description, status, aiStatus, aiSkipReason, position, origin, suggestionState, rationale, tags (Tag[]), progress `{ done, total }`, createdAt, updatedAt.
-- `TaskDetail`: `TaskSummary` plus children (`TaskSummary[]` ordered by position, then createdAt, then id), aiTagSuggestions (string[]), aiError.
+- `TaskSummary`: id, parentId, title, description, status, aiStatus, aiSkipReason, aiError (string or null), position, origin, suggestionState, rationale, tags (Tag[]), progress `{ done, total }`, suggestionCount (integer: direct children with origin ai and suggestion state suggested; 0 for children and for tasks without suggestions), createdAt, updatedAt. `suggestionCount` and `aiError` were added 2026-09-08 (master plan section 4) so the list needs no per-row detail query; `suggestionCount` is computed in SQL alongside progress.
+- `TaskDetail`: `TaskSummary` plus children (`TaskSummary[]` ordered by position, then createdAt, then id) and aiTagSuggestions (string[]). aiError is inherited from `TaskSummary`.
 - `Tag`: id, name, color, createdAt.
 - `User`: id, email, displayName, createdAt.
 

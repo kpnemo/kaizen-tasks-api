@@ -16,7 +16,7 @@ Copied verbatim from the master plan. Every task's requirements implicitly inclu
 
 - Node 24 LTS everywhere, pinned by `.nvmrc` containing `24`; `engines.node` is `>=24 <25`. Run `nvm use` before any npm command.
 - Branching: work on `develop`. Feature branches come off `develop` and merge by pull request. `main` receives only `develop` by pull request after staging verification. Nothing is ever pushed to `main` directly. `develop` is the default branch on GitHub.
-- Commit messages end with the two trailer lines `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ`.
+- Commit messages end with the trailer line `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (the orchestrator dropped the former `Claude-Session` trailer on 2026-09-08; the master plan's wording predates that ruling).
 - Secrets never enter a repository. `ANTHROPIC_API_KEY`, `JWT_SECRET`, `ADMIN_TOKEN`, `SEED_DEMO_PASSWORD`, and any GitHub token live only in Railway variables and in git-ignored local `.env` files. Mike pastes them.
 - Railway: only the new project `kaizen-tasks`. Never link to, modify, or redeploy any other project in the account. Railway operations follow the official `use-railway` skill.
 - GitHub: repos `kpnemo/kaizen-tasks-api`, `kpnemo/kaizen-tasks-web`, `kpnemo/kaizen-tasks-assembly-line`, `kpnemo/kaizen-tasks-product-skills`, all public.
@@ -83,21 +83,19 @@ Every file the plan creates, with its one responsibility. Paths are relative to 
 - All commands run from `webapp/backend/` after `nvm use`. Local Postgres and Redis run as Homebrew services (`brew services start postgresql@17 redis`). Before Task 8 run `createdb kaizen_dev` and `createdb kaizen_test` once.
 - Relative imports inside `src/`, `tests/`, and `scripts/` use the `.js` extension (`import { x } from "./errors.js"`), which is what `module: "nodenext"` requires. tsx and vitest resolve them to the `.ts` sources.
 - Test output shown as "Expected" is the shape of the vitest summary, not a byte-exact transcript; test names and pass/fail counts must match.
-- Every commit uses this exact trailer block (two lines at the end of the message):
+- Every commit ends with this exact trailer line (the last line of the message):
 
 ```
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 ```
 
-- Commit commands in the plan are written as `git commit -F -` with a heredoc so the trailers are exact. Example:
+- Commit commands in the plan are written as `git commit -F -` with a heredoc so the trailer is exact. Example:
 
 ```bash
 git commit -F - <<'MSG'
 feat: subject line
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -590,7 +588,6 @@ git commit -F - <<'MSG'
 chore: scaffold toolchain and config module
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -1095,7 +1092,6 @@ git commit -F - <<'MSG'
 feat: error codes, envelopes, logger and request id middleware
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -1112,7 +1108,7 @@ MSG
 - Produces:
   - `encodeCursor({ createdAt: Date, id: string }): string`, `decodeCursor(raw: string): { createdAt: Date; id: string }`.
   - `validate(schemas: ValidateSchemas): RequestHandler`, `validated<S extends ValidateSchemas>(res): Validated<S>`, `interface ValidateSchemas { params?: ZodType; query?: ZodType; body?: ZodType }`.
-  - `interface HealthProbes { db(): Promise<void>; redis(): Promise<void> }`, `healthRouter(config, probes): Router`, `openapiRouter(openapiPath: string): Router`.
+  - `interface HealthProbes { db(): Promise<void>; redis(): Promise<void> }`, `interface HealthFeatures { featureRequests: boolean }`, `healthRouter(config, probes, features): Router`, `openapiRouter(openapiPath: string): Router`. `features.featureRequests` is the master plan's health interface: true exactly when the feature-requests route is mounted, which `createApp` decides from `GITHUB_TOKEN` and `GITHUB_REPO` (Task 19 mounts the route on the same value).
   - `interface AppDeps { config: Config; logger: Logger; probes: HealthProbes }` and `createApp(deps): Express` (Task 9 widens `AppDeps` to the spec's `{ config, db, redis, queue, model, logger }`; `probes` becomes an optional override).
   - `GET /api/v1/health` and `GET /api/v1/openapi.json` are live.
 
@@ -1229,26 +1225,45 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createLogger } from "./lib/logger.js";
 
-const config = loadConfig({
+const env = {
   DATABASE_URL: "postgres://localhost:5432/kaizen_test",
   REDIS_URL: "redis://localhost:6379/1",
   JWT_SECRET: "x".repeat(32),
   AI_MODEL_PROVIDER: "fake",
   APP_ENV: "test",
   RAILWAY_GIT_COMMIT_SHA: "abc123",
-});
+};
+const config = loadConfig(env);
 
 const okProbes = { db: async () => {}, redis: async () => {} };
 
 describe("createApp", () => {
-  it("serves health with the commit SHA, env and checks", async () => {
+  it("serves health with the commit SHA, env, checks and feature flags", async () => {
     const app = createApp({ config, logger: createLogger("silent"), probes: okProbes });
     const res = await request(app).get("/api/v1/health");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      data: { status: "ok", commit: "abc123", env: "test", checks: { db: "ok", redis: "ok" } },
+      data: {
+        status: "ok",
+        commit: "abc123",
+        env: "test",
+        checks: { db: "ok", redis: "ok" },
+        features: { featureRequests: false },
+      },
       meta: { requestId: expect.any(String) },
     });
+  });
+
+  it("reports features.featureRequests true when GITHUB_TOKEN and GITHUB_REPO are set", async () => {
+    const configured = loadConfig({
+      ...env,
+      GITHUB_TOKEN: "ghp_test_token",
+      GITHUB_REPO: "kpnemo/kaizen-tasks-assembly-line",
+    });
+    const app = createApp({ config: configured, logger: createLogger("silent"), probes: okProbes });
+    const res = await request(app).get("/api/v1/health");
+    expect(res.status).toBe(200);
+    expect(res.body.data.features).toEqual({ featureRequests: true });
   });
 
   it("returns 503 UNAVAILABLE naming the failing check", async () => {
@@ -1401,6 +1416,11 @@ export interface HealthProbes {
   redis(): Promise<void>;
 }
 
+/** Optional routes the web app can switch on. Reported so the client needs no probing. */
+export interface HealthFeatures {
+  featureRequests: boolean;
+}
+
 async function probe(fn: () => Promise<void>): Promise<"ok" | "failed"> {
   try {
     await fn();
@@ -1410,7 +1430,7 @@ async function probe(fn: () => Promise<void>): Promise<"ok" | "failed"> {
   }
 }
 
-export function healthRouter(config: Config, probes: HealthProbes): Router {
+export function healthRouter(config: Config, probes: HealthProbes, features: HealthFeatures): Router {
   const router = Router();
   router.get("/health", async (_req, res) => {
     const checks = { db: await probe(probes.db), redis: await probe(probes.redis) };
@@ -1425,6 +1445,7 @@ export function healthRouter(config: Config, probes: HealthProbes): Router {
       commit: config.RAILWAY_GIT_COMMIT_SHA,
       env: config.APP_ENV,
       checks,
+      features,
     });
   });
   return router;
@@ -1460,7 +1481,7 @@ import type { Config } from "./config.js";
 import { errorHandler, notFoundHandler } from "./lib/error-handler.js";
 import { createHttpLogger, type Logger } from "./lib/logger.js";
 import { requestId } from "./lib/request-id.js";
-import { healthRouter, type HealthProbes } from "./routes/health.js";
+import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
 import { openapiRouter } from "./routes/openapi.js";
 
 export interface AppDeps {
@@ -1471,8 +1492,21 @@ export interface AppDeps {
 
 export const JSON_BODY_LIMIT = "64kb";
 
+/**
+ * Defined exactly when GITHUB_TOKEN and GITHUB_REPO are both set. The feature-requests route is
+ * mounted on this same value, so health's `features.featureRequests` and the mount never disagree.
+ */
+export function featureRequestsConfigOf(config: Config): { token: string; repo: string } | undefined {
+  return config.GITHUB_TOKEN && config.GITHUB_REPO
+    ? { token: config.GITHUB_TOKEN, repo: config.GITHUB_REPO }
+    : undefined;
+}
+
 export function createApp(deps: AppDeps): Express {
   const { config, logger, probes } = deps;
+  const featureRequestsConfig = featureRequestsConfigOf(config);
+  const features: HealthFeatures = { featureRequests: featureRequestsConfig !== undefined };
+
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -1483,7 +1517,7 @@ export function createApp(deps: AppDeps): Express {
   app.use(createHttpLogger(logger));
 
   const api = Router();
-  api.use(healthRouter(config, probes));
+  api.use(healthRouter(config, probes, features));
   api.use(openapiRouter(resolve(process.cwd(), "openapi.json")));
   app.use("/api/v1", api);
 
@@ -1505,7 +1539,7 @@ Expected: every test passes except `createApp > serves the committed openapi.jso
  ✓ src/lib/error-handler.test.ts (4 tests)
  ✓ src/lib/cursor.test.ts (3 tests)
  ✓ src/routes/validate.test.ts (3 tests)
- ❯ src/app.test.ts (4 tests | 1 failed)
+ ❯ src/app.test.ts (5 tests | 1 failed)
 ```
 
 - [ ] **Step 8: Typecheck, lint, commit**
@@ -1519,7 +1553,6 @@ git commit -F - <<'MSG'
 feat: cursor, validate middleware, app factory with health and openapi routes
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -1946,12 +1979,16 @@ export const TaskSummarySchema = z
     status: TaskStatusSchema,
     aiStatus: AiStatusSchema,
     aiSkipReason: AiSkipReasonSchema.nullable(),
+    aiError: z.string().nullable(),
     position: z.number().int(),
     origin: TaskOriginSchema,
     suggestionState: SuggestionStateSchema.nullable(),
     rationale: z.string().nullable(),
     tags: z.array(TagSchema),
     progress: ProgressSchema,
+    // Direct children with origin ai still in state suggested; 0 for children and for tasks
+    // without suggestions. With aiError above, the list needs no per-row detail query.
+    suggestionCount: z.number().int(),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })
@@ -1960,7 +1997,6 @@ export const TaskSummarySchema = z
 export const TaskDetailSchema = TaskSummarySchema.extend({
   children: z.array(TaskSummarySchema),
   aiTagSuggestions: z.array(z.string()),
-  aiError: z.string().nullable(),
 }).openapi("TaskDetail");
 
 export const TitleSchema = z.string().trim().min(1).max(200);
@@ -2239,6 +2275,8 @@ export const HealthSchema = z
     commit: z.string(),
     env: z.enum(["development", "test", "staging", "production"]),
     checks: z.object({ db: CheckState, redis: CheckState }),
+    // Master plan section 4: true exactly when POST /feature-requests is mounted.
+    features: z.object({ featureRequests: z.boolean() }),
   })
   .openapi("Health");
 
@@ -2261,7 +2299,7 @@ registry.registerPath({
   responses: {
     200: {
       description: "The committed openapi.json",
-      content: { "application/json": { schema: z.object({}).passthrough() } },
+      content: { "application/json": { schema: z.looseObject({}) } },
     },
   },
 });
@@ -2345,7 +2383,6 @@ git commit -F - <<'MSG'
 feat: zod schemas for every endpoint with OpenAPI registration
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -2573,7 +2610,7 @@ if (check) {
 - [ ] **Step 5: Generate the contract**
 
 Run: `npm run openapi`
-Expected: `wrote openapi.json and docs/API.md`. Then `node -e 'const d=require("./openapi.json");console.log(d.openapi, Object.keys(d.paths).length)'` prints `3.1.0 15` (15 distinct paths covering the 22 operations).
+Expected: `wrote openapi.json and docs/API.md`. Then `node -e 'const d=require("./openapi.json");console.log(d.openapi, Object.keys(d.paths).length)'` prints `3.1.0 17` (17 distinct paths covering the 22 operations).
 
 - [ ] **Step 6: Run the drift check and the unit tests**
 
@@ -2585,7 +2622,7 @@ Expected: all green now that `openapi.json` exists, including `createApp > serve
 
 ```
  Test Files  8 passed (8)
-      Tests  25 passed (25)
+      Tests  33 passed (33)
 ```
 
 Run: `sed -i '' 's/version: "1"/version: "1-drift"/' src/schemas/index.ts && npm run openapi -- --check; echo "exit=$?"; git checkout src/schemas/index.ts`
@@ -2602,7 +2639,6 @@ git commit -F - <<'MSG'
 feat: generate openapi.json and docs/API.md from the schema registry
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -2791,7 +2827,7 @@ Create `.env` from the example with a fake provider (`.env` is git-ignored):
 Run: `cp .env.example .env && sed -i '' 's/^AI_MODEL_PROVIDER=.*/AI_MODEL_PROVIDER=fake/' .env && sed -i '' 's/^JWT_SECRET=.*/JWT_SECRET=local-dev-secret-that-is-at-least-32-chars/' .env && createdb kaizen_dev 2>/dev/null || true`
 
 Run: `npm start & sleep 2; curl -s -i http://localhost:3000/api/v1/health; kill %1`
-Expected: `HTTP/1.1 200 OK`, header `x-request-id: <uuid>`, body `{"data":{"status":"ok","commit":"local","env":"development","checks":{"db":"ok","redis":"ok"}},"meta":{"requestId":"<same uuid>"}}`.
+Expected: `HTTP/1.1 200 OK`, header `x-request-id: <uuid>`, body `{"data":{"status":"ok","commit":"local","env":"development","checks":{"db":"ok","redis":"ok"},"features":{"featureRequests":false}},"meta":{"requestId":"<same uuid>"}}`.
 
 Run: `DATABASE_URL= npm start; echo "exit=$?"` (with `.env` moved aside: `mv .env .env.bak && DATABASE_URL= npm start; echo "exit=$?"; mv .env.bak .env`)
 Expected: `Invalid configuration:` followed by `  - DATABASE_URL: ...` and `exit=1`.
@@ -2807,7 +2843,6 @@ git commit -F - <<'MSG'
 feat: build pipeline with prompt asset and a provisional server
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -2821,7 +2856,7 @@ MSG
 **Interfaces:**
 - Consumes: every script from Task 1 and the asset check from Task 6.
 - Produces: workflow name `ci`, job id `ci` (the required status check named in the master plan); the `api` service declaration the L3 lane applies with `railway config apply`; the docs skeleton Task 21 completes.
-- Verification V4 (wait-for-CI holds a push-triggered deploy) is proven with this task's artifacts: `ci.yml` runs on `push` to `develop`, and `railway.ts` tracks `develop` in staging. The L3 lane observes at L3-M1 that a push to `develop` shows a Railway deployment waiting on the `ci` check before building. If it does not wait, the fallback from spec 11 applies: GitHub Actions deploys through the Railway CLI, added to `ci.yml` as a final step by L3.
+- Verification V4 (wait-for-CI holds a push-triggered deploy) is proven with this task's artifacts: `ci.yml` runs on `push` to `develop`, and `railway.ts` tracks `develop` in staging with `checkSuites: true` on the GitHub source (the master plan's section 4 interface; spec 10.3's "dashboard-only" note predates the field, which `railway` 3.11 exposes on `ServiceSource`). The L3 lane observes at L3-M1 that a push to `develop` shows a Railway deployment waiting on the `ci` check before building. If it does not wait, the fallback from spec 11 applies: GitHub Actions deploys through the Railway CLI, added to `ci.yml` as a final step by L3.
 
 - [ ] **Step 1: Write `.github/workflows/ci.yml`**
 
@@ -2898,15 +2933,21 @@ import { defineRailway, github, preserve, project, service } from "railway/iac";
 
 // This repository owns only the `api` service. `web` lives in kaizen-tasks-web, and Postgres and
 // Redis are provisioned by the L3 lane. The named partial scopes "omit means delete" to the
-// resources this file declares, so `railway config apply` from this repo can never remove them.
+// resources this file declares, so `railway config apply` from this repo can never remove them
+// (Railway IaC docs, "One file per project"). Never rename the partial once it has been applied.
 export const partial = "api";
 
 export default defineRailway((ctx) => {
   const production = ctx.environment === "production";
 
   const api = service("api", {
-    // Branch per environment: develop deploys to staging, main to production.
-    source: github("kpnemo/kaizen-tasks-api", { branch: production ? "main" : "develop" }),
+    // Branch per environment: develop deploys to staging, main to production. checkSuites is
+    // wait-for-CI (master plan section 4, `source.checkSuites: true`): Railway holds the deploy
+    // until the GitHub check suite for the commit passes. Declared here so an apply never resets it.
+    source: github("kpnemo/kaizen-tasks-api", {
+      branch: production ? "main" : "develop",
+      checkSuites: true,
+    }),
     build: "npm run build",
     start: "node dist/server.js",
     healthcheck: "/api/v1/health",
@@ -2934,8 +2975,6 @@ export default defineRailway((ctx) => {
     },
   });
 
-  // Wait-for-CI is not a field in this DSL. It is switched on in the dashboard for the `api`
-  // service in each environment (Settings > Deploy > Wait for CI); the runbook records the path.
   return project("kaizen-tasks", { resources: [api] });
 });
 ```
@@ -2959,7 +2998,7 @@ All notable changes to this project are documented here. The format follows
 - Toolchain: TypeScript strict ESM, ESLint flat config, Prettier, Vitest projects, Node 24 pin.
 - Config module that validates every environment variable at startup and lists all problems.
 - Error codes with a single status mapping, success and error envelopes, request ids, pino logging.
-- `GET /api/v1/health` with commit SHA, environment and database and Redis checks.
+- `GET /api/v1/health` with commit SHA, environment, database and Redis checks, and `features.featureRequests`.
 - `GET /api/v1/openapi.json` serving the committed contract.
 - zod schemas for every endpoint, registered into an OpenAPI 3.1 document; `npm run openapi` generates `openapi.json` and `docs/API.md`, `-- --check` detects drift.
 - Build pipeline that copies the versioned system prompt into `dist/` and a CI gate that checks it.
@@ -3070,7 +3109,7 @@ Spec: `docs/superpowers/specs/2026-09-08-kaizen-tasks-api-design.md`. Plan: `doc
 - Migrations are additive only: add columns with defaults, add tables, add indexes; never drop or rename in the same release. See ADR 0004.
 - Docs are part of every change: a bullet under `[Unreleased]` in `CHANGELOG.md`, `npm run openapi` when routes or schemas change, an ADR when an architectural file changes. The Stop hook (`scripts/docs-check.sh --hook`) blocks until they are there; CI runs the same script.
 - Architectural files are listed in `docs/architectural-files.txt`.
-- Node 24 via `nvm use` before any npm command. Commits end with the two trailer lines in the master plan.
+- Node 24 via `nvm use` before any npm command. Commits end with the trailer line `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Scripts
 
@@ -3084,7 +3123,7 @@ Expected: each step exits 0; the vitest summary shows all unit tests passing and
 
 ```
  Test Files  8 passed (8)
-      Tests  25 passed (25)
+      Tests  33 passed (33)
 ```
 
 - [ ] **Step 7: Commit, and push once the GitHub repo exists**
@@ -3095,7 +3134,6 @@ git commit -F - <<'MSG'
 chore: ci workflow, railway iac, readme, claude.md and changelog
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -3520,7 +3558,6 @@ git commit -F - <<'MSG'
 feat: drizzle schema, initial migration, db client and real test setup
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -3896,7 +3933,6 @@ git commit -F - <<'MSG'
 feat: bullmq breakdown queue, model seam, fake model and fake queue
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -3937,13 +3973,33 @@ beforeAll(async () => {
 afterAll(() => ctx.close());
 
 describe("GET /api/v1/health", () => {
-  it("reports the commit SHA, env and passing checks against real Postgres and Redis", async () => {
+  it("reports the commit SHA, env, passing checks against real Postgres and Redis, and features", async () => {
     const res = await request(ctx.app).get("/api/v1/health");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      data: { status: "ok", commit: "abc123", env: "test", checks: { db: "ok", redis: "ok" } },
+      data: {
+        status: "ok",
+        commit: "abc123",
+        env: "test",
+        checks: { db: "ok", redis: "ok" },
+        features: { featureRequests: false },
+      },
       meta: { requestId: expect.any(String) },
     });
+  });
+
+  it("reports features.featureRequests true when GITHUB_TOKEN and GITHUB_REPO are set", async () => {
+    const configured = await createTestApp({
+      GITHUB_TOKEN: "ghp_test_token",
+      GITHUB_REPO: "kpnemo/kaizen-tasks-assembly-line",
+    });
+    try {
+      const res = await request(configured.app).get("/api/v1/health");
+      expect(res.status).toBe(200);
+      expect(res.body.data.features).toEqual({ featureRequests: true });
+    } finally {
+      await configured.close();
+    }
   });
 
   it("returns 503 UNAVAILABLE naming the failing check", async () => {
@@ -4447,7 +4503,7 @@ import { errorHandler, notFoundHandler } from "./lib/error-handler.js";
 import { createHttpLogger, type Logger } from "./lib/logger.js";
 import { requestId } from "./lib/request-id.js";
 import { authRouter } from "./routes/auth.js";
-import { healthRouter, type HealthProbes } from "./routes/health.js";
+import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
 import { openapiRouter } from "./routes/openapi.js";
 import { createAuthService } from "./services/auth.js";
 
@@ -4464,6 +4520,16 @@ export interface AppDeps {
 
 export const JSON_BODY_LIMIT = "64kb";
 
+/**
+ * Defined exactly when GITHUB_TOKEN and GITHUB_REPO are both set. The feature-requests route is
+ * mounted on this same value, so health's `features.featureRequests` and the mount never disagree.
+ */
+export function featureRequestsConfigOf(config: Config): { token: string; repo: string } | undefined {
+  return config.GITHUB_TOKEN && config.GITHUB_REPO
+    ? { token: config.GITHUB_TOKEN, repo: config.GITHUB_REPO }
+    : undefined;
+}
+
 export function createApp(deps: AppDeps): Express {
   const { config, db, redis, logger } = deps;
   const probes: HealthProbes = {
@@ -4475,6 +4541,8 @@ export function createApp(deps: AppDeps): Express {
     },
     ...deps.probes,
   };
+  const featureRequestsConfig = featureRequestsConfigOf(config);
+  const features: HealthFeatures = { featureRequests: featureRequestsConfig !== undefined };
 
   const app = express();
   app.disable("x-powered-by");
@@ -4486,7 +4554,7 @@ export function createApp(deps: AppDeps): Express {
   app.use(createHttpLogger(logger));
 
   const api = Router();
-  api.use(healthRouter(config, probes));
+  api.use(healthRouter(config, probes, features));
   api.use(openapiRouter(resolve(process.cwd(), "openapi.json")));
   api.use("/auth", authRouter(createAuthService({ db, redis, config }), config));
   app.use("/api/v1", api);
@@ -4662,10 +4730,10 @@ Run: `npx vitest run --project integration tests/api`
 Expected:
 
 ```
- ✓ tests/api/health.test.ts (4 tests)
+ ✓ tests/api/health.test.ts (5 tests)
  ✓ tests/api/auth.test.ts (9 tests)
  Test Files  2 passed (2)
-      Tests  13 passed (13)
+      Tests  14 passed (14)
 ```
 
 - [ ] **Step 10: Full suite, typecheck, lint, commit**
@@ -4680,7 +4748,6 @@ git commit -F - <<'MSG'
 feat: registration, login, refresh rotation, logout and me
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -4905,7 +4972,6 @@ git commit -F - <<'MSG'
 feat: hourly AI rate limiter with user and global scopes
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -5245,7 +5311,6 @@ git commit -F - <<'MSG'
 feat: tag CRUD with case-insensitive uniqueness per user
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -5261,11 +5326,11 @@ MSG
 **Interfaces:**
 - Consumes: Task 8 `tasks`, `taskTags`, `TaskRow`, `NewTaskRow`; Task 12 `tagsForTasks`, `findOwnedTags`, `replaceTaskTags`, `toTag`; Task 11 `RateLimiter`, `createRateLimiter`; Task 9 `BreakdownQueue`; Task 3 `encodeCursor`, `decodeCursor`; Task 4 task schemas and types.
 - Produces:
-  - repository (`src/repositories/tasks.ts`): `findOwnedTask(db, id, userId)`, `insertTask(db, values: NewTaskRow)`, `deleteTask(db, id, userId): Promise<boolean>`, `maxSiblingPosition(db, userId, parentId: string | null): Promise<number>` (-1 when none), `siblingScope(userId, parentId)`, `siblingOrder`, `listTasks(db, opts: ListTasksOptions): Promise<TaskRow[]>` (fetches `limit + 1`), `listChildren(db, parentId)`, `progressFor(db, taskIds): Promise<ProgressMap>` (SQL aggregate), `updateAiState(db, id, generationId, patch: AiStatePatch): Promise<number>` (guarded by `generation_id`), types `ListTasksOptions`, `ProgressMap`, `AiStatePatch`.
-  - service (`src/services/tasks.ts`): `MAX_TASK_DEPTH = 2`, `DEPTH_MESSAGE`, `ENQUEUE_FAILED_MESSAGE = "Could not queue the assistant, try again"`, `toTaskSummary(row, tags, progress): TaskSummary`, `loadTaskDetail(db, id, userId): Promise<TaskDetail>`, `assertOwnedTagIds(db, userId, tagIds)`, `createTasksService({ db, queue, rateLimiter, logger }): TasksService` with `list`, `create`, `get`, `remove` (Task 14 adds `update`, `acceptAll`, `dismissAll`, `replaceTags`; Task 16 adds `breakdown`).
+  - repository (`src/repositories/tasks.ts`): `findOwnedTask(db, id, userId)`, `insertTask(db, values: NewTaskRow)`, `deleteTask(db, id, userId): Promise<boolean>`, `maxSiblingPosition(db, userId, parentId: string | null): Promise<number>` (-1 when none), `siblingScope(userId, parentId)`, `siblingOrder`, `listTasks(db, opts: ListTasksOptions): Promise<TaskRow[]>` (fetches `limit + 1`), `listChildren(db, parentId)`, `childAggregates(db, taskIds): Promise<ChildAggregateMap>` (one SQL aggregate per parent: progress `done`/`total` and `suggestionCount`), `updateAiState(db, id, generationId, patch: AiStatePatch): Promise<number>` (guarded by `generation_id`), types `ListTasksOptions`, `ChildAggregate`, `ChildAggregateMap`, `AiStatePatch`.
+  - service (`src/services/tasks.ts`): `MAX_TASK_DEPTH = 2`, `DEPTH_MESSAGE`, `ENQUEUE_FAILED_MESSAGE = "Could not queue the assistant, try again"`, `toTaskSummary(row, tags, children: ChildAggregate): TaskSummary` (sets `progress`, `suggestionCount` and `aiError`, the master plan's section 4 summary fields), `loadTaskDetail(db, id, userId): Promise<TaskDetail>`, `assertOwnedTagIds(db, userId, tagIds)`, `createTasksService({ db, queue, rateLimiter, logger }): TasksService` with `list`, `create`, `get`, `remove` (Task 14 adds `update`, `acceptAll`, `dismissAll`, `replaceTags`; Task 16 adds `breakdown`).
   - route: `tasksRouter(service): Router` at `/api/v1/tasks` behind `requireAuth`.
   - test helper: `createTask(app, token, body): Promise<TaskDetail>`.
-- The spec's unit item "progress aggregation" is implemented as a repository test (`tests/db/progress.test.ts`) because spec section 6 requires the aggregate in SQL, not JavaScript.
+- The spec's unit item "progress aggregation" is implemented as a repository test (`tests/db/progress.test.ts`) because spec section 6 requires the aggregate in SQL, not JavaScript. The same aggregate computes `suggestionCount` (master plan section 4) as a filtered count alongside progress.
 
 - [ ] **Step 1: Write the test helper and the failing tests**
 
@@ -5297,7 +5362,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../../src/db/client.js";
 import { tasks, users } from "../../src/db/schema.js";
-import { progressFor } from "../../src/repositories/tasks.js";
+import { childAggregates } from "../../src/repositories/tasks.js";
 
 let db: Db;
 let end: () => Promise<void>;
@@ -5308,8 +5373,8 @@ beforeAll(() => {
 });
 afterAll(() => end());
 
-describe("progressFor", () => {
-  it("counts user children and accepted AI children; done is the done subset", async () => {
+describe("childAggregates", () => {
+  it("counts user children and accepted AI children (done is the done subset) and suggested AI children", async () => {
     const [u] = await db.insert(users).values({ email: `${randomUUID()}@t.local`, passwordHash: "x", displayName: "P" }).returning();
     const [root] = await db.insert(tasks).values({ userId: u!.id, title: "root" }).returning();
     const [empty] = await db.insert(tasks).values({ userId: u!.id, title: "empty" }).returning();
@@ -5328,10 +5393,10 @@ describe("progressFor", () => {
       child({ origin: "ai", suggestionState: "suggested", status: "done" }),
       child({ origin: "ai", suggestionState: "dismissed", status: "done" }),
     ]);
-    const progress = await progressFor(db, [root!.id, empty!.id]);
-    expect(progress.get(root!.id)).toEqual({ done: 2, total: 4 });
-    expect(progress.get(empty!.id)).toBeUndefined();
-    expect(await progressFor(db, [])).toEqual(new Map());
+    const aggregates = await childAggregates(db, [root!.id, empty!.id]);
+    expect(aggregates.get(root!.id)).toEqual({ done: 2, total: 4, suggestionCount: 1 });
+    expect(aggregates.get(empty!.id)).toBeUndefined();
+    expect(await childAggregates(db, [])).toEqual(new Map());
   });
 });
 ```
@@ -5374,6 +5439,7 @@ describe("POST /tasks", () => {
       rationale: null,
       tags: [],
       progress: { done: 0, total: 0 },
+      suggestionCount: 0,
       children: [],
       aiTagSuggestions: [],
       aiError: null,
@@ -5650,24 +5716,42 @@ export async function listChildren(db: DbOrTx, parentId: string): Promise<TaskRo
   return db.select().from(tasks).where(eq(tasks.parentId, parentId)).orderBy(...siblingOrder);
 }
 
-export type ProgressMap = Map<string, { done: number; total: number }>;
+export interface ChildAggregate {
+  done: number;
+  total: number;
+  suggestionCount: number;
+}
 
-/** Progress in SQL: children with origin user or an accepted suggestion count; done is the done subset. */
-export async function progressFor(db: DbOrTx, taskIds: string[]): Promise<ProgressMap> {
-  const map: ProgressMap = new Map();
+export type ChildAggregateMap = Map<string, ChildAggregate>;
+
+/**
+ * One SQL aggregate over direct children per parent. Progress counts children with origin user or
+ * an accepted suggestion (done is the done subset); suggestionCount counts AI children still in
+ * state suggested. Parents with no children are absent from the map.
+ */
+export async function childAggregates(db: DbOrTx, taskIds: string[]): Promise<ChildAggregateMap> {
+  const map: ChildAggregateMap = new Map();
   if (taskIds.length === 0) return map;
   const counted = sql`(${tasks.origin} = 'user' or ${tasks.suggestionState} = 'accepted')`;
+  const suggested = sql`(${tasks.origin} = 'ai' and ${tasks.suggestionState} = 'suggested')`;
   const rows = await db
     .select({
       parentId: tasks.parentId,
       total: sql<string>`count(*) filter (where ${counted})`,
       done: sql<string>`count(*) filter (where ${counted} and ${tasks.status} = 'done')`,
+      suggestionCount: sql<string>`count(*) filter (where ${suggested})`,
     })
     .from(tasks)
     .where(inArray(tasks.parentId, taskIds))
     .groupBy(tasks.parentId);
   for (const row of rows) {
-    if (row.parentId) map.set(row.parentId, { done: Number(row.done), total: Number(row.total) });
+    if (row.parentId) {
+      map.set(row.parentId, {
+        done: Number(row.done),
+        total: Number(row.total),
+        suggestionCount: Number(row.suggestionCount),
+      });
+    }
   }
   return map;
 }
@@ -5708,17 +5792,18 @@ import type { Logger } from "../lib/logger.js";
 import type { RateLimiter } from "../lib/rate-limit.js";
 import { findOwnedTags, replaceTaskTags, tagsForTasks } from "../repositories/tags.js";
 import {
+  childAggregates,
   deleteTask,
   findOwnedTask,
   insertTask,
   listChildren,
   listTasks,
   maxSiblingPosition,
-  progressFor,
   updateAiState,
+  type ChildAggregate,
 } from "../repositories/tasks.js";
 import type { Tag } from "../schemas/tags.js";
-import type { CreateTaskInput, ListTasksInput, Progress, TaskDetail, TaskSummary } from "../schemas/tasks.js";
+import type { CreateTaskInput, ListTasksInput, TaskDetail, TaskSummary } from "../schemas/tasks.js";
 import { toTag } from "./tags.js";
 
 /** A child may only be created under a root, and breakdown only runs on a root. Raise to allow deeper nesting. */
@@ -5745,9 +5830,10 @@ export interface TasksService {
   remove(userId: string, id: string): Promise<void>;
 }
 
-const NO_PROGRESS: Progress = { done: 0, total: 0 };
+const NO_CHILDREN: ChildAggregate = { done: 0, total: 0, suggestionCount: 0 };
 
-export function toTaskSummary(row: TaskRow, tags: Tag[], progress: Progress): TaskSummary {
+/** The API shape of one row. suggestionCount and aiError ride on every summary (master plan section 4). */
+export function toTaskSummary(row: TaskRow, tags: Tag[], children: ChildAggregate): TaskSummary {
   return {
     id: row.id,
     parentId: row.parentId,
@@ -5756,12 +5842,14 @@ export function toTaskSummary(row: TaskRow, tags: Tag[], progress: Progress): Ta
     status: row.status,
     aiStatus: row.aiStatus,
     aiSkipReason: row.aiSkipReason,
+    aiError: row.aiError,
     position: row.position,
     origin: row.origin,
     suggestionState: row.suggestionState,
     rationale: row.rationale,
     tags,
-    progress,
+    progress: { done: children.done, total: children.total },
+    suggestionCount: children.suggestionCount,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -5769,9 +5857,9 @@ export function toTaskSummary(row: TaskRow, tags: Tag[], progress: Progress): Ta
 
 async function summarize(db: DbOrTx, rows: TaskRow[]): Promise<TaskSummary[]> {
   const ids = rows.map((r) => r.id);
-  const [tagMap, progress] = await Promise.all([tagsForTasks(db, ids), progressFor(db, ids)]);
+  const [tagMap, aggregates] = await Promise.all([tagsForTasks(db, ids), childAggregates(db, ids)]);
   return rows.map((row) =>
-    toTaskSummary(row, (tagMap.get(row.id) ?? []).map(toTag), progress.get(row.id) ?? NO_PROGRESS),
+    toTaskSummary(row, (tagMap.get(row.id) ?? []).map(toTag), aggregates.get(row.id) ?? NO_CHILDREN),
   );
 }
 
@@ -5785,7 +5873,6 @@ export async function loadTaskDetail(db: DbOrTx, id: string, userId: string): Pr
     ...(summary as TaskSummary),
     children: childSummaries,
     aiTagSuggestions: task.aiTagSuggestions,
-    aiError: task.aiError,
   };
 }
 
@@ -5970,7 +6057,6 @@ git commit -F - <<'MSG'
 feat: task create, get, keyset list and delete with AI enqueue on create
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -6077,6 +6163,8 @@ describe("children ordering", () => {
     const d = await detail(user, root.id);
     expect(d.children.map((c) => c.title)).toEqual(["User step A", "AI step B", "User step C"]);
     expect(d.children.map((c) => c.position)).toEqual([0, 1, 2]);
+    expect(d.suggestionCount).toBe(1);
+    expect(d.children.map((c) => c.suggestionCount)).toEqual([0, 0, 0]);
     const ai = d.children[1]!;
     expect(ai.origin).toBe("ai");
     expect(ai.suggestionState).toBe("suggested");
@@ -6161,11 +6249,17 @@ describe("accept-all and dismiss-all", () => {
     await aiChild(user, root.id, "S2", 2);
     const dismissed = await aiChild(user, root.id, "Already dismissed", 3, "dismissed");
 
+    // suggestionCount counts the two suggested children, on the detail and on the list row alike.
+    expect((await detail(user, root.id)).suggestionCount).toBe(2);
+    const listed = await request(ctx.app).get(TASKS).set(auth(user.token));
+    expect(listed.body.data.find((t: { id: string }) => t.id === root.id).suggestionCount).toBe(2);
+
     const accepted = await request(ctx.app).post(`${TASKS}/${root.id}/suggestions/accept-all`).set(auth(user.token));
     expect(accepted.status).toBe(200);
     const states = Object.fromEntries(accepted.body.data.children.map((c: { title: string; suggestionState: string | null }) => [c.title, c.suggestionState]));
     expect(states).toEqual({ "User step": null, S1: "accepted", S2: "accepted", "Already dismissed": "dismissed" });
     expect(accepted.body.data.progress).toEqual({ done: 0, total: 3 });
+    expect(accepted.body.data.suggestionCount).toBe(0);
 
     const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, dismissed.id));
     expect(row?.suggestionState).toBe("dismissed");
@@ -6173,10 +6267,12 @@ describe("accept-all and dismiss-all", () => {
     const root2 = await createTask(ctx.app, user.token, { title: "Root for dismiss" });
     await aiChild(user, root2.id, "S3", 0);
     await aiChild(user, root2.id, "S4", 1);
+    expect((await detail(user, root2.id)).suggestionCount).toBe(2);
     const res = await request(ctx.app).post(`${TASKS}/${root2.id}/suggestions/dismiss-all`).set(auth(user.token));
     expect(res.status).toBe(200);
     expect(res.body.data.children.map((c: { suggestionState: string }) => c.suggestionState)).toEqual(["dismissed", "dismissed"]);
     expect(res.body.data.progress).toEqual({ done: 0, total: 0 });
+    expect(res.body.data.suggestionCount).toBe(0);
   });
 });
 
@@ -6429,7 +6525,6 @@ git commit -F - <<'MSG'
 feat: task update with reorder and suggestion states, bulk accept and dismiss, tag replacement
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -6823,7 +6918,6 @@ git commit -F - <<'MSG'
 feat: breakdown agent with prompt loader, post-validation and anthropic adapter
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -6883,6 +6977,7 @@ describe("processor through the fake queue", () => {
     expect(res.body.data.aiStatus).toBe("done");
     expect(res.body.data.aiError).toBeNull();
     expect(res.body.data.children).toHaveLength(4);
+    expect(res.body.data.suggestionCount).toBe(4);
     for (const child of res.body.data.children) {
       expect(child).toMatchObject({ origin: "ai", suggestionState: "suggested", aiStatus: "skipped" });
       expect(child.rationale).toEqual(expect.any(String));
@@ -6894,8 +6989,15 @@ describe("processor through the fake queue", () => {
 
   it("passes existing steps and up to 30 open root titles to the model", async () => {
     const user = await registerUser(ctx.app);
-    for (let i = 0; i < 32; i += 1) await createTask(ctx.app, user.token, { title: `Open task number ${i}` });
-    ctx.queue.jobs.length = 0;
+    // Inserted directly: 32 root creates through the API would exhaust the per-user AI limit (20 per hour)
+    // and the 33rd create would be skipped with reason rate_limited instead of enqueuing a job.
+    await ctx.db.insert(tasks).values(
+      Array.from({ length: 32 }, (_, i) => ({
+        userId: user.userId,
+        title: `Open task number ${i}`,
+        aiStatus: "skipped" as const,
+      })),
+    );
     const task = await createTask(ctx.app, user.token, { title: "The one being broken down" });
     await createTask(ctx.app, user.token, { title: "Existing manual step", parentId: task.id });
     await ctx.runQueue();
@@ -7318,7 +7420,6 @@ git commit -F - <<'MSG'
 feat: breakdown processor with generation guards and the breakdown action
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -7641,7 +7742,6 @@ git commit -F - <<'MSG'
 feat: bullmq worker with exhausted-attempt handling and stale-generation reconciler
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -7716,7 +7816,7 @@ describe("POST /admin/seed-reset", () => {
 
     const offsite = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`).set(auth(token));
     expect(offsite.status).toBe(200);
-    expect(offsite.body.data).toMatchObject({ title: "Plan the Q4 team offsite", status: "in_progress", aiStatus: "done", progress: { done: 2, total: 4 } });
+    expect(offsite.body.data).toMatchObject({ title: "Plan the Q4 team offsite", status: "in_progress", aiStatus: "done", progress: { done: 2, total: 4 }, suggestionCount: 0, aiError: null });
     expect(offsite.body.data.children.map((c: { id: string }) => c.id)).toEqual([
       SEED_IDS.children.offsite1,
       SEED_IDS.children.offsite2,
@@ -7727,6 +7827,7 @@ describe("POST /admin/seed-reset", () => {
 
     const onboarding = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.onboarding}`).set(auth(token));
     expect(onboarding.body.data.children.map((c: { suggestionState: string }) => c.suggestionState)).toEqual(["suggested", "suggested", "suggested"]);
+    expect(onboarding.body.data.suggestionCount).toBe(3);
     const flaky = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.flakyTest}`).set(auth(token));
     expect(flaky.body.data).toMatchObject({ aiStatus: "failed", aiError: expect.any(String) });
     const tagsRes = await request(admin.app).get("/api/v1/tags").set(auth(token));
@@ -8056,7 +8157,6 @@ git commit -F - <<'MSG'
 feat: demo seed with stable ids and the facilitator seed-reset endpoint
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -8074,7 +8174,7 @@ MSG
 - Produces:
   - `src/services/feature-requests.ts`: `FEATURE_REQUEST_LABEL = "feature-request"`, `interface GitHubIssues { create(params: { owner; repo; title; body; labels }): Promise<{ number: number; html_url: string }> }`, `createOctokitIssues(token): GitHubIssues`, `renderIssueBody(input, submitterName): string`, `createFeatureRequestsService({ db, issues, repo, logger }): FeatureRequestsService` with `submit(userId, input): Promise<{ issueNumber; issueUrl }>`.
   - `src/routes/feature-requests.ts`: `featureRequestsRouter(service): Router`.
-  - `AppDeps.github?: GitHubIssues` (test injection; production builds the Octokit port from `GITHUB_TOKEN`). The route is mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are both set.
+  - `AppDeps.github?: GitHubIssues` (test injection; production builds the Octokit port from `GITHUB_TOKEN`). The route is mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are both set, decided by the `featureRequestsConfig` value `createApp` already computes (Task 3), which is also what health reports as `features.featureRequests`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -8299,12 +8399,17 @@ import { featureRequestsRouter } from "./routes/feature-requests.js";
 import { createFeatureRequestsService, createOctokitIssues, type GitHubIssues } from "./services/feature-requests.js";
 ```
 
-and mount after `/tasks`:
+and mount after `/tasks`, on the `featureRequestsConfig` value that `createApp` computed for the health flag (so `features.featureRequests` is true exactly when this block runs):
 
 ```ts
-  if (config.GITHUB_TOKEN && config.GITHUB_REPO) {
-    const issues = deps.github ?? createOctokitIssues(config.GITHUB_TOKEN);
-    const featureRequests = createFeatureRequestsService({ db, issues, repo: config.GITHUB_REPO, logger });
+  if (featureRequestsConfig) {
+    const issues = deps.github ?? createOctokitIssues(featureRequestsConfig.token);
+    const featureRequests = createFeatureRequestsService({
+      db,
+      issues,
+      repo: featureRequestsConfig.repo,
+      logger,
+    });
     api.use("/feature-requests", requireAuth(config), featureRequestsRouter(featureRequests));
   }
 ```
@@ -8329,7 +8434,6 @@ git commit -F - <<'MSG'
 feat: file feature requests as labeled GitHub issues
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -8546,7 +8650,7 @@ Expected: `✓ src/lib/assets.test.ts (2 tests)`.
 Set the local `.env` to `AI_MODEL_PROVIDER=fake`, `WORKER_ENABLED=true`, `SEED_DEMO_USER=true`, then:
 
 Run: `npm run build && (npm start & echo $! > /tmp/kaizen-api.pid; sleep 3; curl -s http://localhost:3000/api/v1/health; echo; kill -TERM $(cat /tmp/kaizen-api.pid); sleep 2)`
-Expected: log lines in this order: `migrations applied`, `redis connected`, `demo seed checked`, `worker and reconciler started`, `api listening`; the curl prints `{"data":{"status":"ok","commit":"local","env":"development","checks":{"db":"ok","redis":"ok"}},...}`; after the signal: `shutting down` then `shutdown complete`.
+Expected: log lines in this order: `migrations applied`, `redis connected`, `demo seed checked`, `worker and reconciler started`, `api listening`; the curl prints `{"data":{"status":"ok","commit":"local","env":"development","checks":{"db":"ok","redis":"ok"},"features":{"featureRequests":false}},...}`; after the signal: `shutting down` then `shutdown complete`.
 
 Run: `mv openapi.json openapi.json.bak; npm start; echo "exit=$?"; mv openapi.json.bak openapi.json`
 Expected: `Missing runtime assets:` with `  - openapi.json: /.../webapp/backend/openapi.json`, and `exit=1`, before any `migrations applied` line.
@@ -8572,7 +8676,6 @@ git commit -F - <<'MSG'
 feat: startup sequence with asset checks, migrations, seed, worker and graceful shutdown
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -8841,8 +8944,8 @@ Railway project `kaizen-tasks`, environments `staging` (tracks `develop`) and `p
 (tracks `main`). Each environment has services `api` (this repo, private hostname
 `api.railway.internal`, `PORT=3000`, no public domain), `web` (static site behind Caddy, proxies
 `/api/*` to the API), `Postgres`, and `Redis`. The `api` service is declared in
-`.railway/railway.ts` and applied with `railway config apply` per environment; wait-for-CI is a
-dashboard setting.
+`.railway/railway.ts` (including `source.checkSuites: true`, which is wait-for-CI) and applied with
+`railway config apply` per environment.
 
 Flow: merge to `develop` → GitHub Actions `ci` (typecheck, lint, tests against service
 containers, docs check, build, dist-asset check) → Railway deploys staging after `ci` passes →
@@ -8852,8 +8955,9 @@ Railway's redeploy of the previous deployment, safe because migrations are addit
 
 ## Operations
 
-- Health: `GET /api/v1/health` returns `{ status, commit, env, checks: { db, redis } }`, 503 with
-  `UNAVAILABLE` when a check fails.
+- Health: `GET /api/v1/health` returns `{ status, commit, env, checks: { db, redis }, features: { featureRequests } }`,
+  503 with `UNAVAILABLE` when a check fails. `featureRequests` is true exactly when
+  `POST /api/v1/feature-requests` is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set).
 - Demo reset: `POST /api/v1/admin/seed-reset` with `x-admin-token` recreates `demo@kaizen.local`
   and its fixtures with stable ids; `npm run db:seed -- --reset` does the same locally.
 - Kill switch and budget: `AI_ENABLED`, `AI_RATE_LIMIT_PER_HOUR`, `AI_GLOBAL_LIMIT_PER_HOUR` are
@@ -8902,7 +9006,7 @@ Spec: `docs/superpowers/specs/2026-09-08-kaizen-tasks-api-design.md`. Architectu
 - Architectural files: `src/db/schema.ts`, `drizzle/**`, `src/jobs/**`, `src/lib/auth.ts`, `src/agent/prompts/**`, `.railway/**`.
 - Tests: unit tests live next to the code as `src/**/*.test.ts`; integration tests under `tests/` run against real Postgres (`kaizen_test`) and Redis db 1, truncated before each test. `tests/helpers/app.ts` builds the app with a fake queue and a fake model. Use `superpowers:test-driven-development`.
 - The `reviewer` agent checks a diff against these rules; the `test-writer` agent drafts failing tests from acceptance criteria.
-- Node 24 via `nvm use` before any npm command. Work on `develop`; commits end with the two trailer lines from the master plan.
+- Node 24 via `nvm use` before any npm command. Work on `develop`; commits end with the trailer line `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Scripts
 
@@ -8963,7 +9067,7 @@ Replace the `[Unreleased]` section of `CHANGELOG.md` with:
 - Toolchain: TypeScript strict ESM, ESLint flat config, Prettier, Vitest projects, Node 24 pin.
 - Config module that validates every environment variable at startup and lists all problems.
 - Error codes with a single status mapping, success and error envelopes, request ids, pino logging.
-- `GET /api/v1/health` with commit SHA, environment and database and Redis checks.
+- `GET /api/v1/health` with commit SHA, environment, database and Redis checks, and `features.featureRequests`.
 - `GET /api/v1/openapi.json` serving the committed contract.
 - zod schemas for every endpoint, registered into an OpenAPI 3.1 document; `npm run openapi` generates `openapi.json` and `docs/API.md`, `-- --check` detects drift.
 - Build pipeline that copies the versioned system prompt into `dist/` and a CI gate that checks it.
@@ -8971,7 +9075,7 @@ Replace the `[Unreleased]` section of `CHANGELOG.md` with:
 - Drizzle schema (`users`, `tasks` with `parent_id`, `tags`, `task_tags`) and the initial additive migration.
 - Registration, login, refresh-token rotation, logout and `GET /auth/me`.
 - Tags CRUD with case-insensitive uniqueness per user.
-- Tasks: create (root creates enqueue a breakdown), get with children and SQL progress, keyset list with status and tag filters, update with dense position reorder and suggestion-state transitions, delete with cascade, accept-all, dismiss-all, replace tags.
+- Tasks: create (root creates enqueue a breakdown), get with children and SQL progress, keyset list with status and tag filters, update with dense position reorder and suggestion-state transitions, delete with cascade, accept-all, dismiss-all, replace tags. Every task summary carries `suggestionCount` and `aiError` so the list needs no per-row detail query.
 - AI breakdown pipeline: BullMQ queue and in-process worker, generation-id guarded processor, Anthropic adapter with structured output, fake adapter for tests, hourly user and global rate limits, `AI_ENABLED` kill switch, stale-generation reconciler.
 - Demo seed with stable ids, `npm run db:seed`, and `POST /api/v1/admin/seed-reset` behind `ADMIN_TOKEN`.
 - `POST /api/v1/feature-requests` filing labeled GitHub issues when `GITHUB_TOKEN` and `GITHUB_REPO` are set.
@@ -8990,7 +9094,6 @@ git commit -F - <<'MSG'
 docs: architecture, four ADRs, architectural-files manifest, full README and CLAUDE.md
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -9004,7 +9107,7 @@ MSG
 
 **Interfaces:**
 - Consumes: Task 21 `docs/architectural-files.txt`, `CHANGELOG.md`; Task 5 `npm run openapi -- --check`.
-- Produces: `scripts/docs-check.sh --hook|--ci` implementing spec 8.2 exactly (changed set, code set, Rules A, B, C, fix messages, exit 2 in hook mode, the three-strikes escape hatch that exits 1 and writes `.claude/DOCS-CHECK-FAILED`, counter in `.claude/.docs-check-blocks`); `scripts/format-file.sh` reading the PostToolUse JSON from stdin; `.claude/settings.json` wiring both hooks; the `docs check` step in `ci.yml` with `BASE_SHA`. Cross-lane interface: `scripts/docs-check.sh --hook` exits 2 on failure with the fix list on stdout and never exits 0 while printing FAILED.
+- Produces: `scripts/docs-check.sh --hook|--ci` implementing spec 8.2 exactly (changed set, code set, Rules A, B, C, fix messages, exit 2 in hook mode, the three-strikes escape hatch that exits 1 and writes `.claude/DOCS-CHECK-FAILED`, counter in `.claude/.docs-check-blocks`; in hook mode it reads Claude Code's stdin JSON and uses `stop_hook_active` to count blocks per continuation chain); `scripts/format-file.sh` reading the PostToolUse JSON from stdin; `.claude/settings.json` wiring both hooks; the `docs check` step in `ci.yml` with `BASE_SHA`. Cross-lane interface: `scripts/docs-check.sh --hook` exits 2 on failure with the fix list on stdout and never exits 0 while printing FAILED.
 
 - [ ] **Step 1: Write `scripts/docs-check.sh`**
 
@@ -9030,6 +9133,28 @@ COUNTER_FILE=".claude/.docs-check-blocks"
 MARKER_FILE=".claude/DOCS-CHECK-FAILED"
 MAX_BLOCKS=3
 
+# Claude Code feeds the Stop hook a JSON object on stdin. `stop_hook_active` is true when this stop
+# is itself the continuation forced by an earlier block, so "consecutive" blocks are counted within
+# one continuation chain: an explicit false (a fresh stop) restarts the count. A missing or
+# unparseable payload (manual runs, other callers) leaves the counter's legacy behaviour alone.
+STOP_HOOK_ACTIVE=""
+if [[ "$MODE" == "--hook" && ! -t 0 ]]; then
+  HOOK_INPUT="$(cat || true)"
+  if [[ -n "$HOOK_INPUT" ]]; then
+    STOP_HOOK_ACTIVE="$(printf '%s' "$HOOK_INPUT" | node -e '
+      let d = "";
+      process.stdin.on("data", (c) => (d += c)).on("end", () => {
+        try {
+          const v = JSON.parse(d).stop_hook_active;
+          process.stdout.write(v === true ? "true" : v === false ? "false" : "");
+        } catch {
+          process.stdout.write("");
+        }
+      });
+    ')"
+  fi
+fi
+
 root_commit() { git rev-list --max-parents=0 HEAD | tail -n 1; }
 
 # 1. Changed set.
@@ -9047,7 +9172,7 @@ else
   if [[ "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
     BASE_SHA="$(root_commit)"
   fi
-  CHANGED="$(git diff --name-only "$BASE_SHA...HEAD" 2>/dev/null || git diff --name-only "$BASE_SHA" HEAD | sort -u)"
+  CHANGED="$( { git diff --name-only "$BASE_SHA...HEAD" 2>/dev/null || git diff --name-only "$BASE_SHA" HEAD; } | sort -u )"
 fi
 
 if [[ -z "$CHANGED" ]]; then
@@ -9137,6 +9262,9 @@ fi
 
 # 7. Hook mode: block (exit 2) up to MAX_BLOCKS consecutive times, then stop blocking but never report success.
 mkdir -p .claude
+if [[ "$STOP_HOOK_ACTIVE" == "false" ]]; then
+  rm -f "$COUNTER_FILE" # a fresh stop, not a continuation of an earlier block: the count starts over
+fi
 COUNT=$(( $(cat "$COUNTER_FILE" 2>/dev/null || echo 0) + 1 ))
 echo "$COUNT" > "$COUNTER_FILE"
 
@@ -9252,7 +9380,6 @@ git commit -F - <<'MSG'
 feat: docs-check and format hooks, docs check in CI
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -9263,7 +9390,9 @@ Rule A and the escape hatch:
 Run: `bash scripts/docs-check.sh --hook; echo "exit=$?"`
 Expected: `docs-check: no changes` and `exit=0` (when HEAD equals `origin/develop` or `develop`).
 
-Run: `echo "// touched" >> src/lib/errors.ts; for i in 1 2 3 4; do bash scripts/docs-check.sh --hook >/dev/null 2>/tmp/dc.err; echo "run $i exit=$? counter=$(cat .claude/.docs-check-blocks)"; done; tail -n 2 /tmp/dc.err; ls .claude/DOCS-CHECK-FAILED`
+Feed the hook the JSON Claude Code sends on stdin: the first stop of a chain carries `stop_hook_active: false`, every stop forced by a block carries `true`.
+
+Run: `echo "// touched" >> src/lib/errors.ts; for i in 1 2 3 4; do active=$([[ $i -eq 1 ]] && echo false || echo true); printf '{"stop_hook_active":%s}' "$active" | bash scripts/docs-check.sh --hook >/dev/null 2>/tmp/dc.err; echo "run $i exit=$? counter=$(cat .claude/.docs-check-blocks)"; done; tail -n 2 /tmp/dc.err; ls .claude/DOCS-CHECK-FAILED`
 Expected:
 
 ```
@@ -9274,6 +9403,12 @@ run 4 exit=1 counter=4
 DOCS CHECK FAILED, human intervention required (blocked 3 times; no longer blocking; see .claude/DOCS-CHECK-FAILED; CI will still fail)
 .claude/DOCS-CHECK-FAILED
 ```
+
+Run: `printf '{"stop_hook_active":false}' | bash scripts/docs-check.sh --hook >/dev/null 2>&1; echo "fresh stop exit=$? counter=$(cat .claude/.docs-check-blocks)"; ls .claude/DOCS-CHECK-FAILED`
+Expected: `fresh stop exit=2 counter=1` (a stop that is not a continuation restarts the consecutive count and blocks again) and the marker file still listed (it is cleared only by a success).
+
+Run: `bash scripts/docs-check.sh --hook >/dev/null 2>&1; echo "tty exit=$? counter=$(cat .claude/.docs-check-blocks)"`
+Expected: `tty exit=2 counter=2` (no stdin payload from a terminal: the counter keeps counting, nothing resets).
 
 Run: `sed -i '' 's/^### Added$/### Added\n\n- Touched errors for the docs-check rehearsal./' CHANGELOG.md; bash scripts/docs-check.sh --hook; echo "exit=$?"; ls .claude/.docs-check-blocks .claude/DOCS-CHECK-FAILED 2>&1 | head -n 2`
 Expected: `docs-check: OK`, `exit=0`, and both files reported as `No such file or directory`.
@@ -9323,7 +9458,6 @@ git commit -F - <<'MSG'
 docs: changelog bullet for the docs-check harness
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -9375,7 +9509,7 @@ CHANGELOG entry. The Stop hook checks the docs; this checklist gets you there in
 9. Add a bullet under `[Unreleased]` in `CHANGELOG.md`.
 10. If a file matching `docs/architectural-files.txt` changed, add or update an ADR with the
     `write-adr` skill.
-11. Run `npm run docs:check`. Fix anything it reports. Commit with the trailer lines.
+11. Run `npm run docs:check`. Fix anything it reports. Commit with the `Co-Authored-By` trailer line.
 
 ## Templates
 
@@ -9579,7 +9713,7 @@ description: Use when cutting a version. Moves the CHANGELOG [Unreleased] sectio
    `### Removed`) under it. Leave `## [Unreleased]` in place with no bullets.
 4. Bump the version without tagging: `npm version --no-git-tag-version X.Y.Z`.
 5. Run `npm run lint` (prettier checks the changelog) and `npm run docs:check`.
-6. Commit: `chore: release X.Y.Z` with the trailer lines. Tagging and publishing happen through
+6. Commit: `chore: release X.Y.Z` with the `Co-Authored-By` trailer line. Tagging and publishing happen through
    the `develop` to `main` pull request, not here.
 
 ## Example
@@ -9713,7 +9847,6 @@ git commit -F - <<'MSG'
 feat: add-api-endpoint, write-adr and release-notes skills; reviewer and test-writer agents
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -9887,7 +10020,6 @@ git commit -F - <<'MSG'
 feat: promote workflow gated on staging SHA and the opt-in live model test
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HWmLNo9LBp2SgKdYisfRoJ
 MSG
 ```
 
@@ -9916,7 +10048,7 @@ L1-M2 is complete when every task above is done and the live test has passed onc
 | 4.1 Envelopes and errors | Task 2 |
 | 4.2 Validation | Task 3 (`validate`, `validated`, `res.locals.validated`) |
 | 4.3 Authentication | Task 10 |
-| 4.4 Endpoints | auth Task 10; tasks list/create/get/delete Task 13; patch, accept-all, dismiss-all, tags Task 14; breakdown Task 16; tags Task 12; feature-requests Task 19; admin Task 18; health and openapi.json Task 3 |
+| 4.4 Endpoints | auth Task 10; tasks list/create/get/delete Task 13; patch, accept-all, dismiss-all, tags Task 14; breakdown Task 16; tags Task 12; feature-requests Task 19; admin Task 18; health and openapi.json Task 3. The two contract additions ruled on 2026-09-08 (master plan section 4): `TaskSummary.suggestionCount` and `aiError` in Tasks 4 and 13 (schema, SQL aggregate, service) with assertions in Tasks 13, 14, 16, 18; health `features.featureRequests` in Tasks 3, 4, 10, 19 |
 | 4.5 Pagination | Task 3 (`cursor.ts`), Task 13 (`limit + 1`, keyset predicate) |
 | 4.6 OpenAPI | Task 4 (registry), Task 5 (generator, renderer, `--check`) |
 | 5.1 Queue and job, reservation | Task 9 (queue, job id, options), Task 16 (`reserveGeneration`), Task 17 (worker concurrency 3) |
@@ -9976,6 +10108,8 @@ L1-M2 is complete when every task above is done and the live test has passed onc
 | feature-requests route absent when unconfigured | `tests/api/feature-requests.test.ts` "is absent" (Task 19) |
 | admin seed-reset absent, NOT_FOUND on wrong token, recreates fixtures with stable ids | `tests/api/admin.test.ts` (Task 18) |
 | error envelope carries the request id | `tests/api/health.test.ts` "carries the inbound request id" (Task 10); `src/lib/error-handler.test.ts` (Task 2) |
+| `TaskSummary.suggestionCount` and `aiError` (master plan section 4) | `tests/db/progress.test.ts` (Task 13); `tests/api/tasks-update.test.ts` "children ordering" and "accept-all and dismiss-all" (Task 14: 2 with suggested children, 0 after accept-all and after dismiss-all, also on the list row); `tests/api/breakdown.test.ts` (Task 16); `tests/api/admin.test.ts` (Task 18) |
+| health `features.featureRequests` (master plan section 4) | `src/app.test.ts` (Task 3) and `tests/api/health.test.ts` (Task 10): false in the default test config, true with `GITHUB_TOKEN` and `GITHUB_REPO` set |
 | jobs: real worker to done with 3 to 7 suggested children and tags, via real `enqueueBreakdown` | `tests/jobs/breakdown.test.ts` "processes a create job" (Task 17) |
 | jobs: refuse mode fails with a message | `tests/jobs/breakdown.test.ts` "marks a refused breakdown failed" (Task 17) |
 | jobs: regenerate replaces suggested, accepted survives | `tests/jobs/breakdown.test.ts` "regenerate replaces" (Task 17) |
@@ -9987,7 +10121,7 @@ Additional tests beyond the list: `tests/db/schema.test.ts` (constraints), `test
 
 ## 3. Verification items
 
-- V4 (wait-for-CI holds a push-triggered deploy): Task 7 provides `ci.yml` on `push: develop` and `railway.ts` tracking `develop` in staging; the L3 lane observes the held deployment at L3-M1. Fallback (CLI deploy from Actions) is named in Task 7.
+- V4 (wait-for-CI holds a push-triggered deploy): Task 7 provides `ci.yml` on `push: develop` and `railway.ts` tracking `develop` in staging with `source.checkSuites: true`; the L3 lane observes the held deployment at L3-M1. Fallback (CLI deploy from Actions) is named in Task 7.
 - V5 (`messages.parse` with `zodOutputFormat` accepts array `min`/`max`): Task 24 live test; fallback (drop the bounds, keep `postValidate`) is spelled out with the exact edit.
 - V6 (BullMQ 6 accepts `${taskId}-${generationId}`): Task 9 adds and reads back a job by that id; Task 17 processes one with a real worker and asserts the completed job id.
 
@@ -10002,14 +10136,14 @@ Names used across tasks and where they are defined:
 - `loadConfig`, `Config`, `ConfigError`, `isSecureCookieEnv` (Task 1) used in Tasks 3, 6, 10, 11, 20.
 - `AppError`, `statusFor`, `notFound`, `conflict`, `validationError`, `rateLimited`, `unavailable`, `upstreamError`, `unauthorized` (Task 2) used in Tasks 3, 10, 12, 13, 14, 16, 18, 19.
 - `sendData`, `sendNoContent` (Task 2); `requestIdOf` (Task 2, `src/lib/request-id.ts`) used by `envelope.ts` and `error-handler.ts`.
-- `validate`, `validated`, `HealthProbes`, `createApp`, `AppDeps` (Task 3; `AppDeps` widened in Task 10 and 19).
+- `validate`, `validated`, `HealthProbes`, `HealthFeatures`, `featureRequestsConfigOf`, `createApp`, `AppDeps` (Task 3; `AppDeps` widened in Task 10 and 19; Task 19 mounts the feature-requests route on the `featureRequestsConfig` value Task 3 introduced).
 - `registry`, `bearerAuth`, `API_PREFIX`, `IdParams`, `envelope`, `listEnvelope`, `jsonResponse`, `errorResponses`, every resource schema and its inferred types (Task 4) used in Tasks 5, 10, 12, 13, 14, 16, 19, 23.
 - `createDb`, `Db`, `DbOrTx`, `isUniqueViolation`, `isCheckViolation`, tables and row types (Task 8) used everywhere below.
 - `BreakdownQueue`, `BreakdownJobData`, `breakdownJobId`, `createBreakdownQueue`, `enqueueBreakdown`, `BreakdownModel`, `BreakdownInput`, `FakeBreakdownModel`, `FakeQueue.drain`, `ModelRetryableError`, `ModelNonRetryableError`, `BreakdownRefused`, `BreakdownInvalid` (Task 9) used in Tasks 10, 13, 15, 16, 17, 20.
 - `requireAuth`, `currentUser`, `hashPassword`, `createTestApp`, `TestContext`, `registerUser`, `auth`, `refreshCookieFrom` (Task 10) used in Tasks 12 to 19.
 - `createRateLimiter`, `RateLimiter`, `ConsumeResult.reason` (Task 11) used in Tasks 13, 16, 17.
 - `toTag`, `tagsForTasks`, `findOwnedTags`, `replaceTaskTags`, `listTags` (Task 12) used in Tasks 13, 14, 16.
-- `createTasksService`, `TasksService`, `loadTaskDetail`, `assertOwnedTagIds`, `MAX_TASK_DEPTH`, `DEPTH_MESSAGE`, `ENQUEUE_FAILED_MESSAGE`, `findOwnedTask`, `listChildren`, `maxSiblingPosition`, `updateAiState`, `progressFor` (Task 13) used in Tasks 14, 16, 17.
+- `createTasksService`, `TasksService`, `loadTaskDetail`, `toTaskSummary`, `assertOwnedTagIds`, `MAX_TASK_DEPTH`, `DEPTH_MESSAGE`, `ENQUEUE_FAILED_MESSAGE`, `findOwnedTask`, `listChildren`, `maxSiblingPosition`, `updateAiState`, `childAggregates`, `ChildAggregate` (Task 13) used in Tasks 14, 16, 17.
 - `processBreakdownJob`, `ProcessorDeps`, `AI_ERROR_MESSAGES`, `reserveGeneration`, `replaceSuggestedChildren`, `openRootTitles` (Task 16) used in Tasks 17, 20.
 - `startBreakdownWorker`, `BreakdownWorker`, `startReconciler`, `reconcileStaleGenerations`, `STALE_ERROR_MESSAGE`, `failStaleGenerations` (Task 17) used in Task 20.
 - `ensureDemoSeed`, `resetDemoSeed`, `SEED_IDS`, `DEMO_EMAIL` (Task 18) used in Task 20 and the admin service.
