@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {
+      "title": "Write the offsite goal in one sentence",
+      "rationale": "Every other choice, from venue to agenda, follows from what the offsite must achieve"
+    },
+    {
+      "title": "List the attendees and confirm the dates with them",
+      "rationale": "Headcount and dates constrain the venue search, so they come before it"
+    },
+    {
+      "title": "Shortlist three venues that fit the headcount and budget",
+      "rationale": "A short list makes the booking decision quick once dates are confirmed"
+    },
+    {
+      "title": "Book the venue and send calendar invites",
+      "rationale": "Booking locks the plan so agenda work can start against a fixed place and time"
+    },
+    {
+      "title": "Draft the agenda and share it for comments",
+      "rationale": "The agenda is only useful once the logistics are settled"
+    }
+  ],
+  "tagSuggestions": ["work", "planning"]
+}
