@@ -17,3 +17,5 @@ All notable changes to this project are documented here. The format follows
 - Build pipeline that copies the versioned system prompt into `dist/` and a CI gate that checks it.
 - `ci` GitHub Actions workflow and the Railway IaC declaration for the `api` service.
 - OpenAPI document declares `servers: /api/v1` and bare path keys.
+- Drizzle schema for users, tasks (self-referencing `parent_id`, depth cap 2 via services), tags and task_tags; initial migration `0000_init`; database client and migration runner; integration test setup against `kaizen_test` and Redis index 1.
+- BullMQ breakdown queue (`kaizen:breakdown`) with fixed job ids, retry/backoff options, an ioredis factory, the `BreakdownModel` seam and its error types, and fakes (`FakeBreakdownModel`, `FakeQueue`) for the services and worker tasks that follow.
