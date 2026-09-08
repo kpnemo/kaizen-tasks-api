@@ -33,10 +33,19 @@ export function nextHourIso(now: Date): string {
   return next.toISOString();
 }
 
+/**
+ * Atomically increment counter and set TTL on first increment only.
+ * Uses a transaction to ensure both operations succeed or fail together,
+ * preventing keys from being left without a TTL due to network failures.
+ */
 async function incrWithTtl(redis: Redis, key: string): Promise<number> {
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, WINDOW_SECONDS);
-  return count;
+  const results = await redis.multi().incr(key).expire(key, WINDOW_SECONDS, "NX").exec();
+  const [incrError, count] = results?.[0] ?? [
+    new Error("rate limit transaction returned no result"),
+    null,
+  ];
+  if (incrError) throw incrError;
+  return Number(count);
 }
 
 /**
