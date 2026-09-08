@@ -2,9 +2,11 @@
 
 Generated from `openapi.json` by `npm run openapi`. Do not edit by hand.
 
-All paths are absolute and already include `/api/v1`. Success responses are `{ data, meta }`; errors are `{ error: { code, message, details?, requestId } }`.
+Base path: `/api/v1`
 
-## POST /api/v1/admin/seed-reset
+Paths below are relative to the base path. Success responses are `{ data, meta }`; errors are `{ error: { code, message, details?, requestId } }`.
+
+## POST /admin/seed-reset
 
 Delete and recreate the demo user's fixtures
 
@@ -25,7 +27,7 @@ Auth: none
 | 200 | Fixtures recreated | object |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## POST /api/v1/auth/login
+## POST /auth/login
 
 Log in with email and password
 
@@ -48,7 +50,7 @@ Auth: none
 | 400 | VALIDATION_ERROR | ErrorEnvelope |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
-## POST /api/v1/auth/logout
+## POST /auth/logout
 
 Revoke the refresh token and clear the cookie
 
@@ -60,7 +62,7 @@ Auth: none
 |---|---|---|
 | 204 | Logged out |  |
 
-## GET /api/v1/auth/me
+## GET /auth/me
 
 Current user
 
@@ -73,7 +75,7 @@ Auth: bearer access token
 | 200 | The authenticated user | object |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
-## POST /api/v1/auth/refresh
+## POST /auth/refresh
 
 Rotate the refresh cookie and issue a new access token
 
@@ -88,7 +90,7 @@ Auth: none
 | 200 | New access token | object |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
-## POST /api/v1/auth/register
+## POST /auth/register
 
 Register a new user
 
@@ -112,7 +114,7 @@ Auth: none
 | 400 | VALIDATION_ERROR | ErrorEnvelope |
 | 409 | CONFLICT | ErrorEnvelope |
 
-## POST /api/v1/feature-requests
+## POST /feature-requests
 
 File a feature request as a GitHub issue
 
@@ -139,7 +141,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 502 | UPSTREAM_ERROR | ErrorEnvelope |
 
-## GET /api/v1/health
+## GET /health
 
 Health check with the running commit SHA
 
@@ -152,7 +154,7 @@ Auth: none
 | 200 | Healthy | object |
 | 503 | UNAVAILABLE | ErrorEnvelope |
 
-## GET /api/v1/openapi.json
+## GET /openapi.json
 
 This OpenAPI document
 
@@ -164,7 +166,7 @@ Auth: none
 |---|---|---|
 | 200 | The committed openapi.json | object |
 
-## GET /api/v1/tags
+## GET /tags
 
 List the user's tags
 
@@ -177,7 +179,7 @@ Auth: bearer access token
 | 200 | Tags ordered by name | object |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
-## POST /api/v1/tags
+## POST /tags
 
 Create a tag
 
@@ -199,7 +201,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 409 | CONFLICT | ErrorEnvelope |
 
-## PATCH /api/v1/tags/{id}
+## PATCH /tags/{id}
 
 Rename or recolor a tag
 
@@ -228,7 +230,7 @@ Auth: bearer access token
 | 404 | NOT_FOUND | ErrorEnvelope |
 | 409 | CONFLICT | ErrorEnvelope |
 
-## DELETE /api/v1/tags/{id}
+## DELETE /tags/{id}
 
 Delete a tag and its links
 
@@ -249,7 +251,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## GET /api/v1/tasks
+## GET /tasks
 
 List tasks
 
@@ -275,7 +277,7 @@ Auth: bearer access token
 | 400 | VALIDATION_ERROR | ErrorEnvelope |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
-## POST /api/v1/tasks
+## POST /tasks
 
 Create a task or a step
 
@@ -301,7 +303,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## GET /api/v1/tasks/{id}
+## GET /tasks/{id}
 
 Get a task with its children, tags, progress and AI fields
 
@@ -322,7 +324,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## PATCH /api/v1/tasks/{id}
+## PATCH /tasks/{id}
 
 Update a task
 
@@ -355,7 +357,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## DELETE /api/v1/tasks/{id}
+## DELETE /tasks/{id}
 
 Delete a task and its children
 
@@ -376,7 +378,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## POST /api/v1/tasks/{id}/breakdown
+## POST /tasks/{id}/breakdown
 
 Request an AI breakdown
 
@@ -402,7 +404,7 @@ Auth: bearer access token
 | 429 | RATE_LIMITED | ErrorEnvelope |
 | 503 | UNAVAILABLE | ErrorEnvelope |
 
-## POST /api/v1/tasks/{id}/suggestions/accept-all
+## POST /tasks/{id}/suggestions/accept-all
 
 Accept every suggested step
 
@@ -423,7 +425,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## POST /api/v1/tasks/{id}/suggestions/dismiss-all
+## POST /tasks/{id}/suggestions/dismiss-all
 
 Dismiss every suggested step
 
@@ -444,7 +446,7 @@ Auth: bearer access token
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 | 404 | NOT_FOUND | ErrorEnvelope |
 
-## PUT /api/v1/tasks/{id}/tags
+## PUT /tasks/{id}/tags
 
 Replace the task's tag set
 

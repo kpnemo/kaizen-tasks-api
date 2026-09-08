@@ -5,7 +5,7 @@ import "./tasks.js";
 import "./tags.js";
 import "./feature-requests.js";
 import "./admin.js";
-import { registry } from "./registry.js";
+import { API_PREFIX, registry } from "./registry.js";
 
 export type OpenApiDocument = ReturnType<OpenApiGeneratorV31["generateDocument"]>;
 
@@ -13,6 +13,12 @@ export function generateOpenApiDocument(): OpenApiDocument {
   const generator = new OpenApiGeneratorV31(registry.definitions);
   return generator.generateDocument({
     openapi: "3.1.0",
+    servers: [
+      {
+        url: API_PREFIX,
+        description: "Same-origin API base path; the web service proxies it to the API",
+      },
+    ],
     info: {
       title: "Kaizen Tasks API",
       version: "1",

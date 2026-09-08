@@ -3,28 +3,28 @@ import { generateOpenApiDocument } from "./index.js";
 import { renderApiDocs } from "../../scripts/render-api-docs.js";
 
 const EXPECTED_ENDPOINTS: Array<[string, string]> = [
-  ["post", "/api/v1/auth/register"],
-  ["post", "/api/v1/auth/login"],
-  ["post", "/api/v1/auth/refresh"],
-  ["post", "/api/v1/auth/logout"],
-  ["get", "/api/v1/auth/me"],
-  ["get", "/api/v1/tasks"],
-  ["post", "/api/v1/tasks"],
-  ["get", "/api/v1/tasks/{id}"],
-  ["patch", "/api/v1/tasks/{id}"],
-  ["delete", "/api/v1/tasks/{id}"],
-  ["post", "/api/v1/tasks/{id}/breakdown"],
-  ["post", "/api/v1/tasks/{id}/suggestions/accept-all"],
-  ["post", "/api/v1/tasks/{id}/suggestions/dismiss-all"],
-  ["put", "/api/v1/tasks/{id}/tags"],
-  ["get", "/api/v1/tags"],
-  ["post", "/api/v1/tags"],
-  ["patch", "/api/v1/tags/{id}"],
-  ["delete", "/api/v1/tags/{id}"],
-  ["post", "/api/v1/feature-requests"],
-  ["post", "/api/v1/admin/seed-reset"],
-  ["get", "/api/v1/health"],
-  ["get", "/api/v1/openapi.json"],
+  ["post", "/auth/register"],
+  ["post", "/auth/login"],
+  ["post", "/auth/refresh"],
+  ["post", "/auth/logout"],
+  ["get", "/auth/me"],
+  ["get", "/tasks"],
+  ["post", "/tasks"],
+  ["get", "/tasks/{id}"],
+  ["patch", "/tasks/{id}"],
+  ["delete", "/tasks/{id}"],
+  ["post", "/tasks/{id}/breakdown"],
+  ["post", "/tasks/{id}/suggestions/accept-all"],
+  ["post", "/tasks/{id}/suggestions/dismiss-all"],
+  ["put", "/tasks/{id}/tags"],
+  ["get", "/tags"],
+  ["post", "/tags"],
+  ["patch", "/tags/{id}"],
+  ["delete", "/tags/{id}"],
+  ["post", "/feature-requests"],
+  ["post", "/admin/seed-reset"],
+  ["get", "/health"],
+  ["get", "/openapi.json"],
 ];
 
 describe("generateOpenApiDocument", () => {
@@ -36,6 +36,10 @@ describe("generateOpenApiDocument", () => {
       .flatMap(([path, item]) => Object.keys(item ?? {}).map((method) => `${method} ${path}`))
       .sort();
     expect(actual).toEqual(EXPECTED_ENDPOINTS.map(([m, p]) => `${m} ${p}`).sort());
+  });
+
+  it("declares the /api/v1 base path in servers", () => {
+    expect(doc.servers?.[0]?.url).toBe("/api/v1");
   });
 
   it("gives every operation a summary and at least one response with a schema", () => {
@@ -67,18 +71,17 @@ describe("generateOpenApiDocument", () => {
       scheme: "bearer",
       bearerFormat: "JWT",
     });
-    const tasksGet = (paths["/api/v1/tasks"] as { get: { security?: unknown } }).get;
+    const tasksGet = (paths["/tasks"] as { get: { security?: unknown } }).get;
     expect(tasksGet.security).toEqual([{ bearerAuth: [] }]);
-    const registerPost = (paths["/api/v1/auth/register"] as { post: { security?: unknown } }).post;
+    const registerPost = (paths["/auth/register"] as { post: { security?: unknown } }).post;
     expect(registerPost.security).toBeUndefined();
   });
 
   it("documents request bodies and query parameters", () => {
-    const create = (paths["/api/v1/tasks"] as { post: { requestBody?: unknown } }).post;
+    const create = (paths["/tasks"] as { post: { requestBody?: unknown } }).post;
     expect(create.requestBody).toBeDefined();
-    const list = (
-      paths["/api/v1/tasks"] as { get: { parameters?: Array<{ name: string; in: string }> } }
-    ).get;
+    const list = (paths["/tasks"] as { get: { parameters?: Array<{ name: string; in: string }> } })
+      .get;
     expect(list.parameters?.map((p) => p.name).sort()).toEqual([
       "cursor",
       "limit",
@@ -96,7 +99,7 @@ describe("renderApiDocs", () => {
     for (const [method, path] of EXPECTED_ENDPOINTS) {
       expect(md).toContain(`## ${method.toUpperCase()} ${path}`);
     }
-    const patchTask = md.slice(md.indexOf("## PATCH /api/v1/tasks/{id}"));
+    const patchTask = md.slice(md.indexOf("## PATCH /tasks/{id}"));
     const section = patchTask.slice(0, patchTask.indexOf("\n## ", 1));
     expect(section).toContain("Update a task");
     expect(section).toContain("| id | path | string (uuid) | yes |");

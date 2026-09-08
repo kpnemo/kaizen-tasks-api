@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, jsonResponse } from "./common.js";
-import { API_PREFIX, registry } from "./registry.js";
+import { registry } from "./registry.js";
 
 const CheckState = z.enum(["ok", "failed"]);
 
@@ -17,7 +17,7 @@ export const HealthSchema = z
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/health`,
+  path: `/health`,
   tags: ["system"],
   summary: "Health check with the running commit SHA",
   responses: {
@@ -28,7 +28,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/openapi.json`,
+  path: `/openapi.json`,
   tags: ["system"],
   summary: "This OpenAPI document",
   responses: {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, IdParams, jsonResponse, listEnvelope } from "./common.js";
-import { API_PREFIX, bearerAuth, registry } from "./registry.js";
+import { bearerAuth, registry } from "./registry.js";
 import { TagSchema } from "./tags.js";
 
 export const TaskStatusSchema = z.enum(["todo", "in_progress", "done"]).openapi("TaskStatus");
@@ -102,7 +102,7 @@ const detail = (description: string) => jsonResponse(description, envelope(TaskD
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/tasks`,
+  path: `/tasks`,
   tags: ["tasks"],
   summary: "List tasks",
   description:
@@ -117,7 +117,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/tasks`,
+  path: `/tasks`,
   tags: ["tasks"],
   summary: "Create a task or a step",
   description:
@@ -132,7 +132,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/tasks/{id}`,
+  path: `/tasks/{id}`,
   tags: ["tasks"],
   summary: "Get a task with its children, tags, progress and AI fields",
   security: bearerAuth,
@@ -145,7 +145,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "patch",
-  path: `${API_PREFIX}/tasks/{id}`,
+  path: `/tasks/{id}`,
   tags: ["tasks"],
   summary: "Update a task",
   description:
@@ -163,7 +163,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "delete",
-  path: `${API_PREFIX}/tasks/{id}`,
+  path: `/tasks/{id}`,
   tags: ["tasks"],
   summary: "Delete a task and its children",
   security: bearerAuth,
@@ -176,7 +176,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/tasks/{id}/breakdown`,
+  path: `/tasks/{id}/breakdown`,
   tags: ["tasks"],
   summary: "Request an AI breakdown",
   description:
@@ -198,7 +198,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/tasks/{id}/suggestions/accept-all`,
+  path: `/tasks/{id}/suggestions/accept-all`,
   tags: ["tasks"],
   summary: "Accept every suggested step",
   security: bearerAuth,
@@ -211,7 +211,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/tasks/{id}/suggestions/dismiss-all`,
+  path: `/tasks/{id}/suggestions/dismiss-all`,
   tags: ["tasks"],
   summary: "Dismiss every suggested step",
   security: bearerAuth,
@@ -224,7 +224,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "put",
-  path: `${API_PREFIX}/tasks/{id}/tags`,
+  path: `/tasks/{id}/tags`,
   tags: ["tasks"],
   summary: "Replace the task's tag set",
   description: "Unknown or foreign tag ids give VALIDATION_ERROR.",

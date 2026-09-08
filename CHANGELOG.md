@@ -16,3 +16,4 @@ All notable changes to this project are documented here. The format follows
 - zod schemas for every endpoint, registered into an OpenAPI 3.1 document; `npm run openapi` generates `openapi.json` and `docs/API.md`, `-- --check` detects drift.
 - Build pipeline that copies the versioned system prompt into `dist/` and a CI gate that checks it.
 - `ci` GitHub Actions workflow and the Railway IaC declaration for the `api` service.
+- OpenAPI document declares `servers: /api/v1` and bare path keys.

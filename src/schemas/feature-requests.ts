@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, jsonResponse } from "./common.js";
-import { API_PREFIX, bearerAuth, registry } from "./registry.js";
+import { bearerAuth, registry } from "./registry.js";
 
 export const FeatureRequestBody = z
   .object({
@@ -20,7 +20,7 @@ export type FeatureRequestInput = z.infer<typeof FeatureRequestBody>;
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/feature-requests`,
+  path: `/feature-requests`,
   tags: ["feature-requests"],
   summary: "File a feature request as a GitHub issue",
   description:

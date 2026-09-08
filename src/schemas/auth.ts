@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, jsonResponse } from "./common.js";
-import { API_PREFIX, bearerAuth, registry } from "./registry.js";
+import { bearerAuth, registry } from "./registry.js";
 
 export const UserSchema = z
   .object({
@@ -42,7 +42,7 @@ const COOKIE_NOTE = "Also sets the httpOnly `kaizen_refresh` cookie scoped to `/
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/auth/register`,
+  path: `/auth/register`,
   tags: ["auth"],
   summary: "Register a new user",
   description: `Open self-registration. ${COOKIE_NOTE}`,
@@ -55,7 +55,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/auth/login`,
+  path: `/auth/login`,
   tags: ["auth"],
   summary: "Log in with email and password",
   description: `Returns a 15-minute access token. ${COOKIE_NOTE}`,
@@ -68,7 +68,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/auth/refresh`,
+  path: `/auth/refresh`,
   tags: ["auth"],
   summary: "Rotate the refresh cookie and issue a new access token",
   description: "Reads the `kaizen_refresh` cookie. The old refresh token is invalidated.",
@@ -80,7 +80,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/auth/logout`,
+  path: `/auth/logout`,
   tags: ["auth"],
   summary: "Revoke the refresh token and clear the cookie",
   responses: { 204: { description: "Logged out" } },
@@ -88,7 +88,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/auth/me`,
+  path: `/auth/me`,
   tags: ["auth"],
   summary: "Current user",
   security: bearerAuth,

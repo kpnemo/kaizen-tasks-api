@@ -119,12 +119,16 @@ export function renderApiDocs(doc: OpenApiDocument): string {
   const d = doc as unknown as Json;
   const components = isObject(d.components) ? d.components : {};
   const paths = isObject(d.paths) ? d.paths : {};
+  const servers = Array.isArray(d.servers) ? (d.servers as Json[]) : [];
+  const basePath = isObject(servers[0]) && typeof servers[0].url === "string" ? servers[0].url : "";
   const out: string[] = [
     "# Kaizen Tasks API reference",
     "",
     "Generated from `openapi.json` by `npm run openapi`. Do not edit by hand.",
     "",
-    "All paths are absolute and already include `/api/v1`. Success responses are `{ data, meta }`; errors are `{ error: { code, message, details?, requestId } }`.",
+    `Base path: \`${basePath}\``,
+    "",
+    "Paths below are relative to the base path. Success responses are `{ data, meta }`; errors are `{ error: { code, message, details?, requestId } }`.",
     "",
   ];
   for (const path of Object.keys(paths).sort()) {

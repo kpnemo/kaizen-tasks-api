@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, IdParams, jsonResponse } from "./common.js";
-import { API_PREFIX, bearerAuth, registry } from "./registry.js";
+import { bearerAuth, registry } from "./registry.js";
 
 export const TagNameSchema = z.string().trim().min(1).max(40);
 export const HexColorSchema = z
@@ -33,7 +33,7 @@ export type UpdateTagInput = z.infer<typeof UpdateTagBody>;
 
 registry.registerPath({
   method: "get",
-  path: `${API_PREFIX}/tags`,
+  path: `/tags`,
   tags: ["tags"],
   summary: "List the user's tags",
   security: bearerAuth,
@@ -45,7 +45,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/tags`,
+  path: `/tags`,
   tags: ["tags"],
   summary: "Create a tag",
   security: bearerAuth,
@@ -58,7 +58,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "patch",
-  path: `${API_PREFIX}/tags/{id}`,
+  path: `/tags/{id}`,
   tags: ["tags"],
   summary: "Rename or recolor a tag",
   security: bearerAuth,
@@ -74,7 +74,7 @@ registry.registerPath({
 
 registry.registerPath({
   method: "delete",
-  path: `${API_PREFIX}/tags/{id}`,
+  path: `/tags/{id}`,
   tags: ["tags"],
   summary: "Delete a tag and its links",
   security: bearerAuth,

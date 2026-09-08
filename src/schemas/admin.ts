@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { envelope, errorResponses, jsonResponse } from "./common.js";
-import { API_PREFIX, registry } from "./registry.js";
+import { registry } from "./registry.js";
 
 export const AdminTokenHeaders = z.object({
   "x-admin-token": z.string().min(1).openapi({ description: "Facilitator token" }),
@@ -10,7 +10,7 @@ export const SeedResetResponse = z.object({ demoUserId: z.uuid() }).openapi("See
 
 registry.registerPath({
   method: "post",
-  path: `${API_PREFIX}/admin/seed-reset`,
+  path: `/admin/seed-reset`,
   tags: ["admin"],
   summary: "Delete and recreate the demo user's fixtures",
   description:

@@ -1,5 +1,11 @@
 {
   "openapi": "3.1.0",
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Same-origin API base path; the web service proxies it to the API"
+    }
+  ],
   "info": {
     "title": "Kaizen Tasks API",
     "version": "1",
@@ -706,7 +712,7 @@
     "parameters": {}
   },
   "paths": {
-    "/api/v1/health": {
+    "/health": {
       "get": {
         "tags": [
           "system"
@@ -748,7 +754,7 @@
         }
       }
     },
-    "/api/v1/openapi.json": {
+    "/openapi.json": {
       "get": {
         "tags": [
           "system"
@@ -770,7 +776,7 @@
         }
       }
     },
-    "/api/v1/auth/register": {
+    "/auth/register": {
       "post": {
         "tags": [
           "auth"
@@ -832,7 +838,7 @@
         }
       }
     },
-    "/api/v1/auth/login": {
+    "/auth/login": {
       "post": {
         "tags": [
           "auth"
@@ -894,7 +900,7 @@
         }
       }
     },
-    "/api/v1/auth/refresh": {
+    "/auth/refresh": {
       "post": {
         "tags": [
           "auth"
@@ -937,7 +943,7 @@
         }
       }
     },
-    "/api/v1/auth/logout": {
+    "/auth/logout": {
       "post": {
         "tags": [
           "auth"
@@ -950,7 +956,7 @@
         }
       }
     },
-    "/api/v1/auth/me": {
+    "/auth/me": {
       "get": {
         "tags": [
           "auth"
@@ -997,7 +1003,7 @@
         }
       }
     },
-    "/api/v1/tags": {
+    "/tags": {
       "get": {
         "tags": [
           "tags"
@@ -1121,7 +1127,7 @@
         }
       }
     },
-    "/api/v1/tags/{id}": {
+    "/tags/{id}": {
       "patch": {
         "tags": [
           "tags"
@@ -1275,7 +1281,7 @@
         }
       }
     },
-    "/api/v1/tasks": {
+    "/tasks": {
       "get": {
         "tags": [
           "tasks"
@@ -1459,7 +1465,7 @@
         }
       }
     },
-    "/api/v1/tasks/{id}": {
+    "/tasks/{id}": {
       "get": {
         "tags": [
           "tasks"
@@ -1680,7 +1686,7 @@
         }
       }
     },
-    "/api/v1/tasks/{id}/breakdown": {
+    "/tasks/{id}/breakdown": {
       "post": {
         "tags": [
           "tasks"
@@ -1789,7 +1795,7 @@
         }
       }
     },
-    "/api/v1/tasks/{id}/suggestions/accept-all": {
+    "/tasks/{id}/suggestions/accept-all": {
       "post": {
         "tags": [
           "tasks"
@@ -1867,7 +1873,7 @@
         }
       }
     },
-    "/api/v1/tasks/{id}/suggestions/dismiss-all": {
+    "/tasks/{id}/suggestions/dismiss-all": {
       "post": {
         "tags": [
           "tasks"
@@ -1945,7 +1951,7 @@
         }
       }
     },
-    "/api/v1/tasks/{id}/tags": {
+    "/tasks/{id}/tags": {
       "put": {
         "tags": [
           "tasks"
@@ -2033,7 +2039,7 @@
         }
       }
     },
-    "/api/v1/feature-requests": {
+    "/feature-requests": {
       "post": {
         "tags": [
           "feature-requests"
@@ -2110,7 +2116,7 @@
         }
       }
     },
-    "/api/v1/admin/seed-reset": {
+    "/admin/seed-reset": {
       "post": {
         "tags": [
           "admin"

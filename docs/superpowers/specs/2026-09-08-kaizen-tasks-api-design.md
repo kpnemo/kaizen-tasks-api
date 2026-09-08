@@ -259,7 +259,7 @@ Keyset on `(created_at desc, id desc)`. The cursor is base64url of `{ "c": "<iso
 
 ### 4.6 OpenAPI
 
-`src/schemas/registry.ts` holds one `OpenAPIRegistry`. Each resource schema file registers its schemas and paths. `scripts/generate-openapi.ts` writes `openapi.json`; `scripts/render-api-docs.ts` renders `docs/API.md` from it: one section per path and method with summary, parameters, request body fields, and response codes. Both run through `npm run openapi`; `npm run openapi -- --check` regenerates to a temp directory and exits non-zero on any difference. The committed `openapi.json` is what the web repo's client generator consumes.
+`src/schemas/registry.ts` holds one `OpenAPIRegistry`. Each resource schema file registers its schemas and paths. `scripts/generate-openapi.ts` writes `openapi.json`; `scripts/render-api-docs.ts` renders `docs/API.md` from it: one section per path and method with summary, parameters, request body fields, and response codes. Both run through `npm run openapi`; `npm run openapi -- --check` regenerates to a temp directory and exits non-zero on any difference. The committed `openapi.json` is what the web repo's client generator consumes. Paths are registered without the `/api/v1` prefix; the document's `servers` entry carries the base path, so generated clients set `baseUrl: "/api/v1"`.
 
 ## 5. AI breakdown pipeline
 
