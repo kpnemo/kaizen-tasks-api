@@ -98,6 +98,12 @@ describe("refresh", () => {
     const rotated = refreshCookieFrom(first);
     expect(rotated).not.toBe(user.cookie);
 
+    const me = await request(ctx.app)
+      .get(ME)
+      .set(auth(first.body.data.accessToken as string));
+    expect(me.status).toBe(200);
+    expect(me.body.data.user.id).toBe(user.userId);
+
     const replay = await request(ctx.app).post(REFRESH).set("Cookie", user.cookie);
     expect(replay.status).toBe(401);
     expect(replay.body.error.code).toBe("UNAUTHORIZED");
@@ -109,6 +115,15 @@ describe("refresh", () => {
   it("returns UNAUTHORIZED without a cookie", async () => {
     const res = await request(ctx.app).post(REFRESH);
     expect(res.status).toBe(401);
+  });
+
+  it("lets only one of two concurrent requests with the same cookie succeed", async () => {
+    const user = await registerUser(ctx.app);
+    const [a, b] = await Promise.all([
+      request(ctx.app).post(REFRESH).set("Cookie", user.cookie),
+      request(ctx.app).post(REFRESH).set("Cookie", user.cookie),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 401]);
   });
 });
 

@@ -79,9 +79,9 @@ export function createAuthService(deps: { db: Db; redis: Redis; config: Config }
 
     async refresh(token) {
       if (!token) throw unauthorized("Missing refresh token");
-      const userId = await redis.get(refreshKey(token));
+      // Atomic consume: concurrent requests presenting the same token must not both succeed.
+      const userId = await redis.getdel(refreshKey(token));
       if (!userId) throw unauthorized("Unknown refresh token");
-      await redis.del(refreshKey(token));
       const row = await findUserById(db, userId);
       if (!row) throw unauthorized("Unknown user");
       const session = await issueSession(row);

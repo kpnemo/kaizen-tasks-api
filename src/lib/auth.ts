@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { compare, hash } from "bcryptjs";
 import type { CookieOptions, Request, RequestHandler, Response } from "express";
 import { jwtVerify, SignJWT } from "jose";
@@ -40,7 +40,9 @@ export function newRefreshToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export const refreshKey = (token: string): string => `refresh:${token}`;
+/** Keys on a hash of the token, not the raw token, so `KEYS refresh:*` yields nothing usable. */
+export const refreshKey = (token: string): string =>
+  `refresh:${createHash("sha256").update(token).digest("hex")}`;
 
 function cookieOptions(config: Config): CookieOptions {
   return {
@@ -76,12 +78,13 @@ export const verifyPassword = (password: string, passwordHash: string): Promise<
 export function requireAuth(config: Config): RequestHandler {
   return async (req, _res, next) => {
     const header = req.header("authorization");
-    if (!header || !header.startsWith("Bearer ")) {
+    const match = header?.match(/^bearer\s+(.+)$/i);
+    if (!match) {
       next(unauthorized("Missing bearer token"));
       return;
     }
     try {
-      req.user = await verifyAccessToken(header.slice("Bearer ".length).trim(), config.JWT_SECRET);
+      req.user = await verifyAccessToken(match[1]?.trim() ?? "", config.JWT_SECRET);
       next();
     } catch {
       next(unauthorized("Invalid or expired token"));
