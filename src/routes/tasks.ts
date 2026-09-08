@@ -1,0 +1,39 @@
+import { Router } from "express";
+import { currentUser } from "../lib/auth.js";
+import { sendData, sendNoContent } from "../lib/envelope.js";
+import { IdParams } from "../schemas/common.js";
+import { CreateTaskBody, ListTasksQuery } from "../schemas/tasks.js";
+import type { TasksService } from "../services/tasks.js";
+import { validate, validated } from "./validate.js";
+
+const listSchemas = { query: ListTasksQuery };
+const createSchemas = { body: CreateTaskBody };
+const idSchemas = { params: IdParams };
+
+export function tasksRouter(service: TasksService): Router {
+  const router = Router();
+
+  router.get("/", validate(listSchemas), async (req, res) => {
+    const { query } = validated<typeof listSchemas>(res);
+    const page = await service.list(currentUser(req).id, query);
+    sendData(res, page.items, { nextCursor: page.nextCursor });
+  });
+
+  router.post("/", validate(createSchemas), async (req, res) => {
+    const { body } = validated<typeof createSchemas>(res);
+    sendData(res, await service.create(currentUser(req).id, body), { status: 201 });
+  });
+
+  router.get("/:id", validate(idSchemas), async (req, res) => {
+    const { params } = validated<typeof idSchemas>(res);
+    sendData(res, await service.get(currentUser(req).id, params.id));
+  });
+
+  router.delete("/:id", validate(idSchemas), async (req, res) => {
+    const { params } = validated<typeof idSchemas>(res);
+    await service.remove(currentUser(req).id, params.id);
+    sendNoContent(res);
+  });
+
+  return router;
+}

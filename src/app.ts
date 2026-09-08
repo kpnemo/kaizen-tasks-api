@@ -12,12 +12,15 @@ import { requireAuth } from "./lib/auth.js";
 import { errorHandler, notFoundHandler } from "./lib/error-handler.js";
 import { createHttpLogger, type Logger } from "./lib/logger.js";
 import { requestId } from "./lib/request-id.js";
+import { createRateLimiter } from "./lib/rate-limit.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
 import { openapiRouter } from "./routes/openapi.js";
 import { tagsRouter } from "./routes/tags.js";
+import { tasksRouter } from "./routes/tasks.js";
 import { createAuthService } from "./services/auth.js";
 import { createTagsService } from "./services/tags.js";
+import { createTasksService } from "./services/tasks.js";
 
 export interface AppDeps {
   config: Config;
@@ -45,7 +48,7 @@ export function featureRequestsConfigOf(
 }
 
 export function createApp(deps: AppDeps): Express {
-  const { config, db, redis, logger } = deps;
+  const { config, db, redis, queue, logger } = deps;
   const probes: HealthProbes = {
     db: async () => {
       await db.execute(sql`select 1`);
@@ -72,6 +75,9 @@ export function createApp(deps: AppDeps): Express {
   api.use(openapiRouter(resolve(process.cwd(), "openapi.json")));
   api.use("/auth", authRouter(createAuthService({ db, redis, config }), config));
   api.use("/tags", requireAuth(config), tagsRouter(createTagsService({ db })));
+  const rateLimiter = createRateLimiter(redis, config);
+  const tasksService = createTasksService({ db, queue, rateLimiter, logger });
+  api.use("/tasks", requireAuth(config), tasksRouter(tasksService));
   app.use("/api/v1", api);
 
   app.use(notFoundHandler);
