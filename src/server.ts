@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
-import { Redis } from "ioredis";
-import postgres from "postgres";
+import { FakeBreakdownModel } from "./agent/fake-model.js";
 import { createApp } from "./app.js";
 import { ConfigError, loadConfig } from "./config.js";
+import { createDb } from "./db/client.js";
+import { createBreakdownQueue } from "./jobs/queue.js";
 import { createLogger } from "./lib/logger.js";
+import { createRedis } from "./lib/redis.js";
 
 async function main(): Promise<void> {
   if (existsSync(".env")) process.loadEnvFile(".env");
@@ -20,23 +22,13 @@ async function main(): Promise<void> {
   }
 
   const logger = createLogger(config.LOG_LEVEL);
-  const sql = postgres(config.DATABASE_URL, { max: 5 });
-  const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
+  const { db, sql } = createDb(config.DATABASE_URL);
+  const redis = createRedis(config.REDIS_URL, { lazyConnect: true });
   await redis.connect();
   await redis.ping();
+  const queue = createBreakdownQueue(createRedis(config.REDIS_URL));
 
-  const app = createApp({
-    config,
-    logger,
-    probes: {
-      db: async () => {
-        await sql`select 1`;
-      },
-      redis: async () => {
-        await redis.ping();
-      },
-    },
-  });
+  const app = createApp({ config, db, redis, queue, model: new FakeBreakdownModel(), logger });
 
   const server = app.listen(config.PORT, "::", () => {
     logger.info({ port: config.PORT, env: config.APP_ENV }, "api listening");
@@ -45,7 +37,7 @@ async function main(): Promise<void> {
   const shutdown = (signal: string) => {
     logger.info({ signal }, "shutting down");
     server.close(() => {
-      void Promise.all([redis.quit(), sql.end()]).finally(() => process.exit(0));
+      void Promise.all([queue.close(), redis.quit(), sql.end()]).finally(() => process.exit(0));
     });
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));
