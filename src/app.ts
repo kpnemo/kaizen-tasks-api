@@ -8,13 +8,16 @@ import type { BreakdownModel } from "./agent/model.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db/client.js";
 import type { BreakdownQueue } from "./jobs/queue.js";
+import { requireAuth } from "./lib/auth.js";
 import { errorHandler, notFoundHandler } from "./lib/error-handler.js";
 import { createHttpLogger, type Logger } from "./lib/logger.js";
 import { requestId } from "./lib/request-id.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
 import { openapiRouter } from "./routes/openapi.js";
+import { tagsRouter } from "./routes/tags.js";
 import { createAuthService } from "./services/auth.js";
+import { createTagsService } from "./services/tags.js";
 
 export interface AppDeps {
   config: Config;
@@ -68,6 +71,7 @@ export function createApp(deps: AppDeps): Express {
   api.use(healthRouter(config, probes, features));
   api.use(openapiRouter(resolve(process.cwd(), "openapi.json")));
   api.use("/auth", authRouter(createAuthService({ db, redis, config }), config));
+  api.use("/tags", requireAuth(config), tagsRouter(createTagsService({ db })));
   app.use("/api/v1", api);
 
   app.use(notFoundHandler);
