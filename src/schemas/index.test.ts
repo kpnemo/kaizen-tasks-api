@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateOpenApiDocument } from "./index.js";
+import { renderApiDocs } from "../../scripts/render-api-docs.js";
 
 const EXPECTED_ENDPOINTS: Array<[string, string]> = [
   ["post", "/api/v1/auth/register"],
@@ -85,5 +86,28 @@ describe("generateOpenApiDocument", () => {
       "status",
       "tagId",
     ]);
+  });
+});
+
+describe("renderApiDocs", () => {
+  const md = renderApiDocs(generateOpenApiDocument());
+
+  it("has one section per path and method with summary, parameters, body and responses", () => {
+    for (const [method, path] of EXPECTED_ENDPOINTS) {
+      expect(md).toContain(`## ${method.toUpperCase()} ${path}`);
+    }
+    const patchTask = md.slice(md.indexOf("## PATCH /api/v1/tasks/{id}"));
+    const section = patchTask.slice(0, patchTask.indexOf("\n## ", 1));
+    expect(section).toContain("Update a task");
+    expect(section).toContain("| id | path | string (uuid) | yes |");
+    expect(section).toContain("| suggestionState | SuggestionState |");
+    expect(section).toContain("| 200 |");
+    expect(section).toContain("| 404 |");
+  });
+
+  it("starts with the generated-file banner", () => {
+    expect(md.startsWith("# Kaizen Tasks API reference\n\nGenerated from `openapi.json`")).toBe(
+      true,
+    );
   });
 });
