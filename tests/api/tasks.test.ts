@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { taskTags, tasks } from "../../src/db/schema.js";
 import { DEPTH_MESSAGE, ENQUEUE_FAILED_MESSAGE } from "../../src/services/tasks.js";
 import { createTestApp, type TestContext } from "../helpers/app.js";
@@ -10,6 +10,10 @@ import { createTask } from "../helpers/tasks.js";
 let ctx: TestContext;
 beforeAll(async () => {
   ctx = await createTestApp();
+});
+beforeEach(() => {
+  ctx.queue.jobs.length = 0;
+  ctx.queue.failNext = false;
 });
 afterAll(() => ctx.close());
 
@@ -56,7 +60,6 @@ describe("POST /tasks", () => {
   it("returns 201 with aiStatus failed when the queue is unavailable", async () => {
     const user = await registerUser(ctx.app);
     ctx.queue.failNext = true;
-    ctx.queue.jobs.length = 0;
     const task = await createTask(ctx.app, user.token, { title: "Queue is down today" });
     expect(task.aiStatus).toBe("failed");
     expect(task.aiError).toBe(ENQUEUE_FAILED_MESSAGE);
@@ -67,7 +70,10 @@ describe("POST /tasks", () => {
     const user = await registerUser(ctx.app);
     const root = await createTask(ctx.app, user.token, { title: "Root task here" });
     ctx.queue.jobs.length = 0;
-    const child = await createTask(ctx.app, user.token, { title: "First step", parentId: root.id });
+    const child = await createTask(ctx.app, user.token, {
+      title: "First step",
+      parentId: root.id,
+    });
     expect(child.parentId).toBe(root.id);
     expect(child.aiStatus).toBe("skipped");
     expect(child.aiSkipReason).toBeNull();

@@ -22,7 +22,11 @@ import type { Tag } from "../schemas/tags.js";
 import type { CreateTaskInput, ListTasksInput, TaskDetail, TaskSummary } from "../schemas/tasks.js";
 import { toTag } from "./tags.js";
 
-/** A child may only be created under a root, and breakdown only runs on a root. Raise to allow deeper nesting. */
+/**
+ * The two-level task/step shape is structural: a child may only be created under a root
+ * (`parent.parentId !== null` is rejected outright), and breakdown only runs on a root. This
+ * constant isn't consulted by that check; it only feeds DEPTH_MESSAGE's wording.
+ */
 export const MAX_TASK_DEPTH = 2;
 export const DEPTH_MESSAGE = `Tasks can be nested at most ${MAX_TASK_DEPTH} levels deep`;
 export const ENQUEUE_FAILED_MESSAGE = "Could not queue the assistant, try again";
