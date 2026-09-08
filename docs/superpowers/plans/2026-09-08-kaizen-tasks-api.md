@@ -48,35 +48,35 @@ This plan covers one subsystem: the API repository. The web app, the assembly-li
 
 Every file the plan creates, with its one responsibility. Paths are relative to `webapp/backend/`.
 
-| Path | Responsibility |
-|---|---|
-| `package.json`, `tsconfig.json`, `tsconfig.build.json`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `vitest.config.ts`, `.nvmrc`, `.env.example`, `.env.test`, `drizzle.config.ts` | Toolchain |
-| `src/config.ts` | zod env schema, `loadConfig`, `Config`, `ConfigError` |
-| `src/lib/errors.ts` | `ERROR_CODES`, `statusFor`, `AppError`, constructors |
-| `src/lib/envelope.ts` | `successEnvelope`, `errorEnvelope`, `sendData`, `sendNoContent` |
-| `src/lib/error-handler.ts` | Express `notFoundHandler`, `errorHandler` |
-| `src/lib/logger.ts` | pino logger and pino-http middleware |
-| `src/lib/request-id.ts` | `requestId` middleware |
-| `src/lib/cursor.ts` | keyset cursor encode and decode |
-| `src/lib/auth.ts` | JWT sign and verify, refresh tokens, cookies, bcrypt, `requireAuth`, `currentUser` |
-| `src/lib/redis.ts` | `createRedis` |
-| `src/lib/rate-limit.ts` | `createRateLimiter`, `consume` |
-| `src/lib/assets.ts` | `assertRuntimeAssets` |
-| `src/types/express.d.ts` | Express type augmentation (`req.user`, `res.locals.requestId`) |
-| `src/db/schema.ts`, `src/db/client.ts`, `src/db/migrate.ts`, `src/db/seed.ts` | Drizzle schema, connection factory, migrator, demo seed |
-| `src/schemas/registry.ts`, `common.ts`, `auth.ts`, `tasks.ts`, `tags.ts`, `feature-requests.ts`, `admin.ts`, `health.ts`, `breakdown.ts`, `index.ts` | zod request and response schemas, OpenAPI registration, `generateOpenApiDocument` |
-| `src/repositories/users.ts`, `tags.ts`, `tasks.ts` | Drizzle queries per aggregate |
-| `src/services/auth.ts`, `tags.ts`, `tasks.ts`, `suggestions.ts`, `feature-requests.ts` | Business rules |
-| `src/routes/validate.ts`, `health.ts`, `openapi.ts`, `auth.ts`, `tasks.ts`, `tags.ts`, `feature-requests.ts`, `admin.ts` | Express routers |
-| `src/agent/model.ts`, `fake-model.ts`, `anthropic-model.ts`, `errors.ts`, `prompt.ts`, `breakdown.ts`, `prompts/breakdown.system.md` | Model seam, adapters, prompt, pure breakdown logic |
-| `src/jobs/queue.ts`, `worker.ts`, `reconcile.ts`, `processors/breakdown.ts` | BullMQ queue, worker, reconciler, job processor |
-| `src/app.ts`, `src/server.ts` | App factory and startup sequence |
-| `scripts/generate-openapi.ts`, `render-api-docs.ts`, `copy-assets.sh`, `check-dist-assets.sh`, `docs-check.sh`, `format-file.sh` | Generators and harness scripts |
-| `tests/setup/env.ts`, `global.ts`, `each.ts`; `tests/helpers/app.ts`, `auth.ts`, `fake-queue.ts`; `tests/fixtures/breakdown.ok.json`; `tests/api/*.test.ts`; `tests/jobs/breakdown.test.ts`; `tests/live/breakdown.live.test.ts` | Integration, jobs, and live tests |
-| `.github/workflows/ci.yml`, `promote.yml` | CI and promotion gate |
-| `.railway/railway.ts` | Railway IaC for the `api` service |
-| `.claude/settings.json`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md` | Harness |
-| `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/adr/000{1,2,3,4}-*.md`, `docs/architectural-files.txt`, `openapi.json` | Docs and contract |
+| Path                                                                                                                                                                                                                             | Responsibility                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `package.json`, `tsconfig.json`, `tsconfig.build.json`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `vitest.config.ts`, `.nvmrc`, `.env.example`, `.env.test`, `drizzle.config.ts`                                     | Toolchain                                                                          |
+| `src/config.ts`                                                                                                                                                                                                                  | zod env schema, `loadConfig`, `Config`, `ConfigError`                              |
+| `src/lib/errors.ts`                                                                                                                                                                                                              | `ERROR_CODES`, `statusFor`, `AppError`, constructors                               |
+| `src/lib/envelope.ts`                                                                                                                                                                                                            | `successEnvelope`, `errorEnvelope`, `sendData`, `sendNoContent`                    |
+| `src/lib/error-handler.ts`                                                                                                                                                                                                       | Express `notFoundHandler`, `errorHandler`                                          |
+| `src/lib/logger.ts`                                                                                                                                                                                                              | pino logger and pino-http middleware                                               |
+| `src/lib/request-id.ts`                                                                                                                                                                                                          | `requestId` middleware                                                             |
+| `src/lib/cursor.ts`                                                                                                                                                                                                              | keyset cursor encode and decode                                                    |
+| `src/lib/auth.ts`                                                                                                                                                                                                                | JWT sign and verify, refresh tokens, cookies, bcrypt, `requireAuth`, `currentUser` |
+| `src/lib/redis.ts`                                                                                                                                                                                                               | `createRedis`                                                                      |
+| `src/lib/rate-limit.ts`                                                                                                                                                                                                          | `createRateLimiter`, `consume`                                                     |
+| `src/lib/assets.ts`                                                                                                                                                                                                              | `assertRuntimeAssets`                                                              |
+| `src/types/express.d.ts`                                                                                                                                                                                                         | Express type augmentation (`req.user`, `res.locals.requestId`)                     |
+| `src/db/schema.ts`, `src/db/client.ts`, `src/db/migrate.ts`, `src/db/seed.ts`                                                                                                                                                    | Drizzle schema, connection factory, migrator, demo seed                            |
+| `src/schemas/registry.ts`, `common.ts`, `auth.ts`, `tasks.ts`, `tags.ts`, `feature-requests.ts`, `admin.ts`, `health.ts`, `breakdown.ts`, `index.ts`                                                                             | zod request and response schemas, OpenAPI registration, `generateOpenApiDocument`  |
+| `src/repositories/users.ts`, `tags.ts`, `tasks.ts`                                                                                                                                                                               | Drizzle queries per aggregate                                                      |
+| `src/services/auth.ts`, `tags.ts`, `tasks.ts`, `suggestions.ts`, `feature-requests.ts`                                                                                                                                           | Business rules                                                                     |
+| `src/routes/validate.ts`, `health.ts`, `openapi.ts`, `auth.ts`, `tasks.ts`, `tags.ts`, `feature-requests.ts`, `admin.ts`                                                                                                         | Express routers                                                                    |
+| `src/agent/model.ts`, `fake-model.ts`, `anthropic-model.ts`, `errors.ts`, `prompt.ts`, `breakdown.ts`, `prompts/breakdown.system.md`                                                                                             | Model seam, adapters, prompt, pure breakdown logic                                 |
+| `src/jobs/queue.ts`, `worker.ts`, `reconcile.ts`, `processors/breakdown.ts`                                                                                                                                                      | BullMQ queue, worker, reconciler, job processor                                    |
+| `src/app.ts`, `src/server.ts`                                                                                                                                                                                                    | App factory and startup sequence                                                   |
+| `scripts/generate-openapi.ts`, `render-api-docs.ts`, `copy-assets.sh`, `check-dist-assets.sh`, `docs-check.sh`, `format-file.sh`                                                                                                 | Generators and harness scripts                                                     |
+| `tests/setup/env.ts`, `global.ts`, `each.ts`; `tests/helpers/app.ts`, `auth.ts`, `fake-queue.ts`; `tests/fixtures/breakdown.ok.json`; `tests/api/*.test.ts`; `tests/jobs/breakdown.test.ts`; `tests/live/breakdown.live.test.ts` | Integration, jobs, and live tests                                                  |
+| `.github/workflows/ci.yml`, `promote.yml`                                                                                                                                                                                        | CI and promotion gate                                                              |
+| `.railway/railway.ts`                                                                                                                                                                                                            | Railway IaC for the `api` service                                                  |
+| `.claude/settings.json`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`                                                                                                                                                      | Harness                                                                            |
+| `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/adr/000{1,2,3,4}-*.md`, `docs/architectural-files.txt`, `openapi.json`                                                                    | Docs and contract                                                                  |
 
 ## Conventions used by every task
 
@@ -106,6 +106,7 @@ MSG
 ### Task 1: Repository scaffold and config module
 
 **Files:**
+
 - Create: `package.json`, `tsconfig.json`, `tsconfig.build.json`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `vitest.config.ts`, `.nvmrc`, `.env.example`, `.env.test`
 - Create: `tests/setup/env.ts`, `tests/setup/global.ts`, `tests/setup/each.ts` (env loading only; Task 8 adds the database and Redis work)
 - Modify: `.gitignore`
@@ -113,6 +114,7 @@ MSG
 - Test: `src/config.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `loadConfig(env?: Record<string, string | undefined>): Config`, `type Config`, `class ConfigError extends Error { problems: string[] }`, `isSecureCookieEnv(config: Config): boolean`. npm scripts `dev`, `build`, `start`, `test`, `test:live`, `lint`, `typecheck`, `db:generate`, `db:migrate`, `db:seed`, `openapi`, `docs:check`. Vitest projects `unit` (`src/**/*.test.ts`), `integration` (`tests/**/*.test.ts` minus `tests/live`), `live` (`tests/live/**`).
 
@@ -208,14 +210,7 @@ MSG
     "outDir": "dist",
     "noEmit": true
   },
-  "include": [
-    "src",
-    "tests",
-    "scripts",
-    ".railway",
-    "vitest.config.ts",
-    "drizzle.config.ts"
-  ]
+  "include": ["src", "tests", "scripts", ".railway", "vitest.config.ts", "drizzle.config.ts"]
 }
 ```
 
@@ -465,7 +460,12 @@ describe("loadConfig", () => {
     expect(config.SEED_DEMO_PASSWORD).toBe("kaizen-demo-2026");
     expect(config.LOG_LEVEL).toBe("info");
     expect(config.RAILWAY_GIT_COMMIT_SHA).toBe("local");
-    const overridden = loadConfig({ ...valid, PORT: "4010", AI_ENABLED: "false", WORKER_ENABLED: "0" });
+    const overridden = loadConfig({
+      ...valid,
+      PORT: "4010",
+      AI_ENABLED: "false",
+      WORKER_ENABLED: "0",
+    });
     expect(overridden.PORT).toBe(4010);
     expect(overridden.AI_ENABLED).toBe(false);
     expect(overridden.WORKER_ENABLED).toBe(false);
@@ -596,10 +596,12 @@ MSG
 ### Task 2: Errors, envelope, logger, request id
 
 **Files:**
+
 - Create: `src/lib/errors.ts`, `src/lib/envelope.ts`, `src/lib/error-handler.ts`, `src/lib/logger.ts`, `src/lib/request-id.ts`, `src/types/express.d.ts`
 - Test: `src/lib/errors.test.ts`, `src/lib/envelope.test.ts`, `src/lib/error-handler.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces:
   - `ERROR_CODES` (readonly tuple), `type ErrorCode`, `statusFor(code): number`, `class AppError extends Error { code: ErrorCode; details?: unknown; status: number }`, constructors `validationError(details, message?)`, `unauthorized(message?)`, `notFound(message?)`, `conflict(message)`, `rateLimited(details)`, `upstreamError(message)`, `unavailable(message)`, `internal(message?)`; `interface ValidationDetail { path: string; message: string }`; `interface RateLimitDetails { scope: "user" | "global"; limit: number; resetAt: string }`.
@@ -614,7 +616,14 @@ MSG
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { AppError, ERROR_CODES, notFound, rateLimited, statusFor, validationError } from "./errors.js";
+import {
+  AppError,
+  ERROR_CODES,
+  notFound,
+  rateLimited,
+  statusFor,
+  validationError,
+} from "./errors.js";
 
 describe("statusFor", () => {
   it("maps every code to the spec status", () => {
@@ -885,8 +894,7 @@ export const conflict = (message: string): AppError => new AppError("CONFLICT", 
 export const rateLimited = (details: RateLimitDetails): AppError =>
   new AppError("RATE_LIMITED", "Rate limit exceeded", details);
 
-export const upstreamError = (message: string): AppError =>
-  new AppError("UPSTREAM_ERROR", message);
+export const upstreamError = (message: string): AppError => new AppError("UPSTREAM_ERROR", message);
 
 export const unavailable = (message: string): AppError => new AppError("UNAVAILABLE", message);
 
@@ -948,7 +956,9 @@ export function sendData<T>(
   data: T,
   options: { status?: number; nextCursor?: string | null } = {},
 ): void {
-  res.status(options.status ?? 200).json(successEnvelope(data, requestIdOf(res), options.nextCursor));
+  res
+    .status(options.status ?? 200)
+    .json(successEnvelope(data, requestIdOf(res), options.nextCursor));
 }
 
 export function sendNoContent(res: Response): void {
@@ -1040,17 +1050,29 @@ export function zodDetails(error: ZodError, prefix = ""): ValidationDetail[] {
   });
 }
 
-export function errorHandler(options: { exposeInternal: boolean; logger: Logger }): ErrorRequestHandler {
+export function errorHandler(options: {
+  exposeInternal: boolean;
+  logger: Logger;
+}): ErrorRequestHandler {
   return (err, _req, res, _next) => {
     const requestId = requestIdOf(res);
     if (err instanceof AppError) {
-      res.status(statusFor(err.code)).json(errorEnvelope(err.code, err.message, requestId, err.details));
+      res
+        .status(statusFor(err.code))
+        .json(errorEnvelope(err.code, err.message, requestId, err.details));
       return;
     }
     if (err instanceof ZodError) {
       res
         .status(statusFor("VALIDATION_ERROR"))
-        .json(errorEnvelope("VALIDATION_ERROR", "Request validation failed", requestId, zodDetails(err)));
+        .json(
+          errorEnvelope(
+            "VALIDATION_ERROR",
+            "Request validation failed",
+            requestId,
+            zodDetails(err),
+          ),
+        );
       return;
     }
     const maybeStatus = (err as { status?: unknown }).status;
@@ -1100,10 +1122,12 @@ MSG
 ### Task 3: Cursor, validate middleware, app factory, health and OpenAPI routes
 
 **Files:**
+
 - Create: `src/lib/cursor.ts`, `src/routes/validate.ts`, `src/routes/health.ts`, `src/routes/openapi.ts`, `src/app.ts`
 - Test: `src/lib/cursor.test.ts`, `src/routes/validate.test.ts`, `src/app.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 `Config`; Task 2 `sendData`, `validationError`, `unavailable`, `requestId`, `createHttpLogger`, `notFoundHandler`, `errorHandler`, `Logger`.
 - Produces:
   - `encodeCursor({ createdAt: Date, id: string }): string`, `decodeCursor(raw: string): { createdAt: Date; id: string }`.
@@ -1142,7 +1166,12 @@ describe("cursor", () => {
   });
 
   it("rejects garbage with VALIDATION_ERROR on query.cursor", () => {
-    for (const garbage of ["", "not-base64!", Buffer.from("{}").toString("base64url"), Buffer.from('{"c":"nope","i":"x"}').toString("base64url")]) {
+    for (const garbage of [
+      "",
+      "not-base64!",
+      Buffer.from("{}").toString("base64url"),
+      Buffer.from('{"c":"nope","i":"x"}').toString("base64url"),
+    ]) {
       let caught: unknown;
       try {
         decodeCursor(garbage);
@@ -1151,7 +1180,9 @@ describe("cursor", () => {
       }
       expect(caught).toBeInstanceOf(AppError);
       expect((caught as AppError).code).toBe("VALIDATION_ERROR");
-      expect((caught as AppError).details).toEqual([{ path: "query.cursor", message: "Invalid cursor" }]);
+      expect((caught as AppError).details).toEqual([
+        { path: "query.cursor", message: "Invalid cursor" },
+      ]);
     }
   });
 });
@@ -1270,7 +1301,12 @@ describe("createApp", () => {
     const app = createApp({
       config,
       logger: createLogger("silent"),
-      probes: { ...okProbes, redis: async () => { throw new Error("down"); } },
+      probes: {
+        ...okProbes,
+        redis: async () => {
+          throw new Error("down");
+        },
+      },
     });
     const res = await request(app).get("/api/v1/health");
     expect(res.status).toBe(503);
@@ -1430,7 +1466,11 @@ async function probe(fn: () => Promise<void>): Promise<"ok" | "failed"> {
   }
 }
 
-export function healthRouter(config: Config, probes: HealthProbes, features: HealthFeatures): Router {
+export function healthRouter(
+  config: Config,
+  probes: HealthProbes,
+  features: HealthFeatures,
+): Router {
   const router = Router();
   router.get("/health", async (_req, res) => {
     const checks = { db: await probe(probes.db), redis: await probe(probes.redis) };
@@ -1496,7 +1536,9 @@ export const JSON_BODY_LIMIT = "64kb";
  * Defined exactly when GITHUB_TOKEN and GITHUB_REPO are both set. The feature-requests route is
  * mounted on this same value, so health's `features.featureRequests` and the mount never disagree.
  */
-export function featureRequestsConfigOf(config: Config): { token: string; repo: string } | undefined {
+export function featureRequestsConfigOf(
+  config: Config,
+): { token: string; repo: string } | undefined {
   return config.GITHUB_TOKEN && config.GITHUB_REPO
     ? { token: config.GITHUB_TOKEN, repo: config.GITHUB_REPO }
     : undefined;
@@ -1561,10 +1603,12 @@ MSG
 ### Task 4: All zod schemas and the OpenAPI registry
 
 **Files:**
+
 - Create: `src/schemas/registry.ts`, `src/schemas/common.ts`, `src/schemas/auth.ts`, `src/schemas/tags.ts`, `src/schemas/tasks.ts`, `src/schemas/feature-requests.ts`, `src/schemas/admin.ts`, `src/schemas/health.ts`, `src/schemas/breakdown.ts`, `src/schemas/index.ts`
 - Test: `src/schemas/index.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 2 `ERROR_CODES`, `statusFor`, `ErrorCode`.
 - Produces (exact export names later tasks import):
   - `registry` (OpenAPIRegistry), `bearerAuth`, `API_PREFIX = "/api/v1"`.
@@ -1623,7 +1667,9 @@ describe("generateOpenApiDocument", () => {
 
   it("gives every operation a summary and at least one response with a schema", () => {
     for (const [method, path] of EXPECTED_ENDPOINTS) {
-      const op = (paths[path] as Record<string, { summary?: string; responses?: Record<string, unknown> }>)[method];
+      const op = (
+        paths[path] as Record<string, { summary?: string; responses?: Record<string, unknown> }>
+      )[method];
       expect(op?.summary, `${method} ${path}`).toBeTruthy();
       expect(Object.keys(op?.responses ?? {}).length, `${method} ${path}`).toBeGreaterThan(0);
     }
@@ -1631,7 +1677,16 @@ describe("generateOpenApiDocument", () => {
 
   it("registers the shared components and bearer security", () => {
     const schemas = doc.components?.schemas ?? {};
-    for (const name of ["User", "Tag", "TaskSummary", "TaskDetail", "ErrorEnvelope", "ValidationDetail", "RateLimitDetails", "Health"]) {
+    for (const name of [
+      "User",
+      "Tag",
+      "TaskSummary",
+      "TaskDetail",
+      "ErrorEnvelope",
+      "ValidationDetail",
+      "RateLimitDetails",
+      "Health",
+    ]) {
       expect(schemas[name], name).toBeDefined();
     }
     expect(doc.components?.securitySchemes?.bearerAuth).toEqual({
@@ -1648,8 +1703,16 @@ describe("generateOpenApiDocument", () => {
   it("documents request bodies and query parameters", () => {
     const create = (paths["/api/v1/tasks"] as { post: { requestBody?: unknown } }).post;
     expect(create.requestBody).toBeDefined();
-    const list = (paths["/api/v1/tasks"] as { get: { parameters?: Array<{ name: string; in: string }> } }).get;
-    expect(list.parameters?.map((p) => p.name).sort()).toEqual(["cursor", "limit", "parentId", "status", "tagId"]);
+    const list = (
+      paths["/api/v1/tasks"] as { get: { parameters?: Array<{ name: string; in: string }> } }
+    ).get;
+    expect(list.parameters?.map((p) => p.name).sort()).toEqual([
+      "cursor",
+      "limit",
+      "parentId",
+      "status",
+      "tagId",
+    ]);
   });
 });
 ```
@@ -2391,10 +2454,12 @@ MSG
 ### Task 5: OpenAPI generator, API docs renderer, committed contract
 
 **Files:**
+
 - Create: `scripts/render-api-docs.ts`, `scripts/generate-openapi.ts`, `openapi.json` (generated), `docs/API.md` (generated)
 - Modify: `src/schemas/index.test.ts` (adds renderer assertions)
 
 **Interfaces:**
+
 - Consumes: Task 4 `generateOpenApiDocument`, `OpenApiDocument`.
 - Produces: `renderApiDocs(doc: OpenApiDocument): string`; `npm run openapi` writes `openapi.json` and `docs/API.md`; `npm run openapi -- --check` exits 1 on drift. `openapi.json` is the cross-lane contract consumed by the web repo (master plan section 4).
 
@@ -2422,7 +2487,9 @@ describe("renderApiDocs", () => {
   });
 
   it("starts with the generated-file banner", () => {
-    expect(md.startsWith("# Kaizen Tasks API reference\n\nGenerated from `openapi.json`")).toBe(true);
+    expect(md.startsWith("# Kaizen Tasks API reference\n\nGenerated from `openapi.json`")).toBe(
+      true,
+    );
   });
 });
 ```
@@ -2461,11 +2528,15 @@ export function typeName(schema: unknown, components: Json): string {
   if (Array.isArray(schema.enum)) return `enum(${schema.enum.map(String).join(" | ")})`;
   const variants = (schema.anyOf ?? schema.oneOf) as unknown[] | undefined;
   if (Array.isArray(variants)) return variants.map((v) => typeName(v, components)).join(" | ");
-  if (Array.isArray(schema.allOf)) return (schema.allOf as unknown[]).map((v) => typeName(v, components)).join(" & ");
+  if (Array.isArray(schema.allOf))
+    return (schema.allOf as unknown[]).map((v) => typeName(v, components)).join(" & ");
   const type = schema.type;
   if (Array.isArray(type)) {
     const nonNull = type.filter((t) => t !== "null");
-    const base = nonNull.length === 1 ? typeName({ ...schema, type: nonNull[0] }, components) : nonNull.join(" | ");
+    const base =
+      nonNull.length === 1
+        ? typeName({ ...schema, type: nonNull[0] }, components)
+        : nonNull.join(" | ");
     return type.includes("null") ? `${base} | null` : base;
   }
   if (type === "array") return `${typeName(schema.items, components)}[]`;
@@ -2488,7 +2559,8 @@ function bodyRows(schema: unknown, components: Json): string[] {
   if (!resolved || !isObject(resolved.properties)) return [];
   const required = new Set(Array.isArray(resolved.required) ? resolved.required.map(String) : []);
   return Object.entries(resolved.properties).map(
-    ([name, prop]) => `| ${name} | ${typeName(prop, components)} | ${required.has(name) ? "yes" : "no"} |`,
+    ([name, prop]) =>
+      `| ${name} | ${typeName(prop, components)} | ${required.has(name) ? "yes" : "no"} |`,
   );
 }
 
@@ -2496,11 +2568,19 @@ function renderOperation(method: string, path: string, op: Json, components: Jso
   const lines: string[] = [`## ${method.toUpperCase()} ${path}`, ""];
   if (typeof op.summary === "string") lines.push(op.summary, "");
   if (typeof op.description === "string") lines.push(op.description, "");
-  lines.push(`Auth: ${Array.isArray(op.security) && op.security.length > 0 ? "bearer access token" : "none"}`, "");
+  lines.push(
+    `Auth: ${Array.isArray(op.security) && op.security.length > 0 ? "bearer access token" : "none"}`,
+    "",
+  );
 
   const params = Array.isArray(op.parameters) ? (op.parameters as Json[]) : [];
   if (params.length > 0) {
-    lines.push("**Parameters**", "", "| Name | In | Type | Required | Description |", "|---|---|---|---|---|");
+    lines.push(
+      "**Parameters**",
+      "",
+      "| Name | In | Type | Required | Description |",
+      "|---|---|---|---|---|",
+    );
     for (const p of params) {
       lines.push(
         `| ${String(p.name)} | ${String(p.in)} | ${typeName(p.schema, components)} | ${p.required ? "yes" : "no"} | ${typeof p.description === "string" ? p.description : ""} |`,
@@ -2511,9 +2591,15 @@ function renderOperation(method: string, path: string, op: Json, components: Jso
 
   const body = isObject(op.requestBody) ? op.requestBody : undefined;
   const content = body && isObject(body.content) ? body.content : undefined;
-  const json = content && isObject(content["application/json"]) ? content["application/json"] : undefined;
+  const json =
+    content && isObject(content["application/json"]) ? content["application/json"] : undefined;
   if (json) {
-    lines.push("**Request body** (`application/json`)", "", "| Field | Type | Required |", "|---|---|---|");
+    lines.push(
+      "**Request body** (`application/json`)",
+      "",
+      "| Field | Type | Required |",
+      "|---|---|---|",
+    );
     lines.push(...bodyRows(json.schema, components));
     lines.push("");
   }
@@ -2522,9 +2608,14 @@ function renderOperation(method: string, path: string, op: Json, components: Jso
   lines.push("**Responses**", "", "| Status | Description | Body |", "|---|---|---|");
   for (const [status, response] of Object.entries(responses)) {
     const r = isObject(response) ? response : {};
-    const rc = isObject(r.content) && isObject(r.content["application/json"]) ? r.content["application/json"] : undefined;
+    const rc =
+      isObject(r.content) && isObject(r.content["application/json"])
+        ? r.content["application/json"]
+        : undefined;
     const bodyType = rc ? typeName(rc.schema, components) : "";
-    lines.push(`| ${status} | ${typeof r.description === "string" ? r.description : ""} | ${bodyType} |`);
+    lines.push(
+      `| ${status} | ${typeof r.description === "string" ? r.description : ""} | ${bodyType} |`,
+    );
   }
   lines.push("");
   return lines.join("\n");
@@ -2553,7 +2644,8 @@ export function renderApiDocs(doc: OpenApiDocument): string {
   return out.join("\n");
 }
 
-const isMain = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const root = process.cwd();
   const doc = JSON.parse(readFileSync(resolve(root, "openapi.json"), "utf8")) as OpenApiDocument;
@@ -2647,9 +2739,11 @@ MSG
 ### Task 6: Build pipeline, prompt asset, provisional server
 
 **Files:**
+
 - Create: `scripts/copy-assets.sh`, `scripts/check-dist-assets.sh`, `src/agent/prompts/breakdown.system.md`, `src/server.ts` (provisional; Task 20 replaces it with the full startup sequence)
 
 **Interfaces:**
+
 - Consumes: Task 3 `createApp`, `HealthProbes`; Task 1 `loadConfig`, `ConfigError`; Task 2 `createLogger`.
 - Produces: `npm run build` emits `dist/` with `dist/server.js` and `dist/agent/prompts/breakdown.system.md`; `bash scripts/check-dist-assets.sh` exits 0 only when both exist; `npm start` serves `GET /api/v1/health`. The prompt file is the versioned system prompt the agent loads in Task 15.
 
@@ -2851,9 +2945,11 @@ MSG
 ### Task 7: CI workflow, Railway IaC, README, CLAUDE.md and CHANGELOG skeletons
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`, `.railway/railway.ts`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: every script from Task 1 and the asset check from Task 6.
 - Produces: workflow name `ci`, job id `ci` (the required status check named in the master plan); the `api` service declaration the L3 lane applies with `railway config apply`; the docs skeleton Task 21 completes.
 - Verification V4 (wait-for-CI holds a push-triggered deploy) is proven with this task's artifacts: `ci.yml` runs on `push` to `develop`, and `railway.ts` tracks `develop` in staging with `checkSuites: true` on the GitHub source (the master plan's section 4 interface; spec 10.3's "dashboard-only" note predates the field, which `railway` 3.11 exposes on `ServiceSource`). The L3 lane observes at L3-M1 that a push to `develop` shows a Railway deployment waiting on the `ci` check before building. If it does not wait, the fallback from spec 11 applies: GitHub Actions deploys through the Railway CLI, added to `ci.yml` as a final step by L3.
@@ -3007,7 +3103,7 @@ All notable changes to this project are documented here. The format follows
 
 - [ ] **Step 4: Write `README.md`**
 
-```markdown
+````markdown
 # Kaizen Tasks API
 
 The API behind Kaizen Tasks: a personal task manager where every big task is broken into small,
@@ -3032,34 +3128,35 @@ cp .env.example .env    # fill JWT_SECRET (32+ chars) and ANTHROPIC_API_KEY, or 
 npm install
 npm run dev             # http://localhost:3000/api/v1/health
 ```
+````
 
 The web app's Vite dev server proxies `/api/*` to this port, so the API is normally reached through
 the web app's origin. There is no CORS configuration by design (ADR 0002).
 
 ## Scripts
 
-| Script | Does |
-|---|---|
-| `npm run dev` | `tsx watch src/server.ts` |
-| `npm run build` | `tsc -p tsconfig.build.json && scripts/copy-assets.sh` |
-| `npm start` | `node dist/server.js` |
-| `npm test` | vitest, `unit` and `integration` projects (needs local Postgres and Redis) |
-| `npm run test:live` | the opt-in live model test; runs only with `ANTHROPIC_API_KEY` set |
-| `npm run lint` | eslint and prettier check |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run db:generate` | drizzle-kit generate |
-| `npm run db:migrate` | run migrations |
-| `npm run db:seed` | create the demo fixtures if absent; `-- --reset` deletes and recreates them |
-| `npm run openapi` | regenerate `openapi.json` and `docs/API.md`; `-- --check` for drift |
-| `npm run docs:check` | `scripts/docs-check.sh --hook` |
+| Script                | Does                                                                        |
+| --------------------- | --------------------------------------------------------------------------- |
+| `npm run dev`         | `tsx watch src/server.ts`                                                   |
+| `npm run build`       | `tsc -p tsconfig.build.json && scripts/copy-assets.sh`                      |
+| `npm start`           | `node dist/server.js`                                                       |
+| `npm test`            | vitest, `unit` and `integration` projects (needs local Postgres and Redis)  |
+| `npm run test:live`   | the opt-in live model test; runs only with `ANTHROPIC_API_KEY` set          |
+| `npm run lint`        | eslint and prettier check                                                   |
+| `npm run typecheck`   | `tsc --noEmit`                                                              |
+| `npm run db:generate` | drizzle-kit generate                                                        |
+| `npm run db:migrate`  | run migrations                                                              |
+| `npm run db:seed`     | create the demo fixtures if absent; `-- --reset` deletes and recreates them |
+| `npm run openapi`     | regenerate `openapi.json` and `docs/API.md`; `-- --check` for drift         |
+| `npm run docs:check`  | `scripts/docs-check.sh --hook`                                              |
 
 ## URLs
 
-| Environment | How to reach the API |
-|---|---|
-| Local | `http://localhost:3000/api/v1/health` |
-| Staging | through the staging web domain, `https://<web-domain>/api/v1/health` (recorded in the assembly-line runbook) |
-| Production | through the production web domain, same path |
+| Environment | How to reach the API                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------ |
+| Local       | `http://localhost:3000/api/v1/health`                                                                        |
+| Staging     | through the staging web domain, `https://<web-domain>/api/v1/health` (recorded in the assembly-line runbook) |
+| Production  | through the production web domain, same path                                                                 |
 
 The API service has no public domain of its own; the web service proxies `/api/*` to
 `http://api.railway.internal:3000`.
@@ -3071,7 +3168,8 @@ The API service has no public domain of its own; the web service proxies `/api/*
 - `docs/adr/`: architecture decision records.
 - `CHANGELOG.md`: Keep a Changelog format; every change adds a bullet under `[Unreleased]`.
 - `CLAUDE.md`: conventions for agentic work in this repo.
-```
+
+````
 
 - [ ] **Step 5: Write the `CLAUDE.md` skeleton**
 
@@ -3114,7 +3212,7 @@ Spec: `docs/superpowers/specs/2026-09-08-kaizen-tasks-api-design.md`. Plan: `doc
 ## Scripts
 
 See the table in `README.md`. Local setup is in `README.md`, "Run locally".
-```
+````
 
 - [ ] **Step 6: Run the full CI sequence locally**
 
@@ -3155,11 +3253,13 @@ L1-M1 is complete after Task 7: `npm test` and `npm run build` pass, `GET /api/v
 ### Task 8: Database schema, first migration, client, and real test setup
 
 **Files:**
+
 - Create: `drizzle.config.ts`, `src/db/schema.ts`, `src/db/client.ts`, `src/db/migrate.ts`, `drizzle/0000_init.sql` and `drizzle/meta/*` (generated)
 - Modify: `tests/setup/global.ts`, `tests/setup/each.ts`
 - Test: `tests/db/schema.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 `loadConfig`, `loadTestEnv`.
 - Produces: Drizzle tables `users`, `tasks`, `tags`, `taskTags` and enums `taskStatusEnum`, `aiStatusEnum`, `aiSkipReasonEnum`, `taskOriginEnum`, `suggestionStateEnum` from `src/db/schema.ts`; `createDb(url, { max? }): { db: Db; sql: Sql }`, types `Db`, `Tx`, `DbOrTx`, `isUniqueViolation(err)`, `isCheckViolation(err)` from `src/db/client.ts`; `runMigrations(db: Db): Promise<void>`, `MIGRATIONS_FOLDER` from `src/db/migrate.ts`; `npm run db:generate`, `npm run db:migrate`. Integration tests now run against a migrated `kaizen_test` with tables truncated and Redis db 1 flushed before every test.
 - Row types later tasks use: `typeof users.$inferSelect` (`UserRow`), `typeof tasks.$inferSelect` (`TaskRow`), `typeof tags.$inferSelect` (`TagRow`).
@@ -3225,7 +3325,9 @@ describe("schema", () => {
     const u = await user();
     let caught: unknown;
     try {
-      await db.insert(tasks).values({ userId: u.id, title: "bad", origin: "user", suggestionState: "suggested" });
+      await db
+        .insert(tasks)
+        .values({ userId: u.id, title: "bad", origin: "user", suggestionState: "suggested" });
     } catch (err) {
       caught = err;
     }
@@ -3255,14 +3357,19 @@ describe("schema", () => {
       caught = err;
     }
     expect(isUniqueViolation(caught)).toBe(true);
-    const [other] = await db.insert(tags).values({ userId: b.id, name: "work", color: "#000000" }).returning();
+    const [other] = await db
+      .insert(tags)
+      .values({ userId: b.id, name: "work", color: "#000000" })
+      .returning();
     expect(other!.name).toBe("work");
   });
 
   it("cascades user deletion to tasks and children", async () => {
     const u = await user();
     const [root] = await db.insert(tasks).values({ userId: u.id, title: "root" }).returning();
-    await db.insert(tasks).values({ userId: u.id, title: "child", parentId: root!.id, aiStatus: "skipped" });
+    await db
+      .insert(tasks)
+      .values({ userId: u.id, title: "child", parentId: root!.id, aiStatus: "skipped" });
     await db.delete(users).where(eq(users.id, u.id));
     expect(await db.select().from(tasks)).toEqual([]);
   });
@@ -3293,10 +3400,24 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const taskStatusEnum = pgEnum("task_status", ["todo", "in_progress", "done"]);
-export const aiStatusEnum = pgEnum("ai_status", ["pending", "running", "done", "failed", "skipped"]);
-export const aiSkipReasonEnum = pgEnum("ai_skip_reason", ["too_short", "rate_limited", "ai_disabled"]);
+export const aiStatusEnum = pgEnum("ai_status", [
+  "pending",
+  "running",
+  "done",
+  "failed",
+  "skipped",
+]);
+export const aiSkipReasonEnum = pgEnum("ai_skip_reason", [
+  "too_short",
+  "rate_limited",
+  "ai_disabled",
+]);
 export const taskOriginEnum = pgEnum("task_origin", ["user", "ai"]);
-export const suggestionStateEnum = pgEnum("suggestion_state", ["suggested", "accepted", "dismissed"]);
+export const suggestionStateEnum = pgEnum("suggestion_state", [
+  "suggested",
+  "accepted",
+  "dismissed",
+]);
 
 // Millisecond precision keeps keyset cursors (ISO strings) exact.
 const stamp = (name: string) =>
@@ -3486,7 +3607,9 @@ export default async function globalSetup(): Promise<void> {
   const url = new URL(process.env.DATABASE_URL ?? "");
   const dbName = url.pathname.replace(/^\//, "");
   if (!dbName.endsWith("_test")) {
-    throw new Error(`Refusing to run tests against "${dbName}": the database name must end with _test`);
+    throw new Error(
+      `Refusing to run tests against "${dbName}": the database name must end with _test`,
+    );
   }
   const maintenance = new URL(url.toString());
   maintenance.pathname = "/postgres";
@@ -3566,10 +3689,12 @@ MSG
 ### Task 9: Queue module, model seam, fakes
 
 **Files:**
+
 - Create: `src/lib/redis.ts`, `src/jobs/queue.ts`, `src/agent/model.ts`, `src/agent/errors.ts`, `src/agent/fake-model.ts`, `tests/helpers/fake-queue.ts`
 - Test: `tests/jobs/queue.test.ts`, `src/agent/fake-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 4 `BreakdownResult`.
 - Produces:
   - `createRedis(url, { lazyConnect? }): Redis` (ioredis, `maxRetriesPerRequest: null`).
@@ -3646,7 +3771,13 @@ import { describe, expect, it } from "vitest";
 import { ModelRetryableError } from "./errors.js";
 import { FAKE_BREAKDOWN_RESULT, FakeBreakdownModel } from "./fake-model.js";
 
-const input = { title: "Plan the offsite", description: "", existingSteps: [], tags: [], openTasks: [] };
+const input = {
+  title: "Plan the offsite",
+  description: "",
+  existingSteps: [],
+  tags: [],
+  openTasks: [],
+};
 
 describe("FakeBreakdownModel", () => {
   it("returns the fixture by default and records calls", async () => {
@@ -3941,12 +4072,14 @@ MSG
 ### Task 10: Authentication, the real app dependencies, and the test harness
 
 **Files:**
+
 - Create: `src/lib/auth.ts`, `src/repositories/users.ts`, `src/services/auth.ts`, `src/routes/auth.ts`, `tests/helpers/app.ts`, `tests/helpers/auth.ts`
 - Modify: `src/app.ts`, `src/types/express.d.ts`
 - Delete: `src/app.test.ts` (its cases move to `tests/api/health.test.ts`)
 - Test: `tests/api/auth.test.ts`, `tests/api/health.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 8 `createDb`, `Db`, `isUniqueViolation`, `users`, `UserRow`; Task 9 `BreakdownQueue`, `BreakdownModel`, `FakeQueue`, `FakeBreakdownModel`, `createRedis`; Task 4 `RegisterBody`, `LoginBody`, `User`; Task 3 `validate`, `validated`, `HealthProbes`; Task 2 envelope and errors.
 - Produces:
   - `src/lib/auth.ts`: `ACCESS_TOKEN_TTL = "15m"`, `REFRESH_TTL_SECONDS`, `REFRESH_COOKIE = "kaizen_refresh"`, `REFRESH_COOKIE_PATH = "/api/v1/auth"`, `BCRYPT_COST = 10`, `interface AuthUser { id: string; email: string }`, `signAccessToken(user, secret)`, `verifyAccessToken(token, secret)`, `newRefreshToken()`, `refreshKey(token)`, `setRefreshCookie(res, config, token)`, `clearRefreshCookie(res, config)`, `cookieValue(req, name)`, `hashPassword(pw)`, `verifyPassword(pw, hash)`, `requireAuth(config): RequestHandler` (sets `req.user`), `currentUser(req): AuthUser`.
@@ -4003,13 +4136,16 @@ describe("GET /api/v1/health", () => {
   });
 
   it("returns 503 UNAVAILABLE naming the failing check", async () => {
-    const broken = await createTestApp({}, {
-      probes: {
-        redis: async () => {
-          throw new Error("down");
+    const broken = await createTestApp(
+      {},
+      {
+        probes: {
+          redis: async () => {
+            throw new Error("down");
+          },
         },
       },
-    });
+    );
     try {
       const res = await request(broken.app).get("/api/v1/health");
       expect(res.status).toBe(503);
@@ -4092,7 +4228,9 @@ describe("register", () => {
   });
 
   it("validates the body", async () => {
-    const res = await request(ctx.app).post(REGISTER).send({ email: "bad", password: "short", displayName: "" });
+    const res = await request(ctx.app)
+      .post(REGISTER)
+      .send({ email: "bad", password: "short", displayName: "" });
     expect(res.status).toBe(400);
     expect(res.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual([
       "body.displayName",
@@ -4104,8 +4242,13 @@ describe("register", () => {
 
 describe("login", () => {
   it("returns a session for correct credentials", async () => {
-    const user = await registerUser(ctx.app, { email: "login@example.com", password: "password123" });
-    const res = await request(ctx.app).post(LOGIN).send({ email: "LOGIN@example.com", password: "password123" });
+    const user = await registerUser(ctx.app, {
+      email: "login@example.com",
+      password: "password123",
+    });
+    const res = await request(ctx.app)
+      .post(LOGIN)
+      .send({ email: "LOGIN@example.com", password: "password123" });
     expect(res.status).toBe(200);
     expect(res.body.data.user.id).toBe(user.userId);
     expect(res.body.data.accessToken).toEqual(expect.any(String));
@@ -4114,8 +4257,12 @@ describe("login", () => {
 
   it("uses one message for wrong password and unknown email", async () => {
     await registerUser(ctx.app, { email: "wp@example.com", password: "password123" });
-    const wrong = await request(ctx.app).post(LOGIN).send({ email: "wp@example.com", password: "nope-nope" });
-    const unknown = await request(ctx.app).post(LOGIN).send({ email: "ghost@example.com", password: "password123" });
+    const wrong = await request(ctx.app)
+      .post(LOGIN)
+      .send({ email: "wp@example.com", password: "nope-nope" });
+    const unknown = await request(ctx.app)
+      .post(LOGIN)
+      .send({ email: "ghost@example.com", password: "password123" });
     expect(wrong.status).toBe(401);
     expect(unknown.status).toBe(401);
     expect(wrong.body.error.message).toBe("Invalid email or password");
@@ -4235,7 +4382,10 @@ function cookieOptions(config: Config): CookieOptions {
 }
 
 export function setRefreshCookie(res: Response, config: Config, token: string): void {
-  res.cookie(REFRESH_COOKIE, token, { ...cookieOptions(config), maxAge: REFRESH_TTL_SECONDS * 1000 });
+  res.cookie(REFRESH_COOKIE, token, {
+    ...cookieOptions(config),
+    maxAge: REFRESH_TTL_SECONDS * 1000,
+  });
 }
 
 export function clearRefreshCookie(res: Response, config: Config): void {
@@ -4524,7 +4674,9 @@ export const JSON_BODY_LIMIT = "64kb";
  * Defined exactly when GITHUB_TOKEN and GITHUB_REPO are both set. The feature-requests route is
  * mounted on this same value, so health's `features.featureRequests` and the mount never disagree.
  */
-export function featureRequestsConfigOf(config: Config): { token: string; repo: string } | undefined {
+export function featureRequestsConfigOf(
+  config: Config,
+): { token: string; repo: string } | undefined {
   return config.GITHUB_TOKEN && config.GITHUB_REPO
     ? { token: config.GITHUB_TOKEN, repo: config.GITHUB_REPO }
     : undefined;
@@ -4661,7 +4813,15 @@ export async function createTestApp(
   const redis = createRedis(config.REDIS_URL);
   const queue = new FakeQueue();
   const model = new FakeBreakdownModel();
-  const app = createApp({ config, db, redis, queue, model, logger: createLogger("silent"), ...extra });
+  const app = createApp({
+    config,
+    db,
+    redis,
+    queue,
+    model,
+    logger: createLogger("silent"),
+    ...extra,
+  });
   return {
     app,
     config,
@@ -4721,7 +4881,9 @@ export async function registerUser(
   };
 }
 
-export const auth = (token: string): Record<string, string> => ({ Authorization: `Bearer ${token}` });
+export const auth = (token: string): Record<string, string> => ({
+  Authorization: `Bearer ${token}`,
+});
 ```
 
 - [ ] **Step 9: Run the tests to verify they pass**
@@ -4756,10 +4918,12 @@ MSG
 ### Task 11: AI rate limiter
 
 **Files:**
+
 - Create: `src/lib/rate-limit.ts`
 - Test: `tests/lib/rate-limit.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 `Config`; Task 9 `createRedis`.
 - Produces: `hourBucket(now: Date): string` (`YYYYMMDDHH` UTC), `nextHourIso(now: Date): string`, `interface ConsumeResult { allowed: boolean; reason: "ok" | "ai_disabled" | "rate_limited"; scope: "user" | "global"; limit: number; remaining: number; resetAt: string }`, `interface RateLimiter { consume(userId: string): Promise<ConsumeResult> }`, `createRateLimiter(redis, config, now?): RateLimiter`. Redis keys `ratelimit:breakdown:<userId>:<bucket>` and `ratelimit:breakdown:global:<bucket>` with a one-hour TTL.
 
@@ -4800,10 +4964,24 @@ describe("consume", () => {
     const userId = randomUUID();
     const rl = limiter(2, 100);
     const first = await rl.consume(userId);
-    expect(first).toEqual({ allowed: true, reason: "ok", scope: "user", limit: 2, remaining: 1, resetAt: "2026-09-08T11:00:00.000Z" });
+    expect(first).toEqual({
+      allowed: true,
+      reason: "ok",
+      scope: "user",
+      limit: 2,
+      remaining: 1,
+      resetAt: "2026-09-08T11:00:00.000Z",
+    });
     expect((await rl.consume(userId)).remaining).toBe(0);
     const denied = await rl.consume(userId);
-    expect(denied).toEqual({ allowed: false, reason: "rate_limited", scope: "user", limit: 2, remaining: 0, resetAt: "2026-09-08T11:00:00.000Z" });
+    expect(denied).toEqual({
+      allowed: false,
+      reason: "rate_limited",
+      scope: "user",
+      limit: 2,
+      remaining: 0,
+      resetAt: "2026-09-08T11:00:00.000Z",
+    });
     // a denial does not count: the key stays at the limit
     expect(await redis.get(`ratelimit:breakdown:${userId}:2026090810`)).toBe("2");
     expect(await redis.get("ratelimit:breakdown:global:2026090810")).toBe("2");
@@ -4906,7 +5084,14 @@ export function createRateLimiter(
       const at = now();
       const resetAt = nextHourIso(at);
       if (!config.AI_ENABLED) {
-        return { allowed: false, reason: "ai_disabled", scope: "global", limit: 0, remaining: 0, resetAt };
+        return {
+          allowed: false,
+          reason: "ai_disabled",
+          scope: "global",
+          limit: 0,
+          remaining: 0,
+          resetAt,
+        };
       }
       const bucket = hourBucket(at);
       const userKey = `ratelimit:breakdown:${userId}:${bucket}`;
@@ -4980,11 +5165,13 @@ MSG
 ### Task 12: Tags
 
 **Files:**
+
 - Create: `src/repositories/tags.ts`, `src/services/tags.ts`, `src/routes/tags.ts`
 - Modify: `src/app.ts`
 - Test: `tests/api/tags.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 8 `tags`, `taskTags`, `TagRow`, `DbOrTx`, `isUniqueViolation`; Task 4 `TagSchema` types, `CreateTagBody`, `UpdateTagBody`, `IdParams`; Task 10 `requireAuth`, `currentUser`.
 - Produces:
   - repository: `listTags(db, userId)`, `findTag(db, id, userId)`, `insertTag(db, { userId, name, color })`, `updateTag(db, id, userId, patch)`, `deleteTag(db, id, userId): Promise<boolean>`, `findOwnedTags(db, userId, ids)`, `tagsForTasks(db, taskIds): Promise<Map<string, TagRow[]>>`, `replaceTaskTags(db, taskId, tagIds)`.
@@ -5024,7 +5211,12 @@ describe("tags", () => {
   it("creates a tag with a lowercased color and lists tags ordered by name", async () => {
     const user = await registerUser(ctx.app);
     const work = await createTag(user, "Work");
-    expect(work).toEqual({ id: expect.any(String), name: "Work", color: "#2563eb", createdAt: expect.any(String) });
+    expect(work).toEqual({
+      id: expect.any(String),
+      name: "Work",
+      color: "#2563eb",
+      createdAt: expect.any(String),
+    });
     await createTag(user, "alpha");
     await createTag(user, "Zed");
     const res = await request(ctx.app).get(TAGS).set(auth(user.token));
@@ -5036,28 +5228,43 @@ describe("tags", () => {
   it("rejects duplicate names case-insensitively with CONFLICT", async () => {
     const user = await registerUser(ctx.app);
     await createTag(user, "Work");
-    const res = await request(ctx.app).post(TAGS).set(auth(user.token)).send({ name: "work", color: "#000000" });
+    const res = await request(ctx.app)
+      .post(TAGS)
+      .set(auth(user.token))
+      .send({ name: "work", color: "#000000" });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("CONFLICT");
   });
 
   it("validates name and color", async () => {
     const user = await registerUser(ctx.app);
-    const res = await request(ctx.app).post(TAGS).set(auth(user.token)).send({ name: "", color: "blue" });
+    const res = await request(ctx.app)
+      .post(TAGS)
+      .set(auth(user.token))
+      .send({ name: "", color: "blue" });
     expect(res.status).toBe(400);
-    expect(res.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual(["body.color", "body.name"]);
+    expect(res.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual([
+      "body.color",
+      "body.name",
+    ]);
   });
 
   it("updates name and color, rejects an empty patch, and hides other users' tags", async () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
     const tag = await createTag(owner, "Draft");
-    const ok = await request(ctx.app).patch(`${TAGS}/${tag.id}`).set(auth(owner.token)).send({ name: "Final", color: "#16A34A" });
+    const ok = await request(ctx.app)
+      .patch(`${TAGS}/${tag.id}`)
+      .set(auth(owner.token))
+      .send({ name: "Final", color: "#16A34A" });
     expect(ok.status).toBe(200);
     expect(ok.body.data).toMatchObject({ id: tag.id, name: "Final", color: "#16a34a" });
     const empty = await request(ctx.app).patch(`${TAGS}/${tag.id}`).set(auth(owner.token)).send({});
     expect(empty.status).toBe(400);
-    const foreign = await request(ctx.app).patch(`${TAGS}/${tag.id}`).set(auth(other.token)).send({ name: "Mine" });
+    const foreign = await request(ctx.app)
+      .patch(`${TAGS}/${tag.id}`)
+      .set(auth(other.token))
+      .send({ name: "Mine" });
     expect(foreign.status).toBe(404);
     expect(foreign.body.error.code).toBe("NOT_FOUND");
   });
@@ -5066,14 +5273,21 @@ describe("tags", () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
     const tag = await createTag(owner, "Linked");
-    const [task] = await ctx.db.insert(tasks).values({ userId: owner.userId, title: "Has a tag" }).returning();
+    const [task] = await ctx.db
+      .insert(tasks)
+      .values({ userId: owner.userId, title: "Has a tag" })
+      .returning();
     await ctx.db.insert(taskTags).values({ taskId: task!.id, tagId: tag.id });
 
-    expect((await request(ctx.app).delete(`${TAGS}/${tag.id}`).set(auth(other.token))).status).toBe(404);
+    expect((await request(ctx.app).delete(`${TAGS}/${tag.id}`).set(auth(other.token))).status).toBe(
+      404,
+    );
     const res = await request(ctx.app).delete(`${TAGS}/${tag.id}`).set(auth(owner.token));
     expect(res.status).toBe(204);
     expect(await ctx.db.select().from(taskTags)).toEqual([]);
-    expect((await request(ctx.app).delete(`${TAGS}/${tag.id}`).set(auth(owner.token))).status).toBe(404);
+    expect((await request(ctx.app).delete(`${TAGS}/${tag.id}`).set(auth(owner.token))).status).toBe(
+      404,
+    );
     const list = await request(ctx.app).get(TAGS).set(auth(owner.token));
     expect(list.body.data).toEqual([]);
   });
@@ -5095,7 +5309,11 @@ import { tags, taskTags, type TagRow } from "../db/schema.js";
 const byName = [asc(sql`lower(${tags.name})`), asc(tags.id)];
 
 export async function listTags(db: DbOrTx, userId: string): Promise<TagRow[]> {
-  return db.select().from(tags).where(eq(tags.userId, userId)).orderBy(...byName);
+  return db
+    .select()
+    .from(tags)
+    .where(eq(tags.userId, userId))
+    .orderBy(...byName);
 }
 
 export async function findTag(db: DbOrTx, id: string, userId: string): Promise<TagRow | undefined> {
@@ -5203,7 +5421,11 @@ export function createTagsService(deps: { db: Db }): TagsService {
 
     async create(userId, input) {
       try {
-        const row = await insertTag(db, { userId, name: input.name, color: input.color.toLowerCase() });
+        const row = await insertTag(db, {
+          userId,
+          name: input.name,
+          color: input.color.toLowerCase(),
+        });
         return toTag(row);
       } catch (err) {
         if (isUniqueViolation(err)) throw duplicate(input.name);
@@ -5288,7 +5510,7 @@ import { createTagsService } from "./services/tags.js";
 ```
 
 ```ts
-  api.use("/tags", requireAuth(config), tagsRouter(createTagsService({ db })));
+api.use("/tags", requireAuth(config), tagsRouter(createTagsService({ db })));
 ```
 
 - [ ] **Step 6: Run the test to verify it passes**
@@ -5319,11 +5541,13 @@ MSG
 ### Task 13: Tasks: create, get, list, delete
 
 **Files:**
+
 - Create: `src/repositories/tasks.ts`, `src/services/tasks.ts`, `src/routes/tasks.ts`
 - Modify: `src/app.ts`
 - Test: `tests/api/tasks.test.ts`, `tests/db/progress.test.ts`, `tests/helpers/tasks.ts` (helper)
 
 **Interfaces:**
+
 - Consumes: Task 8 `tasks`, `taskTags`, `TaskRow`, `NewTaskRow`; Task 12 `tagsForTasks`, `findOwnedTags`, `replaceTaskTags`, `toTag`; Task 11 `RateLimiter`, `createRateLimiter`; Task 9 `BreakdownQueue`; Task 3 `encodeCursor`, `decodeCursor`; Task 4 task schemas and types.
 - Produces:
   - repository (`src/repositories/tasks.ts`): `findOwnedTask(db, id, userId)`, `insertTask(db, values: NewTaskRow)`, `deleteTask(db, id, userId): Promise<boolean>`, `maxSiblingPosition(db, userId, parentId: string | null): Promise<number>` (-1 when none), `siblingScope(userId, parentId)`, `siblingOrder`, `listTasks(db, opts: ListTasksOptions): Promise<TaskRow[]>` (fetches `limit + 1`), `listChildren(db, parentId)`, `childAggregates(db, taskIds): Promise<ChildAggregateMap>` (one SQL aggregate per parent: progress `done`/`total` and `suggestionCount`), `updateAiState(db, id, generationId, patch: AiStatePatch): Promise<number>` (guarded by `generation_id`), types `ListTasksOptions`, `ChildAggregate`, `ChildAggregateMap`, `AiStatePatch`.
@@ -5375,7 +5599,10 @@ afterAll(() => end());
 
 describe("childAggregates", () => {
   it("counts user children and accepted AI children (done is the done subset) and suggested AI children", async () => {
-    const [u] = await db.insert(users).values({ email: `${randomUUID()}@t.local`, passwordHash: "x", displayName: "P" }).returning();
+    const [u] = await db
+      .insert(users)
+      .values({ email: `${randomUUID()}@t.local`, passwordHash: "x", displayName: "P" })
+      .returning();
     const [root] = await db.insert(tasks).values({ userId: u!.id, title: "root" }).returning();
     const [empty] = await db.insert(tasks).values({ userId: u!.id, title: "empty" }).returning();
     const child = (extra: Partial<typeof tasks.$inferInsert>) => ({
@@ -5385,14 +5612,16 @@ describe("childAggregates", () => {
       aiStatus: "skipped" as const,
       ...extra,
     });
-    await db.insert(tasks).values([
-      child({ origin: "user", status: "done" }),
-      child({ origin: "user", status: "todo" }),
-      child({ origin: "ai", suggestionState: "accepted", status: "done" }),
-      child({ origin: "ai", suggestionState: "accepted", status: "in_progress" }),
-      child({ origin: "ai", suggestionState: "suggested", status: "done" }),
-      child({ origin: "ai", suggestionState: "dismissed", status: "done" }),
-    ]);
+    await db
+      .insert(tasks)
+      .values([
+        child({ origin: "user", status: "done" }),
+        child({ origin: "user", status: "todo" }),
+        child({ origin: "ai", suggestionState: "accepted", status: "done" }),
+        child({ origin: "ai", suggestionState: "accepted", status: "in_progress" }),
+        child({ origin: "ai", suggestionState: "suggested", status: "done" }),
+        child({ origin: "ai", suggestionState: "dismissed", status: "done" }),
+      ]);
     const aggregates = await childAggregates(db, [root!.id, empty!.id]);
     expect(aggregates.get(root!.id)).toEqual({ done: 2, total: 4, suggestionCount: 1 });
     expect(aggregates.get(empty!.id)).toBeUndefined();
@@ -5425,7 +5654,10 @@ const UUID = /^[0-9a-f-]{36}$/;
 describe("POST /tasks", () => {
   it("root create enqueues a breakdown with reason create and returns pending with a generation id", async () => {
     const user = await registerUser(ctx.app);
-    const task = await createTask(ctx.app, user.token, { title: "Plan the team offsite", description: "Three days" });
+    const task = await createTask(ctx.app, user.token, {
+      title: "Plan the team offsite",
+      description: "Three days",
+    });
     expect(task).toMatchObject({
       parentId: null,
       title: "Plan the team offsite",
@@ -5446,7 +5678,12 @@ describe("POST /tasks", () => {
     });
     expect(ctx.queue.jobs).toHaveLength(1);
     const job = ctx.queue.jobs[0]!;
-    expect(job).toEqual({ taskId: task.id, userId: user.userId, generationId: expect.stringMatching(UUID), reason: "create" });
+    expect(job).toEqual({
+      taskId: task.id,
+      userId: user.userId,
+      generationId: expect.stringMatching(UUID),
+      reason: "create",
+    });
     const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, task.id));
     expect(row?.generationId).toBe(job.generationId);
   });
@@ -5471,10 +5708,15 @@ describe("POST /tasks", () => {
     expect(child.position).toBe(0);
     expect(ctx.queue.jobs).toHaveLength(0);
 
-    const grandchild = await request(ctx.app).post(TASKS).set(auth(user.token)).send({ title: "Too deep", parentId: child.id });
+    const grandchild = await request(ctx.app)
+      .post(TASKS)
+      .set(auth(user.token))
+      .send({ title: "Too deep", parentId: child.id });
     expect(grandchild.status).toBe(400);
     expect(grandchild.body.error.code).toBe("VALIDATION_ERROR");
-    expect(grandchild.body.error.details).toEqual([{ path: "body.parentId", message: DEPTH_MESSAGE }]);
+    expect(grandchild.body.error.details).toEqual([
+      { path: "body.parentId", message: DEPTH_MESSAGE },
+    ]);
   });
 
   it("assigns child positions after the current maximum", async () => {
@@ -5489,20 +5731,39 @@ describe("POST /tasks", () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
     const root = await createTask(ctx.app, owner.token, { title: "Owner root" });
-    const foreignParent = await request(ctx.app).post(TASKS).set(auth(other.token)).send({ title: "Sneaky", parentId: root.id });
+    const foreignParent = await request(ctx.app)
+      .post(TASKS)
+      .set(auth(other.token))
+      .send({ title: "Sneaky", parentId: root.id });
     expect(foreignParent.status).toBe(404);
 
-    const tag = await request(ctx.app).post("/api/v1/tags").set(auth(owner.token)).send({ name: "work", color: "#111111" });
-    const foreignTag = await request(ctx.app).post(TASKS).set(auth(other.token)).send({ title: "Sneaky tag", tagIds: [tag.body.data.id] });
+    const tag = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(owner.token))
+      .send({ name: "work", color: "#111111" });
+    const foreignTag = await request(ctx.app)
+      .post(TASKS)
+      .set(auth(other.token))
+      .send({ title: "Sneaky tag", tagIds: [tag.body.data.id] });
     expect(foreignTag.status).toBe(400);
-    expect(foreignTag.body.error.details).toEqual([{ path: "body.tagIds", message: `Unknown tag id ${tag.body.data.id}` }]);
+    expect(foreignTag.body.error.details).toEqual([
+      { path: "body.tagIds", message: `Unknown tag id ${tag.body.data.id}` },
+    ]);
   });
 
   it("attaches owned tags on create", async () => {
     const user = await registerUser(ctx.app);
-    const tag = await request(ctx.app).post("/api/v1/tags").set(auth(user.token)).send({ name: "home", color: "#222222" });
-    const task = await createTask(ctx.app, user.token, { title: "Tagged task", tagIds: [tag.body.data.id, tag.body.data.id] });
-    expect(task.tags).toEqual([{ id: tag.body.data.id, name: "home", color: "#222222", createdAt: expect.any(String) }]);
+    const tag = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(user.token))
+      .send({ name: "home", color: "#222222" });
+    const task = await createTask(ctx.app, user.token, {
+      title: "Tagged task",
+      tagIds: [tag.body.data.id, tag.body.data.id],
+    });
+    expect(task.tags).toEqual([
+      { id: tag.body.data.id, name: "home", color: "#222222", createdAt: expect.any(String) },
+    ]);
   });
 
   it("with AI_ENABLED=false creates the task skipped with reason ai_disabled", async () => {
@@ -5543,7 +5804,10 @@ describe("GET /tasks/:id", () => {
     await ctx.db.update(tasks).set({ status: "done" }).where(eq(tasks.id, c1.id));
     const res = await request(ctx.app).get(`${TASKS}/${root.id}`).set(auth(user.token));
     expect(res.status).toBe(200);
-    expect(res.body.data.children.map((c: { title: string }) => c.title)).toEqual(["Child one", "Child two"]);
+    expect(res.body.data.children.map((c: { title: string }) => c.title)).toEqual([
+      "Child one",
+      "Child two",
+    ]);
     expect(res.body.data.progress).toEqual({ done: 1, total: 2 });
   });
 
@@ -5551,9 +5815,19 @@ describe("GET /tasks/:id", () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
     const root = await createTask(ctx.app, owner.token, { title: "Private task" });
-    expect((await request(ctx.app).get(`${TASKS}/${root.id}`).set(auth(other.token))).status).toBe(404);
-    expect((await request(ctx.app).get(`${TASKS}/00000000-0000-4000-8000-000000000000`).set(auth(owner.token))).status).toBe(404);
-    expect((await request(ctx.app).get(`${TASKS}/not-a-uuid`).set(auth(owner.token))).status).toBe(400);
+    expect((await request(ctx.app).get(`${TASKS}/${root.id}`).set(auth(other.token))).status).toBe(
+      404,
+    );
+    expect(
+      (
+        await request(ctx.app)
+          .get(`${TASKS}/00000000-0000-4000-8000-000000000000`)
+          .set(auth(owner.token))
+      ).status,
+    ).toBe(404);
+    expect((await request(ctx.app).get(`${TASKS}/not-a-uuid`).set(auth(owner.token))).status).toBe(
+      400,
+    );
   });
 });
 
@@ -5568,7 +5842,9 @@ describe("GET /tasks", () => {
     let cursor: string | null = null;
     let pages = 0;
     do {
-      const url = cursor ? `${TASKS}?limit=3&cursor=${encodeURIComponent(cursor)}` : `${TASKS}?limit=3`;
+      const url = cursor
+        ? `${TASKS}?limit=3&cursor=${encodeURIComponent(cursor)}`
+        : `${TASKS}?limit=3`;
       const res = await request(ctx.app).get(url).set(auth(user.token));
       expect(res.status).toBe(200);
       seen.push(...res.body.data.map((t: { id: string }) => t.id));
@@ -5582,22 +5858,34 @@ describe("GET /tasks", () => {
 
   it("filters by status and by tag, and lists top-level only unless parentId is given", async () => {
     const user = await registerUser(ctx.app);
-    const tag = await request(ctx.app).post("/api/v1/tags").set(auth(user.token)).send({ name: "focus", color: "#333333" });
-    const tagged = await createTask(ctx.app, user.token, { title: "Tagged root", tagIds: [tag.body.data.id] });
+    const tag = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(user.token))
+      .send({ name: "focus", color: "#333333" });
+    const tagged = await createTask(ctx.app, user.token, {
+      title: "Tagged root",
+      tagIds: [tag.body.data.id],
+    });
     const plain = await createTask(ctx.app, user.token, { title: "Plain root" });
     const child = await createTask(ctx.app, user.token, { title: "A child", parentId: plain.id });
     await ctx.db.update(tasks).set({ status: "done" }).where(eq(tasks.id, plain.id));
 
     const all = await request(ctx.app).get(TASKS).set(auth(user.token));
-    expect(all.body.data.map((t: { id: string }) => t.id).sort()).toEqual([tagged.id, plain.id].sort());
+    expect(all.body.data.map((t: { id: string }) => t.id).sort()).toEqual(
+      [tagged.id, plain.id].sort(),
+    );
 
     const done = await request(ctx.app).get(`${TASKS}?status=done`).set(auth(user.token));
     expect(done.body.data.map((t: { id: string }) => t.id)).toEqual([plain.id]);
 
-    const byTag = await request(ctx.app).get(`${TASKS}?tagId=${tag.body.data.id}`).set(auth(user.token));
+    const byTag = await request(ctx.app)
+      .get(`${TASKS}?tagId=${tag.body.data.id}`)
+      .set(auth(user.token));
     expect(byTag.body.data.map((t: { id: string }) => t.id)).toEqual([tagged.id]);
 
-    const children = await request(ctx.app).get(`${TASKS}?parentId=${plain.id}`).set(auth(user.token));
+    const children = await request(ctx.app)
+      .get(`${TASKS}?parentId=${plain.id}`)
+      .set(auth(user.token));
     expect(children.body.data.map((t: { id: string }) => t.id)).toEqual([child.id]);
   });
 
@@ -5616,15 +5904,32 @@ describe("DELETE /tasks/:id", () => {
   it("cascades to children and tag links, and hides other users' tasks", async () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
-    const tag = await request(ctx.app).post("/api/v1/tags").set(auth(owner.token)).send({ name: "gone", color: "#444444" });
-    const root = await createTask(ctx.app, owner.token, { title: "Doomed root", tagIds: [tag.body.data.id] });
-    const child = await createTask(ctx.app, owner.token, { title: "Doomed child", parentId: root.id });
+    const tag = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(owner.token))
+      .send({ name: "gone", color: "#444444" });
+    const root = await createTask(ctx.app, owner.token, {
+      title: "Doomed root",
+      tagIds: [tag.body.data.id],
+    });
+    const child = await createTask(ctx.app, owner.token, {
+      title: "Doomed child",
+      parentId: root.id,
+    });
 
-    expect((await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(other.token))).status).toBe(404);
-    expect((await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(owner.token))).status).toBe(204);
-    expect((await request(ctx.app).get(`${TASKS}/${child.id}`).set(auth(owner.token))).status).toBe(404);
+    expect(
+      (await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(other.token))).status,
+    ).toBe(404);
+    expect(
+      (await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(owner.token))).status,
+    ).toBe(204);
+    expect((await request(ctx.app).get(`${TASKS}/${child.id}`).set(auth(owner.token))).status).toBe(
+      404,
+    );
     expect(await ctx.db.select().from(taskTags)).toEqual([]);
-    expect((await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(owner.token))).status).toBe(404);
+    expect(
+      (await request(ctx.app).delete(`${TASKS}/${root.id}`).set(auth(owner.token))).status,
+    ).toBe(404);
   });
 });
 ```
@@ -5645,7 +5950,11 @@ import type { AiSkipReason, AiStatus, TaskStatus } from "../schemas/tasks.js";
 
 const owned = (id: string, userId: string) => and(eq(tasks.id, id), eq(tasks.userId, userId));
 
-export async function findOwnedTask(db: DbOrTx, id: string, userId: string): Promise<TaskRow | undefined> {
+export async function findOwnedTask(
+  db: DbOrTx,
+  id: string,
+  userId: string,
+): Promise<TaskRow | undefined> {
   const [row] = await db.select().from(tasks).where(owned(id, userId)).limit(1);
   return row;
 }
@@ -5665,9 +5974,16 @@ export async function deleteTask(db: DbOrTx, id: string, userId: string): Promis
 export const siblingOrder = [asc(tasks.position), asc(tasks.createdAt), asc(tasks.id)];
 
 export const siblingScope = (userId: string, parentId: string | null): SQL | undefined =>
-  and(eq(tasks.userId, userId), parentId === null ? isNull(tasks.parentId) : eq(tasks.parentId, parentId));
+  and(
+    eq(tasks.userId, userId),
+    parentId === null ? isNull(tasks.parentId) : eq(tasks.parentId, parentId),
+  );
 
-export async function maxSiblingPosition(db: DbOrTx, userId: string, parentId: string | null): Promise<number> {
+export async function maxSiblingPosition(
+  db: DbOrTx,
+  userId: string,
+  parentId: string | null,
+): Promise<number> {
   const [row] = await db
     .select({ max: sql<number | string | null>`max(${tasks.position})` })
     .from(tasks)
@@ -5713,7 +6029,11 @@ export async function listTasks(db: DbOrTx, opts: ListTasksOptions): Promise<Tas
 }
 
 export async function listChildren(db: DbOrTx, parentId: string): Promise<TaskRow[]> {
-  return db.select().from(tasks).where(eq(tasks.parentId, parentId)).orderBy(...siblingOrder);
+  return db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.parentId, parentId))
+    .orderBy(...siblingOrder);
 }
 
 export interface ChildAggregate {
@@ -5859,7 +6179,11 @@ async function summarize(db: DbOrTx, rows: TaskRow[]): Promise<TaskSummary[]> {
   const ids = rows.map((r) => r.id);
   const [tagMap, aggregates] = await Promise.all([tagsForTasks(db, ids), childAggregates(db, ids)]);
   return rows.map((row) =>
-    toTaskSummary(row, (tagMap.get(row.id) ?? []).map(toTag), aggregates.get(row.id) ?? NO_CHILDREN),
+    toTaskSummary(
+      row,
+      (tagMap.get(row.id) ?? []).map(toTag),
+      aggregates.get(row.id) ?? NO_CHILDREN,
+    ),
   );
 }
 
@@ -5877,12 +6201,18 @@ export async function loadTaskDetail(db: DbOrTx, id: string, userId: string): Pr
 }
 
 /** Every id must be one of the user's tags; otherwise VALIDATION_ERROR on body.tagIds. */
-export async function assertOwnedTagIds(db: DbOrTx, userId: string, tagIds: string[]): Promise<void> {
+export async function assertOwnedTagIds(
+  db: DbOrTx,
+  userId: string,
+  tagIds: string[],
+): Promise<void> {
   if (tagIds.length === 0) return;
   const owned = new Set((await findOwnedTags(db, userId, tagIds)).map((t) => t.id));
   const missing = tagIds.filter((id) => !owned.has(id));
   if (missing.length > 0) {
-    throw validationError(missing.map((id) => ({ path: "body.tagIds", message: `Unknown tag id ${id}` })));
+    throw validationError(
+      missing.map((id) => ({ path: "body.tagIds", message: `Unknown tag id ${id}` })),
+    );
   }
 }
 
@@ -5903,7 +6233,9 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
       const page = rows.slice(0, query.limit);
       const last = page[page.length - 1];
       const nextCursor =
-        rows.length > query.limit && last ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : null;
+        rows.length > query.limit && last
+          ? encodeCursor({ createdAt: last.createdAt, id: last.id })
+          : null;
       return { items: await summarize(db, page), nextCursor };
     },
 
@@ -5956,7 +6288,10 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
           await queue.enqueueBreakdown({ taskId: row.id, userId, generationId, reason: "create" });
         } catch (err) {
           logger.error({ err, taskId: row.id }, "could not enqueue breakdown");
-          await updateAiState(db, row.id, generationId, { aiStatus: "failed", aiError: ENQUEUE_FAILED_MESSAGE });
+          await updateAiState(db, row.id, generationId, {
+            aiStatus: "failed",
+            aiError: ENQUEUE_FAILED_MESSAGE,
+          });
         }
       }
       return loadTaskDetail(db, row.id, userId);
@@ -6031,9 +6366,9 @@ import { createTasksService } from "./services/tasks.js";
 destructure `queue` from `deps` alongside `config, db, redis, logger`, and mount after `/tags`:
 
 ```ts
-  const rateLimiter = createRateLimiter(redis, config);
-  const tasksService = createTasksService({ db, queue, rateLimiter, logger });
-  api.use("/tasks", requireAuth(config), tasksRouter(tasksService));
+const rateLimiter = createRateLimiter(redis, config);
+const tasksService = createTasksService({ db, queue, rateLimiter, logger });
+api.use("/tasks", requireAuth(config), tasksRouter(tasksService));
 ```
 
 - [ ] **Step 6: Run the tests to verify they pass**
@@ -6065,11 +6400,13 @@ MSG
 ### Task 14: Task update, position reorder, suggestion states, accept-all, dismiss-all, replace tags
 
 **Files:**
+
 - Create: `src/services/suggestions.ts`
 - Modify: `src/repositories/tasks.ts`, `src/services/tasks.ts`, `src/routes/tasks.ts`
 - Test: `src/services/suggestions.test.ts`, `tests/api/tasks-update.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 13 repository, service and router; Task 12 `replaceTaskTags`; Task 4 `UpdateTaskBody`, `ReplaceTagsBody`, `SuggestionState`.
 - Produces:
   - `src/services/suggestions.ts`: `ALLOWED_SUGGESTION_TRANSITIONS`, `canTransitionSuggestion(from: SuggestionState | null, to: SuggestionState): boolean`.
@@ -6092,11 +6429,18 @@ describe("suggestion transitions", () => {
   it("allows exactly the four documented transitions", () => {
     const allowed = new Set(ALLOWED_SUGGESTION_TRANSITIONS.map(([f, t]) => `${f}->${t}`));
     expect([...allowed].sort()).toEqual(
-      ["accepted->dismissed", "dismissed->accepted", "suggested->accepted", "suggested->dismissed"].sort(),
+      [
+        "accepted->dismissed",
+        "dismissed->accepted",
+        "suggested->accepted",
+        "suggested->dismissed",
+      ].sort(),
     );
     for (const from of STATES) {
       for (const to of STATES) {
-        expect(canTransitionSuggestion(from, to), `${from}->${to}`).toBe(allowed.has(`${from}->${to}`));
+        expect(canTransitionSuggestion(from, to), `${from}->${to}`).toBe(
+          allowed.has(`${from}->${to}`),
+        );
       }
     }
   });
@@ -6127,7 +6471,13 @@ afterAll(() => ctx.close());
 
 const TASKS = "/api/v1/tasks";
 
-async function aiChild(user: TestUser, parentId: string, title: string, position: number, state: SuggestionState = "suggested") {
+async function aiChild(
+  user: TestUser,
+  parentId: string,
+  title: string,
+  position: number,
+  state: SuggestionState = "suggested",
+) {
   const [row] = await ctx.db
     .insert(tasks)
     .values({
@@ -6179,7 +6529,8 @@ describe("PATCH /tasks/:id", () => {
     const root = await createTask(ctx.app, user.token, { title: "Root for reorder" });
     const names = ["A", "B", "C", "D"];
     const ids: Record<string, string> = {};
-    for (const n of names) ids[n] = (await createTask(ctx.app, user.token, { title: n, parentId: root.id })).id;
+    for (const n of names)
+      ids[n] = (await createTask(ctx.app, user.token, { title: n, parentId: root.id })).id;
 
     const moved = await patch(user, ids.D!, { position: 1 });
     expect(moved.status).toBe(200);
@@ -6200,11 +6551,24 @@ describe("PATCH /tasks/:id", () => {
 
   it("updates title, description and status; null clears the description", async () => {
     const user = await registerUser(ctx.app);
-    const task = await createTask(ctx.app, user.token, { title: "Before edit", description: "old" });
-    const res = await patch(user, task.id, { title: "After edit", description: null, status: "in_progress" });
+    const task = await createTask(ctx.app, user.token, {
+      title: "Before edit",
+      description: "old",
+    });
+    const res = await patch(user, task.id, {
+      title: "After edit",
+      description: null,
+      status: "in_progress",
+    });
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ title: "After edit", description: null, status: "in_progress" });
-    expect(new Date(res.body.data.updatedAt).getTime()).toBeGreaterThanOrEqual(new Date(task.updatedAt).getTime());
+    expect(res.body.data).toMatchObject({
+      title: "After edit",
+      description: null,
+      status: "in_progress",
+    });
+    expect(new Date(res.body.data.updatedAt).getTime()).toBeGreaterThanOrEqual(
+      new Date(task.updatedAt).getTime(),
+    );
   });
 
   it("walks every allowed suggestion transition and rejects a disallowed one", async () => {
@@ -6218,14 +6582,19 @@ describe("PATCH /tasks/:id", () => {
       expect(res.body.data.suggestionState).toBe(to);
     }
     const other = await aiChild(user, root.id, "Another suggested", 1);
-    expect((await patch(user, other.id, { suggestionState: "dismissed" })).body.data.suggestionState).toBe("dismissed");
+    expect(
+      (await patch(user, other.id, { suggestionState: "dismissed" })).body.data.suggestionState,
+    ).toBe("dismissed");
 
     const back = await patch(user, child.id, { suggestionState: "suggested" });
     expect(back.status).toBe(400);
     expect(back.body.error.code).toBe("VALIDATION_ERROR");
     expect(back.body.error.details[0].path).toBe("body.suggestionState");
 
-    const userStep = await createTask(ctx.app, user.token, { title: "User step", parentId: root.id });
+    const userStep = await createTask(ctx.app, user.token, {
+      title: "User step",
+      parentId: root.id,
+    });
     const onUser = await patch(user, userStep.id, { suggestionState: "accepted" });
     expect(onUser.status).toBe(400);
     expect(onUser.body.error.details[0].path).toBe("body.suggestionState");
@@ -6254,10 +6623,22 @@ describe("accept-all and dismiss-all", () => {
     const listed = await request(ctx.app).get(TASKS).set(auth(user.token));
     expect(listed.body.data.find((t: { id: string }) => t.id === root.id).suggestionCount).toBe(2);
 
-    const accepted = await request(ctx.app).post(`${TASKS}/${root.id}/suggestions/accept-all`).set(auth(user.token));
+    const accepted = await request(ctx.app)
+      .post(`${TASKS}/${root.id}/suggestions/accept-all`)
+      .set(auth(user.token));
     expect(accepted.status).toBe(200);
-    const states = Object.fromEntries(accepted.body.data.children.map((c: { title: string; suggestionState: string | null }) => [c.title, c.suggestionState]));
-    expect(states).toEqual({ "User step": null, S1: "accepted", S2: "accepted", "Already dismissed": "dismissed" });
+    const states = Object.fromEntries(
+      accepted.body.data.children.map((c: { title: string; suggestionState: string | null }) => [
+        c.title,
+        c.suggestionState,
+      ]),
+    );
+    expect(states).toEqual({
+      "User step": null,
+      S1: "accepted",
+      S2: "accepted",
+      "Already dismissed": "dismissed",
+    });
     expect(accepted.body.data.progress).toEqual({ done: 0, total: 3 });
     expect(accepted.body.data.suggestionCount).toBe(0);
 
@@ -6268,9 +6649,13 @@ describe("accept-all and dismiss-all", () => {
     await aiChild(user, root2.id, "S3", 0);
     await aiChild(user, root2.id, "S4", 1);
     expect((await detail(user, root2.id)).suggestionCount).toBe(2);
-    const res = await request(ctx.app).post(`${TASKS}/${root2.id}/suggestions/dismiss-all`).set(auth(user.token));
+    const res = await request(ctx.app)
+      .post(`${TASKS}/${root2.id}/suggestions/dismiss-all`)
+      .set(auth(user.token));
     expect(res.status).toBe(200);
-    expect(res.body.data.children.map((c: { suggestionState: string }) => c.suggestionState)).toEqual(["dismissed", "dismissed"]);
+    expect(
+      res.body.data.children.map((c: { suggestionState: string }) => c.suggestionState),
+    ).toEqual(["dismissed", "dismissed"]);
     expect(res.body.data.progress).toEqual({ done: 0, total: 0 });
     expect(res.body.data.suggestionCount).toBe(0);
   });
@@ -6281,19 +6666,36 @@ describe("PUT /tasks/:id/tags", () => {
     const owner = await registerUser(ctx.app);
     const other = await registerUser(ctx.app);
     const mk = async (u: TestUser, name: string) =>
-      (await request(ctx.app).post("/api/v1/tags").set(auth(u.token)).send({ name, color: "#555555" })).body.data.id as string;
+      (
+        await request(ctx.app)
+          .post("/api/v1/tags")
+          .set(auth(u.token))
+          .send({ name, color: "#555555" })
+      ).body.data.id as string;
     const t1 = await mk(owner, "t1");
     const t2 = await mk(owner, "t2");
     const t3 = await mk(other, "t3");
     const task = await createTask(ctx.app, owner.token, { title: "Tag me", tagIds: [t1] });
 
-    const put = (ids: string[]) => request(ctx.app).put(`${TASKS}/${task.id}/tags`).set(auth(owner.token)).send({ tagIds: ids });
-    expect((await put([t1, t2])).body.data.tags.map((t: { id: string }) => t.id).sort()).toEqual([t1, t2].sort());
+    const put = (ids: string[]) =>
+      request(ctx.app).put(`${TASKS}/${task.id}/tags`).set(auth(owner.token)).send({ tagIds: ids });
+    expect((await put([t1, t2])).body.data.tags.map((t: { id: string }) => t.id).sort()).toEqual(
+      [t1, t2].sort(),
+    );
     const foreign = await put([t3]);
     expect(foreign.status).toBe(400);
-    expect(foreign.body.error.details).toEqual([{ path: "body.tagIds", message: `Unknown tag id ${t3}` }]);
+    expect(foreign.body.error.details).toEqual([
+      { path: "body.tagIds", message: `Unknown tag id ${t3}` },
+    ]);
     expect((await put([])).body.data.tags).toEqual([]);
-    expect((await request(ctx.app).put(`${TASKS}/${task.id}/tags`).set(auth(other.token)).send({ tagIds: [] })).status).toBe(404);
+    expect(
+      (
+        await request(ctx.app)
+          .put(`${TASKS}/${task.id}/tags`)
+          .set(auth(other.token))
+          .send({ tagIds: [] })
+      ).status,
+    ).toBe(404);
   });
 });
 ```
@@ -6309,14 +6711,19 @@ Expected: FAIL; `./suggestions.js` unresolved, and the PATCH requests return 404
 import type { SuggestionState } from "../schemas/tasks.js";
 
 /** From spec 4.4: suggested to accepted or dismissed, dismissed to accepted, accepted to dismissed. */
-export const ALLOWED_SUGGESTION_TRANSITIONS: ReadonlyArray<readonly [SuggestionState, SuggestionState]> = [
+export const ALLOWED_SUGGESTION_TRANSITIONS: ReadonlyArray<
+  readonly [SuggestionState, SuggestionState]
+> = [
   ["suggested", "accepted"],
   ["suggested", "dismissed"],
   ["dismissed", "accepted"],
   ["accepted", "dismissed"],
 ];
 
-export function canTransitionSuggestion(from: SuggestionState | null, to: SuggestionState): boolean {
+export function canTransitionSuggestion(
+  from: SuggestionState | null,
+  to: SuggestionState,
+): boolean {
   if (from === null) return false;
   return ALLOWED_SUGGESTION_TRANSITIONS.some(([f, t]) => f === from && t === to);
 }
@@ -6327,7 +6734,9 @@ export function canTransitionSuggestion(from: SuggestionState | null, to: Sugges
 Append to `src/repositories/tasks.ts` (add `SuggestionState` to the existing type import from `../schemas/tasks.js`):
 
 ```ts
-export type TaskFieldPatch = Partial<Pick<TaskRow, "title" | "description" | "status" | "suggestionState">>;
+export type TaskFieldPatch = Partial<
+  Pick<TaskRow, "title" | "description" | "status" | "suggestionState">
+>;
 
 export async function updateTaskFields(
   db: DbOrTx,
@@ -6344,7 +6753,11 @@ export async function updateTaskFields(
 }
 
 /** Siblings in order, locked for the duration of the transaction so concurrent reorders serialize. */
-export async function listSiblings(db: DbOrTx, userId: string, parentId: string | null): Promise<TaskRow[]> {
+export async function listSiblings(
+  db: DbOrTx,
+  userId: string,
+  parentId: string | null,
+): Promise<TaskRow[]> {
   return db
     .select()
     .from(tasks)
@@ -6353,9 +6766,15 @@ export async function listSiblings(db: DbOrTx, userId: string, parentId: string 
     .for("update");
 }
 
-export async function setPositions(db: DbOrTx, updates: { id: string; position: number }[]): Promise<void> {
+export async function setPositions(
+  db: DbOrTx,
+  updates: { id: string; position: number }[],
+): Promise<void> {
   for (const update of updates) {
-    await db.update(tasks).set({ position: update.position, updatedAt: new Date() }).where(eq(tasks.id, update.id));
+    await db
+      .update(tasks)
+      .set({ position: update.position, updatedAt: new Date() })
+      .where(eq(tasks.id, update.id));
   }
 }
 
@@ -6369,7 +6788,14 @@ export async function setSuggestionStateForAll(
   const rows = await db
     .update(tasks)
     .set({ suggestionState: to, updatedAt: new Date() })
-    .where(and(eq(tasks.parentId, parentId), eq(tasks.userId, userId), eq(tasks.origin, "ai"), eq(tasks.suggestionState, from)))
+    .where(
+      and(
+        eq(tasks.parentId, parentId),
+        eq(tasks.userId, userId),
+        eq(tasks.origin, "ai"),
+        eq(tasks.suggestionState, from),
+      ),
+    )
     .returning({ id: tasks.id });
   return rows.length;
 }
@@ -6483,25 +6909,25 @@ const tagsSchemas = { params: IdParams, body: ReplaceTagsBody };
 and add these routes before `return router;`:
 
 ```ts
-  router.patch("/:id", validate(updateSchemas), async (req, res) => {
-    const { params, body } = validated<typeof updateSchemas>(res);
-    sendData(res, await service.update(currentUser(req).id, params.id, body));
-  });
+router.patch("/:id", validate(updateSchemas), async (req, res) => {
+  const { params, body } = validated<typeof updateSchemas>(res);
+  sendData(res, await service.update(currentUser(req).id, params.id, body));
+});
 
-  router.post("/:id/suggestions/accept-all", validate(idSchemas), async (req, res) => {
-    const { params } = validated<typeof idSchemas>(res);
-    sendData(res, await service.acceptAll(currentUser(req).id, params.id));
-  });
+router.post("/:id/suggestions/accept-all", validate(idSchemas), async (req, res) => {
+  const { params } = validated<typeof idSchemas>(res);
+  sendData(res, await service.acceptAll(currentUser(req).id, params.id));
+});
 
-  router.post("/:id/suggestions/dismiss-all", validate(idSchemas), async (req, res) => {
-    const { params } = validated<typeof idSchemas>(res);
-    sendData(res, await service.dismissAll(currentUser(req).id, params.id));
-  });
+router.post("/:id/suggestions/dismiss-all", validate(idSchemas), async (req, res) => {
+  const { params } = validated<typeof idSchemas>(res);
+  sendData(res, await service.dismissAll(currentUser(req).id, params.id));
+});
 
-  router.put("/:id/tags", validate(tagsSchemas), async (req, res) => {
-    const { params, body } = validated<typeof tagsSchemas>(res);
-    sendData(res, await service.replaceTags(currentUser(req).id, params.id, body.tagIds));
-  });
+router.put("/:id/tags", validate(tagsSchemas), async (req, res) => {
+  const { params, body } = validated<typeof tagsSchemas>(res);
+  sendData(res, await service.replaceTags(currentUser(req).id, params.id, body.tagIds));
+});
 ```
 
 - [ ] **Step 7: Run the tests to verify they pass**
@@ -6533,11 +6959,13 @@ MSG
 ### Task 15: Agent module: prompt loader, breakdown logic, Anthropic adapter
 
 **Files:**
+
 - Create: `src/agent/prompt.ts`, `src/agent/breakdown.ts`, `src/agent/anthropic-model.ts`, `tests/fixtures/breakdown.ok.json`
 - Modify: `src/agent/model.ts`
 - Test: `src/agent/breakdown.test.ts`, `src/agent/prompt.test.ts`, `src/agent/anthropic-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 9 `BreakdownModel`, `BreakdownInput`, `BreakdownOutcome`, errors, `FakeBreakdownModel`; Task 4 `BreakdownSchema`, `MIN_STEPS`, `MAX_STEPS`, `MAX_TAG_SUGGESTIONS`; Task 6 prompt file.
 - Produces:
   - `src/agent/prompt.ts`: `PROMPT_URL`, `promptPath(): string`, `loadSystemPrompt(): string`.
@@ -6614,17 +7042,29 @@ describe("recorded contract fixture", () => {
 describe("postValidate", () => {
   it("trims titles and rationales and removes case-insensitive duplicates", () => {
     const result = postValidate({
-      steps: [step("  Call the venue ", " first "), step("call the VENUE"), step("Send invites"), step("Book flights")],
+      steps: [
+        step("  Call the venue ", " first "),
+        step("call the VENUE"),
+        step("Send invites"),
+        step("Book flights"),
+      ],
       tagSuggestions: [" Travel ", "travel", "work"],
     });
-    expect(result.steps.map((s) => s.title)).toEqual(["Call the venue", "Send invites", "Book flights"]);
+    expect(result.steps.map((s) => s.title)).toEqual([
+      "Call the venue",
+      "Send invites",
+      "Book flights",
+    ]);
     expect(result.steps[0]?.rationale).toBe("first");
     expect(result.tagSuggestions).toEqual(["Travel", "work"]);
   });
 
   it("drops empty titles and rejects fewer than three distinct steps", () => {
     expect(() =>
-      postValidate({ steps: [step("   "), step("One"), step("one"), step("Two")], tagSuggestions: [] }),
+      postValidate({
+        steps: [step("   "), step("One"), step("one"), step("Two")],
+        tagSuggestions: [],
+      }),
     ).toThrow(BreakdownInvalid);
   });
 
@@ -6639,9 +7079,15 @@ describe("postValidate", () => {
 
 describe("breakdownTask outcomes", () => {
   it("maps refused and invalid outcomes to non-retryable errors and lets retryable errors propagate", async () => {
-    await expect(breakdownTask(input, new FakeBreakdownModel({ mode: "refuse" }))).rejects.toBeInstanceOf(BreakdownRefused);
-    await expect(breakdownTask(input, new FakeBreakdownModel({ mode: "invalid" }))).rejects.toBeInstanceOf(BreakdownInvalid);
-    await expect(breakdownTask(input, new FakeBreakdownModel({ mode: "retryable-error" }))).rejects.toBeInstanceOf(ModelRetryableError);
+    await expect(
+      breakdownTask(input, new FakeBreakdownModel({ mode: "refuse" })),
+    ).rejects.toBeInstanceOf(BreakdownRefused);
+    await expect(
+      breakdownTask(input, new FakeBreakdownModel({ mode: "invalid" })),
+    ).rejects.toBeInstanceOf(BreakdownInvalid);
+    await expect(
+      breakdownTask(input, new FakeBreakdownModel({ mode: "retryable-error" })),
+    ).rejects.toBeInstanceOf(ModelRetryableError);
   });
 });
 
@@ -6681,7 +7127,12 @@ describe("system prompt", () => {
 ```ts
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { AnthropicBreakdownModel, MAX_OUTPUT_TOKENS, MODEL_TIMEOUT_MS, toModelError } from "./anthropic-model.js";
+import {
+  AnthropicBreakdownModel,
+  MAX_OUTPUT_TOKENS,
+  MODEL_TIMEOUT_MS,
+  toModelError,
+} from "./anthropic-model.js";
 import { ModelNonRetryableError, ModelRetryableError } from "./errors.js";
 
 function sdkError<T extends object>(proto: T, props: Record<string, unknown>): T {
@@ -6701,8 +7152,12 @@ describe("toModelError", () => {
   });
 
   it("marks other API errors non-retryable and passes unknown errors through", () => {
-    expect(toModelError(sdkError(Anthropic.BadRequestError.prototype, { status: 400 }))).toBeInstanceOf(ModelNonRetryableError);
-    expect(toModelError(sdkError(Anthropic.AuthenticationError.prototype, { status: 401 }))).toBeInstanceOf(ModelNonRetryableError);
+    expect(
+      toModelError(sdkError(Anthropic.BadRequestError.prototype, { status: 400 })),
+    ).toBeInstanceOf(ModelNonRetryableError);
+    expect(
+      toModelError(sdkError(Anthropic.AuthenticationError.prototype, { status: 401 })),
+    ).toBeInstanceOf(ModelNonRetryableError);
     const plain = new Error("boom");
     expect(toModelError(plain)).toBe(plain);
   });
@@ -6710,7 +7165,11 @@ describe("toModelError", () => {
 
 describe("AnthropicBreakdownModel", () => {
   it("constructs with the spec's timeout and no SDK retries", () => {
-    const model = new AnthropicBreakdownModel({ apiKey: "sk-test", model: "claude-sonnet-5", systemPrompt: "x" });
+    const model = new AnthropicBreakdownModel({
+      apiKey: "sk-test",
+      model: "claude-sonnet-5",
+      systemPrompt: "x",
+    });
     expect(model).toBeInstanceOf(AnthropicBreakdownModel);
     expect(MODEL_TIMEOUT_MS).toBe(45_000);
     expect(MAX_OUTPUT_TOKENS).toBe(4096);
@@ -6755,14 +7214,22 @@ export function loadSystemPrompt(): string {
 - [ ] **Step 4: Write `src/agent/breakdown.ts`**
 
 ```ts
-import { MAX_STEPS, MAX_TAG_SUGGESTIONS, MIN_STEPS, type BreakdownResult } from "../schemas/breakdown.js";
+import {
+  MAX_STEPS,
+  MAX_TAG_SUGGESTIONS,
+  MIN_STEPS,
+  type BreakdownResult,
+} from "../schemas/breakdown.js";
 import { BreakdownInvalid, BreakdownRefused } from "./errors.js";
 import type { BreakdownInput, BreakdownModel } from "./model.js";
 
 export const MIN_TITLE_WORDS = 3;
 
 /** Skip rule from spec 5.2: fewer than three words in the title and no description. */
-export function shouldSkipBreakdown(title: string, description: string | null | undefined): boolean {
+export function shouldSkipBreakdown(
+  title: string,
+  description: string | null | undefined,
+): boolean {
   const words = title.trim().split(/\s+/).filter(Boolean).length;
   return words < MIN_TITLE_WORDS && (description ?? "").trim().length === 0;
 }
@@ -6781,7 +7248,9 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
     if (steps.length === MAX_STEPS) break;
   }
   if (steps.length < MIN_STEPS) {
-    throw new BreakdownInvalid(`expected at least ${MIN_STEPS} distinct steps, got ${steps.length}`);
+    throw new BreakdownInvalid(
+      `expected at least ${MIN_STEPS} distinct steps, got ${steps.length}`,
+    );
   }
 
   const seenTags = new Set<string>();
@@ -6799,7 +7268,10 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
 }
 
 /** Pure orchestration: call the model, translate outcomes into errors, post-validate. */
-export async function breakdownTask(input: BreakdownInput, model: BreakdownModel): Promise<BreakdownResult> {
+export async function breakdownTask(
+  input: BreakdownInput,
+  model: BreakdownModel,
+): Promise<BreakdownResult> {
   const outcome = await model.complete(input);
   if (outcome.kind === "refused") throw new BreakdownRefused(outcome.reason);
   if (outcome.kind === "invalid") throw new BreakdownInvalid(outcome.reason);
@@ -6838,7 +7310,11 @@ export class AnthropicBreakdownModel implements BreakdownModel {
 
   constructor(private readonly options: { apiKey: string; model: string; systemPrompt: string }) {
     // BullMQ owns retries (spec 5.1): one bounded attempt per job attempt.
-    this.client = new Anthropic({ apiKey: options.apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 0 });
+    this.client = new Anthropic({
+      apiKey: options.apiKey,
+      timeout: MODEL_TIMEOUT_MS,
+      maxRetries: 0,
+    });
   }
 
   async complete(input: BreakdownInput): Promise<BreakdownOutcome> {
@@ -6926,11 +7402,13 @@ MSG
 ### Task 16: Breakdown processor and the breakdown action
 
 **Files:**
+
 - Create: `src/jobs/processors/breakdown.ts`
 - Modify: `src/repositories/tasks.ts`, `src/services/tasks.ts`, `src/routes/tasks.ts`, `tests/helpers/app.ts`
 - Test: `tests/api/breakdown.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 15 `breakdownTask`, `shouldSkipBreakdown`, errors; Task 13 and 14 repository and service; Task 12 `listTags`, `tagsForTasks`; Task 11 `RateLimiter`; Task 9 `BreakdownJobData`, `breakdownJobId`, `FakeQueue.drain`.
 - Produces:
   - repository additions: `reserveGeneration(db, id, userId, generationId): Promise<TaskRow | undefined>` (the atomic conditional update), `openRootTitles(db, userId, excludeId, limit): Promise<string[]>`, `replaceSuggestedChildren(tx, { taskId, userId, generationId, steps, tagSuggestions }): Promise<boolean>`.
@@ -6965,13 +7443,20 @@ afterAll(() => ctx.close());
 const TASKS = "/api/v1/tasks";
 const breakdown = (c: TestContext, user: TestUser, id: string) =>
   request(c.app).post(`${TASKS}/${id}/breakdown`).set(auth(user.token));
-const get = (c: TestContext, user: TestUser, id: string) => request(c.app).get(`${TASKS}/${id}`).set(auth(user.token));
+const get = (c: TestContext, user: TestUser, id: string) =>
+  request(c.app).get(`${TASKS}/${id}`).set(auth(user.token));
 
 describe("processor through the fake queue", () => {
   it("writes suggested children with rationale, tag suggestions not already on the task, and aiStatus done", async () => {
     const user = await registerUser(ctx.app);
-    const tag = await request(ctx.app).post("/api/v1/tags").set(auth(user.token)).send({ name: "Planning", color: "#666666" });
-    const task = await createTask(ctx.app, user.token, { title: "Plan the Q4 team offsite", tagIds: [tag.body.data.id] });
+    const tag = await request(ctx.app)
+      .post("/api/v1/tags")
+      .set(auth(user.token))
+      .send({ name: "Planning", color: "#666666" });
+    const task = await createTask(ctx.app, user.token, {
+      title: "Plan the Q4 team offsite",
+      tagIds: [tag.body.data.id],
+    });
     expect(await ctx.runQueue()).toBe(1);
     const res = await get(ctx, user, task.id);
     expect(res.body.data.aiStatus).toBe("done");
@@ -6979,12 +7464,22 @@ describe("processor through the fake queue", () => {
     expect(res.body.data.children).toHaveLength(4);
     expect(res.body.data.suggestionCount).toBe(4);
     for (const child of res.body.data.children) {
-      expect(child).toMatchObject({ origin: "ai", suggestionState: "suggested", aiStatus: "skipped" });
+      expect(child).toMatchObject({
+        origin: "ai",
+        suggestionState: "suggested",
+        aiStatus: "skipped",
+      });
       expect(child.rationale).toEqual(expect.any(String));
     }
-    expect(res.body.data.children.map((c: { position: number }) => c.position)).toEqual([0, 1, 2, 3]);
+    expect(res.body.data.children.map((c: { position: number }) => c.position)).toEqual([
+      0, 1, 2, 3,
+    ]);
     expect(res.body.data.aiTagSuggestions).toEqual(["writing"]);
-    expect(ctx.model.calls[0]).toMatchObject({ title: "Plan the Q4 team offsite", tags: ["Planning"], existingSteps: [] });
+    expect(ctx.model.calls[0]).toMatchObject({
+      title: "Plan the Q4 team offsite",
+      tags: ["Planning"],
+      existingSteps: [],
+    });
   });
 
   it("passes existing steps and up to 30 open root titles to the model", async () => {
@@ -7012,20 +7507,32 @@ describe("processor through the fake queue", () => {
     const task = await createTask(ctx.app, user.token, { title: "Buy milk" });
     await ctx.runQueue();
     const res = await get(ctx, user, task.id);
-    expect(res.body.data).toMatchObject({ aiStatus: "skipped", aiSkipReason: "too_short", children: [] });
+    expect(res.body.data).toMatchObject({
+      aiStatus: "skipped",
+      aiSkipReason: "too_short",
+      children: [],
+    });
   });
 
   it("marks refusals and invalid answers failed with a human-readable message", async () => {
     const user = await registerUser(ctx.app);
     ctx.model.mode = "refuse";
-    const refused = await createTask(ctx.app, user.token, { title: "Something the model declines" });
+    const refused = await createTask(ctx.app, user.token, {
+      title: "Something the model declines",
+    });
     await ctx.runQueue();
-    expect((await get(ctx, user, refused.id)).body.data).toMatchObject({ aiStatus: "failed", aiError: AI_ERROR_MESSAGES.refused });
+    expect((await get(ctx, user, refused.id)).body.data).toMatchObject({
+      aiStatus: "failed",
+      aiError: AI_ERROR_MESSAGES.refused,
+    });
 
     ctx.model.mode = "invalid";
     const invalid = await createTask(ctx.app, user.token, { title: "Something the model garbles" });
     await ctx.runQueue();
-    expect((await get(ctx, user, invalid.id)).body.data).toMatchObject({ aiStatus: "failed", aiError: AI_ERROR_MESSAGES.invalid });
+    expect((await get(ctx, user, invalid.id)).body.data).toMatchObject({
+      aiStatus: "failed",
+      aiError: AI_ERROR_MESSAGES.invalid,
+    });
     ctx.model.mode = "ok";
   });
 
@@ -7059,14 +7566,25 @@ describe("POST /tasks/:id/breakdown", () => {
     const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, task.id));
     const oldGeneration = row?.generationId;
 
-    const [a, b] = await Promise.all([breakdown(ctx, user, task.id), breakdown(ctx, user, task.id)]);
+    const [a, b] = await Promise.all([
+      breakdown(ctx, user, task.id),
+      breakdown(ctx, user, task.id),
+    ]);
     expect([a.status, b.status].sort()).toEqual([202, 409]);
     const accepted = a.status === 202 ? a : b;
     const rejected = a.status === 409 ? a : b;
-    expect(accepted.body.data).toMatchObject({ aiStatus: "pending", aiError: null, aiSkipReason: null });
+    expect(accepted.body.data).toMatchObject({
+      aiStatus: "pending",
+      aiError: null,
+      aiSkipReason: null,
+    });
     expect(rejected.body.error.code).toBe("CONFLICT");
     expect(ctx.queue.jobs).toHaveLength(1);
-    expect(ctx.queue.jobs[0]).toMatchObject({ taskId: task.id, userId: user.userId, reason: "regenerate" });
+    expect(ctx.queue.jobs[0]).toMatchObject({
+      taskId: task.id,
+      userId: user.userId,
+      reason: "regenerate",
+    });
     expect(ctx.queue.jobs[0]?.generationId).not.toBe(oldGeneration);
   });
 
@@ -7079,7 +7597,11 @@ describe("POST /tasks/:id/breakdown", () => {
       const res = await breakdown(limited, user, task.id);
       expect(res.status).toBe(429);
       expect(res.body.error.code).toBe("RATE_LIMITED");
-      expect(res.body.error.details).toEqual({ scope: "user", limit: 1, resetAt: expect.any(String) });
+      expect(res.body.error.details).toEqual({
+        scope: "user",
+        limit: 1,
+        resetAt: expect.any(String),
+      });
       expect(new Date(res.body.error.details.resetAt).getUTCMinutes()).toBe(0);
       expect(res.body.error.details.resetAt).toBe(nextHourIso(new Date()));
     } finally {
@@ -7098,7 +7620,11 @@ describe("POST /tasks/:id/breakdown", () => {
       expect(task.aiSkipReason).toBe("rate_limited");
       const res = await breakdown(budget, b, task.id);
       expect(res.status).toBe(429);
-      expect(res.body.error.details).toEqual({ scope: "global", limit: 1, resetAt: expect.any(String) });
+      expect(res.body.error.details).toEqual({
+        scope: "global",
+        limit: 1,
+        resetAt: expect.any(String),
+      });
     } finally {
       await budget.close();
     }
@@ -7158,18 +7684,36 @@ export async function reserveGeneration(
 ): Promise<TaskRow | undefined> {
   const [row] = await db
     .update(tasks)
-    .set({ aiStatus: "pending", generationId, aiError: null, aiSkipReason: null, updatedAt: new Date() })
+    .set({
+      aiStatus: "pending",
+      generationId,
+      aiError: null,
+      aiSkipReason: null,
+      updatedAt: new Date(),
+    })
     .where(and(owned(id, userId), notInArray(tasks.aiStatus, ["pending", "running"])))
     .returning();
   return row;
 }
 
 /** Titles of the user's other open root tasks, newest first. */
-export async function openRootTitles(db: DbOrTx, userId: string, excludeId: string, limit: number): Promise<string[]> {
+export async function openRootTitles(
+  db: DbOrTx,
+  userId: string,
+  excludeId: string,
+  limit: number,
+): Promise<string[]> {
   const rows = await db
     .select({ title: tasks.title })
     .from(tasks)
-    .where(and(eq(tasks.userId, userId), isNull(tasks.parentId), ne(tasks.id, excludeId), ne(tasks.status, "done")))
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNull(tasks.parentId),
+        ne(tasks.id, excludeId),
+        ne(tasks.status, "done"),
+      ),
+    )
     .orderBy(desc(tasks.createdAt), desc(tasks.id))
     .limit(limit);
   return rows.map((r) => r.title);
@@ -7189,7 +7733,10 @@ export interface ReplaceSuggestedChildrenOptions {
  * current maximum position, sets tag suggestions and ai_status done. Returns false when the
  * generation was superseded, in which case nothing is written.
  */
-export async function replaceSuggestedChildren(tx: DbOrTx, opts: ReplaceSuggestedChildrenOptions): Promise<boolean> {
+export async function replaceSuggestedChildren(
+  tx: DbOrTx,
+  opts: ReplaceSuggestedChildrenOptions,
+): Promise<boolean> {
   const [locked] = await tx
     .select({ id: tasks.id })
     .from(tasks)
@@ -7199,7 +7746,13 @@ export async function replaceSuggestedChildren(tx: DbOrTx, opts: ReplaceSuggeste
 
   await tx
     .delete(tasks)
-    .where(and(eq(tasks.parentId, opts.taskId), eq(tasks.origin, "ai"), eq(tasks.suggestionState, "suggested")));
+    .where(
+      and(
+        eq(tasks.parentId, opts.taskId),
+        eq(tasks.origin, "ai"),
+        eq(tasks.suggestionState, "suggested"),
+      ),
+    );
 
   const start = (await maxSiblingPosition(tx, opts.userId, opts.taskId)) + 1;
   if (opts.steps.length > 0) {
@@ -7219,7 +7772,12 @@ export async function replaceSuggestedChildren(tx: DbOrTx, opts: ReplaceSuggeste
 
   const updated = await tx
     .update(tasks)
-    .set({ aiStatus: "done", aiTagSuggestions: opts.tagSuggestions, aiError: null, updatedAt: new Date() })
+    .set({
+      aiStatus: "done",
+      aiTagSuggestions: opts.tagSuggestions,
+      aiError: null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(tasks.id, opts.taskId), eq(tasks.generationId, opts.generationId)))
     .returning({ id: tasks.id });
   return updated.length > 0;
@@ -7272,9 +7830,15 @@ export function failureMessage(err: unknown): string | undefined {
  * Spec 5.2. Every write carries WHERE generation_id = <job's>, so a superseded job can never
  * overwrite a newer generation's state. Throws only for retryable failures.
  */
-export async function processBreakdownJob(data: BreakdownJobData, deps: ProcessorDeps): Promise<void> {
+export async function processBreakdownJob(
+  data: BreakdownJobData,
+  deps: ProcessorDeps,
+): Promise<void> {
   const { db, model } = deps;
-  const log = deps.logger.child({ jobId: breakdownJobId(data.taskId, data.generationId), taskId: data.taskId });
+  const log = deps.logger.child({
+    jobId: breakdownJobId(data.taskId, data.generationId),
+    taskId: data.taskId,
+  });
 
   // 1. Load. A missing task or a different generation means a newer generation owns it.
   const task = await findOwnedTask(db, data.taskId, data.userId);
@@ -7285,7 +7849,10 @@ export async function processBreakdownJob(data: BreakdownJobData, deps: Processo
 
   // 2. Skip rule.
   if (shouldSkipBreakdown(task.title, task.description)) {
-    await updateAiState(db, task.id, data.generationId, { aiStatus: "skipped", aiSkipReason: "too_short" });
+    await updateAiState(db, task.id, data.generationId, {
+      aiStatus: "skipped",
+      aiSkipReason: "too_short",
+    });
     log.info("skipped: title too short");
     return;
   }
@@ -7339,7 +7906,10 @@ export async function processBreakdownJob(data: BreakdownJobData, deps: Processo
     }),
   );
   if (written) {
-    log.info({ steps: result.steps.length, tagSuggestions: tagSuggestions.length }, "breakdown done");
+    log.info(
+      { steps: result.steps.length, tagSuggestions: tagSuggestions.length },
+      "breakdown done",
+    );
   } else {
     log.info("superseded during persist; result discarded");
   }
@@ -7384,10 +7954,10 @@ and add the method to the returned object:
 In `src/routes/tasks.ts` add before `return router;`:
 
 ```ts
-  router.post("/:id/breakdown", validate(idSchemas), async (req, res) => {
-    const { params } = validated<typeof idSchemas>(res);
-    sendData(res, await service.breakdown(currentUser(req).id, params.id), { status: 202 });
-  });
+router.post("/:id/breakdown", validate(idSchemas), async (req, res) => {
+  const { params } = validated<typeof idSchemas>(res);
+  sendData(res, await service.breakdown(currentUser(req).id, params.id), { status: 202 });
+});
 ```
 
 - [ ] **Step 6: Add `runQueue` to the harness**
@@ -7428,11 +7998,13 @@ MSG
 ### Task 17: Worker, reconciler, and the real-queue jobs tests
 
 **Files:**
+
 - Create: `src/jobs/worker.ts`, `src/jobs/reconcile.ts`
 - Modify: `src/repositories/tasks.ts`
 - Test: `tests/jobs/breakdown.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 16 `processBreakdownJob`, `AI_ERROR_MESSAGES`, `updateAiState`; Task 9 queue constants, `createBreakdownQueue`, `createRedis`; Task 13 `createTasksService`; Task 11 `createRateLimiter`.
 - Produces:
   - `src/jobs/worker.ts`: `interface WorkerDeps { connection: Redis; db: Db; model: BreakdownModel; logger: Logger }`, `type BreakdownWorker = Worker<BreakdownJobData>`, `startBreakdownWorker(deps): BreakdownWorker` (concurrency 3; on the final failed attempt sets `ai_status = failed` with `AI_ERROR_MESSAGES.unavailable`, guarded by the generation id).
@@ -7452,7 +8024,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { FakeBreakdownModel } from "../../src/agent/fake-model.js";
 import { tasks } from "../../src/db/schema.js";
 import { AI_ERROR_MESSAGES } from "../../src/jobs/processors/breakdown.js";
-import { breakdownJobId, createBreakdownQueue, type BreakdownBullQueue, type BreakdownQueue } from "../../src/jobs/queue.js";
+import {
+  breakdownJobId,
+  createBreakdownQueue,
+  type BreakdownBullQueue,
+  type BreakdownQueue,
+} from "../../src/jobs/queue.js";
 import { reconcileStaleGenerations, STALE_ERROR_MESSAGE } from "../../src/jobs/reconcile.js";
 import { startBreakdownWorker, type BreakdownWorker } from "../../src/jobs/worker.js";
 import { createLogger } from "../../src/lib/logger.js";
@@ -7484,7 +8061,12 @@ beforeEach(() => {
   queue = createBreakdownQueue(queueConnection);
   model = new FakeBreakdownModel();
   completed = [];
-  service = createTasksService({ db: ctx.db, queue, rateLimiter: createRateLimiter(ctx.redis, ctx.config), logger });
+  service = createTasksService({
+    db: ctx.db,
+    queue,
+    rateLimiter: createRateLimiter(ctx.redis, ctx.config),
+    logger,
+  });
 });
 
 afterEach(async () => {
@@ -7501,12 +8083,17 @@ function startWorker() {
   return worker;
 }
 
-async function waitFor<T>(read: () => Promise<T>, done: (v: T) => boolean, timeoutMs = 15_000): Promise<T> {
+async function waitFor<T>(
+  read: () => Promise<T>,
+  done: (v: T) => boolean,
+  timeoutMs = 15_000,
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const value = await read();
     if (done(value)) return value;
-    if (Date.now() > deadline) throw new Error(`timed out waiting; last value: ${JSON.stringify(value)}`);
+    if (Date.now() > deadline)
+      throw new Error(`timed out waiting; last value: ${JSON.stringify(value)}`);
     await new Promise((r) => setTimeout(r, 100));
   }
 }
@@ -7527,7 +8114,9 @@ describe("real BullMQ worker", () => {
     expect(done?.aiTagSuggestions).toEqual(["planning", "writing"]);
     const children = await listChildren(ctx.db, task.id);
     expect(children).toHaveLength(4);
-    expect(children.every((c) => c.origin === "ai" && c.suggestionState === "suggested" && c.rationale)).toBe(true);
+    expect(
+      children.every((c) => c.origin === "ai" && c.suggestionState === "suggested" && c.rationale),
+    ).toBe(true);
     expect(completed).toContain(expectedJobId);
   });
 
@@ -7552,24 +8141,38 @@ describe("real BullMQ worker", () => {
     const again = await service.breakdown(user.userId, task.id);
     expect(again.aiStatus).toBe("pending");
     await waitFor(row(task.id, user.userId), (t) => t?.aiStatus === "done");
-    await waitFor(() => listChildren(ctx.db, task.id), (c) => c.length === 5);
+    await waitFor(
+      () => listChildren(ctx.db, task.id),
+      (c) => c.length === 5,
+    );
     const after = await listChildren(ctx.db, task.id);
-    expect(after.filter((c) => c.suggestionState === "accepted").map((c) => c.id)).toEqual([kept.id]);
+    expect(after.filter((c) => c.suggestionState === "accepted").map((c) => c.id)).toEqual([
+      kept.id,
+    ]);
     expect(after.filter((c) => c.suggestionState === "suggested")).toHaveLength(4);
-    expect(after.filter((c) => first.some((f) => f.id === c.id && f.id !== kept.id))).toHaveLength(0);
-    expect(Math.max(...after.map((c) => c.position))).toBeGreaterThan(Math.max(...first.map((c) => c.position)));
+    expect(after.filter((c) => first.some((f) => f.id === c.id && f.id !== kept.id))).toHaveLength(
+      0,
+    );
+    expect(Math.max(...after.map((c) => c.position))).toBeGreaterThan(
+      Math.max(...first.map((c) => c.position)),
+    );
   });
 
   it("completes a job whose generation no longer matches without writing", async () => {
     const user = await registerUser(ctx.app);
-    const task = await service.create(user.userId, { title: "Superseded before the worker starts" });
+    const task = await service.create(user.userId, {
+      title: "Superseded before the worker starts",
+    });
     const [pending] = await ctx.db.select().from(tasks).where(eq(tasks.id, task.id));
     const staleJobId = breakdownJobId(task.id, pending!.generationId!);
     const newer = randomUUID();
     await ctx.db.update(tasks).set({ generationId: newer }).where(eq(tasks.id, task.id));
 
     startWorker();
-    await waitFor(async () => completed, (c) => c.includes(staleJobId));
+    await waitFor(
+      async () => completed,
+      (c) => c.includes(staleJobId),
+    );
     const [after] = await ctx.db.select().from(tasks).where(eq(tasks.id, task.id));
     expect(after).toMatchObject({ aiStatus: "pending", generationId: newer });
     expect(await listChildren(ctx.db, task.id)).toEqual([]);
@@ -7584,11 +8187,22 @@ describe("reconciler", () => {
     const stuckGeneration = randomUUID();
     const [stuck] = await ctx.db
       .insert(tasks)
-      .values({ userId: user.userId, title: "Stuck in running", aiStatus: "running", generationId: stuckGeneration, updatedAt: old })
+      .values({
+        userId: user.userId,
+        title: "Stuck in running",
+        aiStatus: "running",
+        generationId: stuckGeneration,
+        updatedAt: old,
+      })
       .returning();
     const [fresh] = await ctx.db
       .insert(tasks)
-      .values({ userId: user.userId, title: "Fresh and running", aiStatus: "running", generationId: randomUUID() })
+      .values({
+        userId: user.userId,
+        title: "Fresh and running",
+        aiStatus: "running",
+        generationId: randomUUID(),
+      })
       .returning();
     const [oldDone] = await ctx.db
       .insert(tasks)
@@ -7598,10 +8212,18 @@ describe("reconciler", () => {
     expect(await reconcileStaleGenerations(ctx.db, 10, logger)).toBe(1);
 
     const [stuckAfter] = await ctx.db.select().from(tasks).where(eq(tasks.id, stuck!.id));
-    expect(stuckAfter).toMatchObject({ aiStatus: "failed", aiError: STALE_ERROR_MESSAGE, generationId: stuckGeneration });
+    expect(stuckAfter).toMatchObject({
+      aiStatus: "failed",
+      aiError: STALE_ERROR_MESSAGE,
+      generationId: stuckGeneration,
+    });
     expect(stuckAfter!.updatedAt.getTime()).toBeGreaterThan(old.getTime());
-    expect((await ctx.db.select().from(tasks).where(eq(tasks.id, fresh!.id)))[0]?.aiStatus).toBe("running");
-    expect((await ctx.db.select().from(tasks).where(eq(tasks.id, oldDone!.id)))[0]?.aiStatus).toBe("done");
+    expect((await ctx.db.select().from(tasks).where(eq(tasks.id, fresh!.id)))[0]?.aiStatus).toBe(
+      "running",
+    );
+    expect((await ctx.db.select().from(tasks).where(eq(tasks.id, oldDone!.id)))[0]?.aiStatus).toBe(
+      "done",
+    );
     expect(await reconcileStaleGenerations(ctx.db, 10, logger)).toBe(0);
   });
 });
@@ -7618,7 +8240,11 @@ Append to `src/repositories/tasks.ts` (add `inArray` is already imported; add `l
 
 ```ts
 /** Reconciler write: stuck generations become retryable failures; generation_id is kept so a late job still cannot write. */
-export async function failStaleGenerations(db: DbOrTx, olderThan: Date, message: string): Promise<number> {
+export async function failStaleGenerations(
+  db: DbOrTx,
+  olderThan: Date,
+  message: string,
+): Promise<number> {
   const rows = await db
     .update(tasks)
     .set({ aiStatus: "failed", aiError: message, updatedAt: new Date() })
@@ -7638,7 +8264,12 @@ import type { Db } from "../db/client.js";
 import type { Logger } from "../lib/logger.js";
 import { updateAiState } from "../repositories/tasks.js";
 import { AI_ERROR_MESSAGES, processBreakdownJob } from "./processors/breakdown.js";
-import { BREAKDOWN_QUEUE_NAME, QUEUE_PREFIX, WORKER_CONCURRENCY, type BreakdownJobData } from "./queue.js";
+import {
+  BREAKDOWN_QUEUE_NAME,
+  QUEUE_PREFIX,
+  WORKER_CONCURRENCY,
+  type BreakdownJobData,
+} from "./queue.js";
 
 export interface WorkerDeps {
   connection: Redis;
@@ -7710,7 +8341,9 @@ export async function reconcileStaleGenerations(
 }
 
 /** Runs once now and every five minutes. The timer is unref'd so it never keeps the process alive. */
-export function startReconciler(deps: { db: Db; staleMinutes: number; logger: Logger }): { stop(): void } {
+export function startReconciler(deps: { db: Db; staleMinutes: number; logger: Logger }): {
+  stop(): void;
+} {
   const run = () =>
     reconcileStaleGenerations(deps.db, deps.staleMinutes, deps.logger).catch((err: unknown) => {
       deps.logger.error({ err }, "reconciler run failed");
@@ -7750,11 +8383,13 @@ MSG
 ### Task 18: Demo seed with stable ids and the admin seed-reset route
 
 **Files:**
+
 - Create: `src/db/seed.ts`, `src/services/admin.ts`, `src/routes/admin.ts`
 - Modify: `src/app.ts`
 - Test: `tests/api/admin.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 8 schema tables and `Db`; Task 10 `hashPassword`; Task 1 `Config`.
 - Produces:
   - `src/db/seed.ts`: `DEMO_EMAIL = "demo@kaizen.local"`, `SEED_IDS` (stable UUIDs for the user, four tags, five root tasks, ten children), `ensureDemoSeed(db, password): Promise<SeedResult>` (creates only if the demo user is absent), `resetDemoSeed(db, password): Promise<SeedResult>` (deletes the demo user, cascading everything, and recreates), `interface SeedResult { demoUserId: string; created: boolean }`; `npm run db:seed` and `npm run db:seed -- --reset`.
@@ -7793,7 +8428,10 @@ describe("POST /admin/seed-reset", () => {
   it("is absent without ADMIN_TOKEN", async () => {
     const res = await request(plain.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(res.status).toBe(404);
-    expect(res.body.error).toMatchObject({ code: "NOT_FOUND", message: "Route POST /api/v1/admin/seed-reset not found" });
+    expect(res.body.error).toMatchObject({
+      code: "NOT_FOUND",
+      message: "Route POST /api/v1/admin/seed-reset not found",
+    });
   });
 
   it("returns the same NOT_FOUND for a wrong or missing token", async () => {
@@ -7801,7 +8439,10 @@ describe("POST /admin/seed-reset", () => {
     const missing = await request(admin.app).post(RESET);
     for (const res of [wrong, missing]) {
       expect(res.status).toBe(404);
-      expect(res.body.error).toMatchObject({ code: "NOT_FOUND", message: "Route POST /api/v1/admin/seed-reset not found" });
+      expect(res.body.error).toMatchObject({
+        code: "NOT_FOUND",
+        message: "Route POST /api/v1/admin/seed-reset not found",
+      });
     }
   });
 
@@ -7810,45 +8451,84 @@ describe("POST /admin/seed-reset", () => {
     expect(first.status).toBe(200);
     expect(first.body.data).toEqual({ demoUserId: SEED_IDS.demoUser });
 
-    const login = await request(admin.app).post("/api/v1/auth/login").send({ email: DEMO_EMAIL, password: "demo-password-1" });
+    const login = await request(admin.app)
+      .post("/api/v1/auth/login")
+      .send({ email: DEMO_EMAIL, password: "demo-password-1" });
     expect(login.status).toBe(200);
     const token = login.body.data.accessToken as string;
 
-    const offsite = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`).set(auth(token));
+    const offsite = await request(admin.app)
+      .get(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`)
+      .set(auth(token));
     expect(offsite.status).toBe(200);
-    expect(offsite.body.data).toMatchObject({ title: "Plan the Q4 team offsite", status: "in_progress", aiStatus: "done", progress: { done: 2, total: 4 }, suggestionCount: 0, aiError: null });
+    expect(offsite.body.data).toMatchObject({
+      title: "Plan the Q4 team offsite",
+      status: "in_progress",
+      aiStatus: "done",
+      progress: { done: 2, total: 4 },
+      suggestionCount: 0,
+      aiError: null,
+    });
     expect(offsite.body.data.children.map((c: { id: string }) => c.id)).toEqual([
       SEED_IDS.children.offsite1,
       SEED_IDS.children.offsite2,
       SEED_IDS.children.offsite3,
       SEED_IDS.children.offsite4,
     ]);
-    expect(offsite.body.data.children.every((c: { rationale: string | null; suggestionState: string }) => c.rationale && c.suggestionState === "accepted")).toBe(true);
+    expect(
+      offsite.body.data.children.every(
+        (c: { rationale: string | null; suggestionState: string }) =>
+          c.rationale && c.suggestionState === "accepted",
+      ),
+    ).toBe(true);
 
-    const onboarding = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.onboarding}`).set(auth(token));
-    expect(onboarding.body.data.children.map((c: { suggestionState: string }) => c.suggestionState)).toEqual(["suggested", "suggested", "suggested"]);
+    const onboarding = await request(admin.app)
+      .get(`/api/v1/tasks/${SEED_IDS.tasks.onboarding}`)
+      .set(auth(token));
+    expect(
+      onboarding.body.data.children.map((c: { suggestionState: string }) => c.suggestionState),
+    ).toEqual(["suggested", "suggested", "suggested"]);
     expect(onboarding.body.data.suggestionCount).toBe(3);
-    const flaky = await request(admin.app).get(`/api/v1/tasks/${SEED_IDS.tasks.flakyTest}`).set(auth(token));
+    const flaky = await request(admin.app)
+      .get(`/api/v1/tasks/${SEED_IDS.tasks.flakyTest}`)
+      .set(auth(token));
     expect(flaky.body.data).toMatchObject({ aiStatus: "failed", aiError: expect.any(String) });
     const tagsRes = await request(admin.app).get("/api/v1/tags").set(auth(token));
-    expect(tagsRes.body.data.map((t: { id: string }) => t.id).sort()).toEqual(Object.values(SEED_IDS.tags).sort());
+    expect(tagsRes.body.data.map((t: { id: string }) => t.id).sort()).toEqual(
+      Object.values(SEED_IDS.tags).sort(),
+    );
 
     // mutate, then reset again: everything is pristine
     await request(admin.app).delete(`/api/v1/tasks/${SEED_IDS.children.offsite1}`).set(auth(token));
-    await request(admin.app).patch(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`).set(auth(token)).send({ title: "Changed" });
+    await request(admin.app)
+      .patch(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`)
+      .set(auth(token))
+      .send({ title: "Changed" });
     const second = await request(admin.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(second.status).toBe(200);
-    const [restored] = await admin.db.select().from(tasks).where(eq(tasks.id, SEED_IDS.tasks.offsite));
+    const [restored] = await admin.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, SEED_IDS.tasks.offsite));
     expect(restored?.title).toBe("Plan the Q4 team offsite");
-    const [child] = await admin.db.select().from(tasks).where(eq(tasks.id, SEED_IDS.children.offsite1));
+    const [child] = await admin.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, SEED_IDS.children.offsite1));
     expect(child).toBeDefined();
   });
 });
 
 describe("ensureDemoSeed", () => {
   it("creates once and is a no-op afterwards", async () => {
-    expect(await ensureDemoSeed(plain.db, "demo-password-1")).toEqual({ demoUserId: SEED_IDS.demoUser, created: true });
-    expect(await ensureDemoSeed(plain.db, "demo-password-1")).toEqual({ demoUserId: SEED_IDS.demoUser, created: false });
+    expect(await ensureDemoSeed(plain.db, "demo-password-1")).toEqual({
+      demoUserId: SEED_IDS.demoUser,
+      created: true,
+    });
+    expect(await ensureDemoSeed(plain.db, "demo-password-1")).toEqual({
+      demoUserId: SEED_IDS.demoUser,
+      created: false,
+    });
     expect(await plain.db.select().from(tasks)).toHaveLength(15);
   });
 });
@@ -7926,7 +8606,9 @@ async function insertFixtures(tx: DbOrTx, passwordHash: string): Promise<void> {
   const C = SEED_IDS.children;
   const G = SEED_IDS.generations;
 
-  await tx.insert(users).values({ id: u, email: DEMO_EMAIL, passwordHash, displayName: "Demo User" });
+  await tx
+    .insert(users)
+    .values({ id: u, email: DEMO_EMAIL, passwordHash, displayName: "Demo User" });
 
   await tx.insert(tags).values([
     { id: T.work, userId: u, name: "work", color: "#2563eb" },
@@ -7999,18 +8681,103 @@ async function insertFixtures(tx: DbOrTx, passwordHash: string): Promise<void> {
 
   await tx.insert(tasks).values([
     // Offsite: accepted AI steps with rationales, two already done.
-    { id: C.offsite1, userId: u, parentId: K.offsite, position: 0, status: "done", title: "Write the offsite goal in one sentence", rationale: "Every other choice follows from what the offsite must achieve", ...ai("accepted") },
-    { id: C.offsite2, userId: u, parentId: K.offsite, position: 1, status: "done", title: "Confirm the dates with all twelve attendees", rationale: "Headcount and dates constrain the venue search, so they come first", ...ai("accepted") },
-    { id: C.offsite3, userId: u, parentId: K.offsite, position: 2, status: "in_progress", title: "Shortlist three venues within budget", rationale: "A short list makes the booking decision quick once dates are fixed", ...ai("accepted") },
-    { id: C.offsite4, userId: u, parentId: K.offsite, position: 3, status: "todo", title: "Book the venue and send invites", rationale: "Booking locks the plan so agenda work can start", ...ai("accepted") },
+    {
+      id: C.offsite1,
+      userId: u,
+      parentId: K.offsite,
+      position: 0,
+      status: "done",
+      title: "Write the offsite goal in one sentence",
+      rationale: "Every other choice follows from what the offsite must achieve",
+      ...ai("accepted"),
+    },
+    {
+      id: C.offsite2,
+      userId: u,
+      parentId: K.offsite,
+      position: 1,
+      status: "done",
+      title: "Confirm the dates with all twelve attendees",
+      rationale: "Headcount and dates constrain the venue search, so they come first",
+      ...ai("accepted"),
+    },
+    {
+      id: C.offsite3,
+      userId: u,
+      parentId: K.offsite,
+      position: 2,
+      status: "in_progress",
+      title: "Shortlist three venues within budget",
+      rationale: "A short list makes the booking decision quick once dates are fixed",
+      ...ai("accepted"),
+    },
+    {
+      id: C.offsite4,
+      userId: u,
+      parentId: K.offsite,
+      position: 3,
+      status: "todo",
+      title: "Book the venue and send invites",
+      rationale: "Booking locks the plan so agenda work can start",
+      ...ai("accepted"),
+    },
     // Onboarding: suggestions still pending review.
-    { id: C.onboarding1, userId: u, parentId: K.onboarding, position: 0, title: "List the ten questions every new PM asks in week one", rationale: "The guide answers real questions, so collecting them comes first", ...ai("suggested") },
-    { id: C.onboarding2, userId: u, parentId: K.onboarding, position: 1, title: "Draft the first-week checklist", rationale: "A checklist is the smallest useful version of the guide", ...ai("suggested") },
-    { id: C.onboarding3, userId: u, parentId: K.onboarding, position: 2, title: "Ask two recent hires to review the draft", rationale: "Recent hires remember what was missing", ...ai("suggested") },
+    {
+      id: C.onboarding1,
+      userId: u,
+      parentId: K.onboarding,
+      position: 0,
+      title: "List the ten questions every new PM asks in week one",
+      rationale: "The guide answers real questions, so collecting them comes first",
+      ...ai("suggested"),
+    },
+    {
+      id: C.onboarding2,
+      userId: u,
+      parentId: K.onboarding,
+      position: 1,
+      title: "Draft the first-week checklist",
+      rationale: "A checklist is the smallest useful version of the guide",
+      ...ai("suggested"),
+    },
+    {
+      id: C.onboarding3,
+      userId: u,
+      parentId: K.onboarding,
+      position: 2,
+      title: "Ask two recent hires to review the draft",
+      rationale: "Recent hires remember what was missing",
+      ...ai("suggested"),
+    },
     // Interviews: a user step, an accepted AI step, a dismissed AI step.
-    { id: C.interviews1, userId: u, parentId: K.interviews, position: 0, status: "done", title: "Write the three questions the pilot must answer", origin: "user", aiStatus: "skipped" },
-    { id: C.interviews2, userId: u, parentId: K.interviews, position: 1, title: "Draft the interview script around those questions", rationale: "The script follows from the questions it must answer", ...ai("accepted") },
-    { id: C.interviews3, userId: u, parentId: K.interviews, position: 2, title: "Schedule a dry run with a colleague", rationale: "A rehearsal catches awkward questions before the real interviews", ...ai("dismissed") },
+    {
+      id: C.interviews1,
+      userId: u,
+      parentId: K.interviews,
+      position: 0,
+      status: "done",
+      title: "Write the three questions the pilot must answer",
+      origin: "user",
+      aiStatus: "skipped",
+    },
+    {
+      id: C.interviews2,
+      userId: u,
+      parentId: K.interviews,
+      position: 1,
+      title: "Draft the interview script around those questions",
+      rationale: "The script follows from the questions it must answer",
+      ...ai("accepted"),
+    },
+    {
+      id: C.interviews3,
+      userId: u,
+      parentId: K.interviews,
+      position: 2,
+      title: "Schedule a dry run with a colleague",
+      rationale: "A rehearsal catches awkward questions before the real interviews",
+      ...ai("dismissed"),
+    },
   ]);
 
   await tx.insert(taskTags).values([
@@ -8025,7 +8792,11 @@ async function insertFixtures(tx: DbOrTx, passwordHash: string): Promise<void> {
 
 /** Startup entry point: creates the fixtures only if the demo user is absent. */
 export async function ensureDemoSeed(db: Db, password: string): Promise<SeedResult> {
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, DEMO_EMAIL)).limit(1);
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, DEMO_EMAIL))
+    .limit(1);
   if (existing) return { demoUserId: existing.id, created: false };
   const passwordHash = await hashPassword(password);
   await db.transaction((tx) => insertFixtures(tx, passwordHash));
@@ -8073,7 +8844,10 @@ export interface AdminService {
   resetDemo(): Promise<{ demoUserId: string }>;
 }
 
-export function createAdminService(deps: { db: Db; config: Pick<Config, "SEED_DEMO_PASSWORD"> }): AdminService {
+export function createAdminService(deps: {
+  db: Db;
+  config: Pick<Config, "SEED_DEMO_PASSWORD">;
+}): AdminService {
   return {
     async resetDemo() {
       const result = await resetDemoSeed(deps.db, deps.config.SEED_DEMO_PASSWORD);
@@ -8124,9 +8898,12 @@ import { createAdminService } from "./services/admin.js";
 and after the `/tasks` mount:
 
 ```ts
-  if (config.ADMIN_TOKEN) {
-    api.use("/admin", adminRouter({ adminToken: config.ADMIN_TOKEN, service: createAdminService({ db, config }) }));
-  }
+if (config.ADMIN_TOKEN) {
+  api.use(
+    "/admin",
+    adminRouter({ adminToken: config.ADMIN_TOKEN, service: createAdminService({ db, config }) }),
+  );
+}
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
@@ -8165,11 +8942,13 @@ MSG
 ### Task 19: Feature requests through GitHub
 
 **Files:**
+
 - Create: `src/services/feature-requests.ts`, `src/routes/feature-requests.ts`
 - Modify: `src/app.ts`
 - Test: `tests/api/feature-requests.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 4 `FeatureRequestBody`, `FeatureRequestInput`; Task 10 `findUserById`, `requireAuth`, `currentUser`; Task 2 `upstreamError`.
 - Produces:
   - `src/services/feature-requests.ts`: `FEATURE_REQUEST_LABEL = "feature-request"`, `interface GitHubIssues { create(params: { owner; repo; title; body; labels }): Promise<{ number: number; html_url: string }> }`, `createOctokitIssues(token): GitHubIssues`, `renderIssueBody(input, submitterName): string`, `createFeatureRequestsService({ db, issues, repo, logger }): FeatureRequestsService` with `submit(userId, input): Promise<{ issueNumber; issueUrl }>`.
@@ -8192,7 +8971,8 @@ const body = {
   title: "Bulk accept from the task list",
   problem: "Accepting suggestions one task at a time is slow when many tasks finish together.",
   proposedBehavior: "A checkbox per task on the list and an Accept all suggestions button.",
-  acceptanceCriteria: "Given three tasks with suggestions, selecting them and pressing the button accepts every suggestion.",
+  acceptanceCriteria:
+    "Given three tasks with suggestions, selecting them and pressing the button accepts every suggestion.",
   outOfScope: "Dismissing in bulk.",
 };
 
@@ -8202,7 +8982,10 @@ class FakeIssues implements GitHubIssues {
   async create(params: Parameters<GitHubIssues["create"]>[0]) {
     this.calls.push(params);
     if (this.fail) throw new Error("GitHub is down");
-    return { number: 42, html_url: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/42" };
+    return {
+      number: 42,
+      html_url: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/42",
+    };
   }
 }
 
@@ -8241,11 +9024,24 @@ describe("POST /feature-requests", () => {
     const user = await registerUser(configured.app, { displayName: "Ada Lovelace" });
     const res = await request(configured.app).post(URL).set(auth(user.token)).send(body);
     expect(res.status).toBe(201);
-    expect(res.body.data).toEqual({ issueNumber: 42, issueUrl: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/42" });
+    expect(res.body.data).toEqual({
+      issueNumber: 42,
+      issueUrl: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/42",
+    });
     const call = issues.calls.at(-1)!;
-    expect(call).toMatchObject({ owner: "kpnemo", repo: "kaizen-tasks-assembly-line", title: body.title, labels: ["feature-request"] });
+    expect(call).toMatchObject({
+      owner: "kpnemo",
+      repo: "kaizen-tasks-assembly-line",
+      title: body.title,
+      labels: ["feature-request"],
+    });
     expect(call.body).toContain("Ada Lovelace");
-    for (const heading of ["## Problem statement", "## Proposed behavior", "## Acceptance criteria", "## Out of scope"]) {
+    for (const heading of [
+      "## Problem statement",
+      "## Proposed behavior",
+      "## Acceptance criteria",
+      "## Out of scope",
+    ]) {
       expect(call.body).toContain(heading);
     }
     expect(call.body).toContain(body.acceptanceCriteria);
@@ -8258,7 +9054,10 @@ describe("POST /feature-requests", () => {
     try {
       const res = await request(configured.app).post(URL).set(auth(user.token)).send(body);
       expect(res.status).toBe(502);
-      expect(res.body.error).toMatchObject({ code: "UPSTREAM_ERROR", message: "Could not create the GitHub issue" });
+      expect(res.body.error).toMatchObject({
+        code: "UPSTREAM_ERROR",
+        message: "Could not create the GitHub issue",
+      });
     } finally {
       issues.fail = false;
     }
@@ -8329,7 +9128,10 @@ export function renderIssueBody(input: FeatureRequestInput, submitterName: strin
 }
 
 export interface FeatureRequestsService {
-  submit(userId: string, input: FeatureRequestInput): Promise<{ issueNumber: number; issueUrl: string }>;
+  submit(
+    userId: string,
+    input: FeatureRequestInput,
+  ): Promise<{ issueNumber: number; issueUrl: string }>;
 }
 
 export function createFeatureRequestsService(deps: {
@@ -8396,22 +9198,26 @@ with imports
 
 ```ts
 import { featureRequestsRouter } from "./routes/feature-requests.js";
-import { createFeatureRequestsService, createOctokitIssues, type GitHubIssues } from "./services/feature-requests.js";
+import {
+  createFeatureRequestsService,
+  createOctokitIssues,
+  type GitHubIssues,
+} from "./services/feature-requests.js";
 ```
 
 and mount after `/tasks`, on the `featureRequestsConfig` value that `createApp` computed for the health flag (so `features.featureRequests` is true exactly when this block runs):
 
 ```ts
-  if (featureRequestsConfig) {
-    const issues = deps.github ?? createOctokitIssues(featureRequestsConfig.token);
-    const featureRequests = createFeatureRequestsService({
-      db,
-      issues,
-      repo: featureRequestsConfig.repo,
-      logger,
-    });
-    api.use("/feature-requests", requireAuth(config), featureRequestsRouter(featureRequests));
-  }
+if (featureRequestsConfig) {
+  const issues = deps.github ?? createOctokitIssues(featureRequestsConfig.token);
+  const featureRequests = createFeatureRequestsService({
+    db,
+    issues,
+    repo: featureRequestsConfig.repo,
+    logger,
+  });
+  api.use("/feature-requests", requireAuth(config), featureRequestsRouter(featureRequests));
+}
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
@@ -8442,11 +9248,13 @@ MSG
 ### Task 20: Server startup sequence and graceful shutdown
 
 **Files:**
+
 - Create: `src/lib/assets.ts`
 - Modify: `src/server.ts` (replaces the provisional version)
 - Test: `src/lib/assets.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 15 `createBreakdownModel`, `promptPath`; Task 8 `runMigrations`, `MIGRATIONS_FOLDER`, `createDb`; Task 18 `ensureDemoSeed`; Task 17 `startBreakdownWorker`, `startReconciler`; Task 9 `createBreakdownQueue`, `createRedis`; Task 10 `createApp`.
 - Produces: `src/lib/assets.ts`: `interface RuntimeAsset { name: string; path: string }`, `missingAssets(assets)`, `assertRuntimeAssets(assets)` (throws with every missing path listed). `src/server.ts` runs the seven startup steps from spec 2.1 in order, listens on `PORT` host `::`, and shuts down cleanly on SIGTERM and SIGINT.
 
@@ -8469,9 +9277,12 @@ describe("runtime assets", () => {
 
   it("lists missing assets and passes when everything exists", () => {
     expect(missingAssets([{ name: "present", path: present }])).toEqual([]);
-    expect(missingAssets([{ name: "present", path: present }, { name: "prompt", path: absent }])).toEqual([
-      { name: "prompt", path: absent },
-    ]);
+    expect(
+      missingAssets([
+        { name: "present", path: present },
+        { name: "prompt", path: absent },
+      ]),
+    ).toEqual([{ name: "prompt", path: absent }]);
     expect(() => assertRuntimeAssets([{ name: "present", path: present }])).not.toThrow();
   });
 
@@ -8481,7 +9292,9 @@ describe("runtime assets", () => {
         { name: "prompt", path: absent },
         { name: "openapi.json", path: join(dir, "openapi.json") },
       ]),
-    ).toThrow(`Missing runtime assets:\n  - prompt: ${absent}\n  - openapi.json: ${join(dir, "openapi.json")}`);
+    ).toThrow(
+      `Missing runtime assets:\n  - prompt: ${absent}\n  - openapi.json: ${join(dir, "openapi.json")}`,
+    );
   });
 });
 ```
@@ -8595,7 +9408,10 @@ async function main(): Promise<void> {
     workerConnection = createRedis(config.REDIS_URL);
     worker = startBreakdownWorker({ connection: workerConnection, db, model, logger });
     reconciler = startReconciler({ db, staleMinutes: config.AI_STALE_MINUTES, logger });
-    logger.info({ provider: config.AI_MODEL_PROVIDER, model: config.AI_MODEL }, "worker and reconciler started");
+    logger.info(
+      { provider: config.AI_MODEL_PROVIDER, model: config.AI_MODEL },
+      "worker and reconciler started",
+    );
   }
 
   // 7. App. Host :: is dual-stack; some Railway environments resolve private hostnames to IPv6 only.
@@ -8684,10 +9500,12 @@ MSG
 ### Task 21: Documentation set
 
 **Files:**
+
 - Create: `docs/ARCHITECTURE.md`, `docs/adr/0001-single-task-table.md`, `docs/adr/0002-same-origin-through-web-proxy.md`, `docs/adr/0003-in-process-worker.md`, `docs/adr/0004-additive-migrations-only.md`, `docs/architectural-files.txt`
 - Modify: `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: everything built so far; the file names here are referenced by `scripts/docs-check.sh` (Task 22) and by the skills (Task 23).
 - Produces: the docs set from spec 8.1 and 8.6; `docs/architectural-files.txt` is the manifest Rule C reads.
 
@@ -8868,7 +9686,7 @@ is where the compatibility argument for a non-trivial migration is written down.
 
 - [ ] **Step 3: Write `docs/ARCHITECTURE.md`**
 
-```markdown
+````markdown
 # Architecture
 
 Kaizen Tasks API is one Node 24 process: an Express 5 HTTP API plus, behind `WORKER_ENABLED`, a
@@ -8877,17 +9695,17 @@ hourly rate-limit counters, and the queue. Nothing that must survive a Redis flu
 
 ## Shape
 
-| Concern | Where | Notes |
-|---|---|---|
-| Startup | `src/server.ts` | Config, asset checks, migrations, Redis, seed, worker, listen; in that order, exit non-zero on any failure |
-| HTTP app | `src/app.ts` | `createApp(deps)` so tests build the same app over the test database with a fake queue and a fake model |
-| Validation | `src/routes/validate.ts` | zod schemas from `src/schemas/`, parsed values in `res.locals.validated`; `req.query` is never assigned (Express 5) |
-| Envelopes and errors | `src/lib/envelope.ts`, `src/lib/errors.ts`, `src/lib/error-handler.ts` | One success shape, one error shape, one `statusFor(code)` |
-| Auth | `src/lib/auth.ts`, `src/services/auth.ts` | HS256 access token (15 min), Redis-backed refresh token in an httpOnly cookie (ADR 0002) |
-| Data | `src/db/schema.ts`, `src/repositories/*` | Drizzle over postgres.js; one `tasks` table with `parent_id` (ADR 0001); additive migrations (ADR 0004) |
-| Business rules | `src/services/*` | Ownership checks (misses are `NOT_FOUND`), depth rule, position reorder, suggestion transitions, rate limit |
-| AI pipeline | `src/jobs/*`, `src/agent/*` | Queue, processor, worker (ADR 0003), reconciler, model seam, prompt |
-| Contract | `src/schemas/*`, `openapi.json`, `docs/API.md` | Generated by `npm run openapi`; the web app builds its client from `openapi.json` |
+| Concern              | Where                                                                  | Notes                                                                                                               |
+| -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Startup              | `src/server.ts`                                                        | Config, asset checks, migrations, Redis, seed, worker, listen; in that order, exit non-zero on any failure          |
+| HTTP app             | `src/app.ts`                                                           | `createApp(deps)` so tests build the same app over the test database with a fake queue and a fake model             |
+| Validation           | `src/routes/validate.ts`                                               | zod schemas from `src/schemas/`, parsed values in `res.locals.validated`; `req.query` is never assigned (Express 5) |
+| Envelopes and errors | `src/lib/envelope.ts`, `src/lib/errors.ts`, `src/lib/error-handler.ts` | One success shape, one error shape, one `statusFor(code)`                                                           |
+| Auth                 | `src/lib/auth.ts`, `src/services/auth.ts`                              | HS256 access token (15 min), Redis-backed refresh token in an httpOnly cookie (ADR 0002)                            |
+| Data                 | `src/db/schema.ts`, `src/repositories/*`                               | Drizzle over postgres.js; one `tasks` table with `parent_id` (ADR 0001); additive migrations (ADR 0004)             |
+| Business rules       | `src/services/*`                                                       | Ownership checks (misses are `NOT_FOUND`), depth rule, position reorder, suggestion transitions, rate limit         |
+| AI pipeline          | `src/jobs/*`, `src/agent/*`                                            | Queue, processor, worker (ADR 0003), reconciler, model seam, prompt                                                 |
+| Contract             | `src/schemas/*`, `openapi.json`, `docs/API.md`                         | Generated by `npm run openapi`; the web app builds its client from `openapi.json`                                   |
 
 Layering: routes call services, services call repositories and the queue, repositories call
 Drizzle. Handlers never touch Drizzle; services never import Express types. The full table is in
@@ -8921,6 +9739,7 @@ flowchart LR
   M -- ok --> P[one transaction guarded by generation_id:\nreplace suggested children, set tag suggestions, done]
   REC[reconciler every 5 min] -. pending/running older than AI_STALE_MINUTES .-> F4[failed: timed out]
 ```
+````
 
 Every write on the worker side carries `WHERE generation_id = <job's>`, so a superseded job can
 never overwrite a newer generation. The concurrency guard is the conditional update, not the
@@ -8965,7 +9784,8 @@ Railway's redeploy of the previous deployment, safe because migrations are addit
 - Stuck generations: the reconciler fails anything pending or running for longer than
   `AI_STALE_MINUTES` with "Timed out, try again"; the user sees a retry control, never an
   indefinite spinner.
-```
+
+````
 
 - [ ] **Step 4: Complete `CLAUDE.md`**
 
@@ -9020,7 +9840,7 @@ Spec: `docs/superpowers/specs/2026-09-08-kaizen-tasks-api-design.md`. Architectu
 | `npm run docs:check` | the Stop hook check, by hand |
 
 Local setup: `README.md`, "Run locally".
-```
+````
 
 - [ ] **Step 5: Complete `README.md` and `CHANGELOG.md`**
 
@@ -9102,10 +9922,12 @@ MSG
 ### Task 22: docs-check, format-file, hooks, and the CI docs step
 
 **Files:**
+
 - Create: `scripts/docs-check.sh`, `scripts/format-file.sh`, `.claude/settings.json`
 - Modify: `.github/workflows/ci.yml`
 
 **Interfaces:**
+
 - Consumes: Task 21 `docs/architectural-files.txt`, `CHANGELOG.md`; Task 5 `npm run openapi -- --check`.
 - Produces: `scripts/docs-check.sh --hook|--ci` implementing spec 8.2 exactly (changed set, code set, Rules A, B, C, fix messages, exit 2 in hook mode, the three-strikes escape hatch that exits 1 and writes `.claude/DOCS-CHECK-FAILED`, counter in `.claude/.docs-check-blocks`; in hook mode it reads Claude Code's stdin JSON and uses `stop_hook_active` to count blocks per continuation chain); `scripts/format-file.sh` reading the PostToolUse JSON from stdin; `.claude/settings.json` wiring both hooks; the `docs check` step in `ci.yml` with `BASE_SHA`. Cross-lane interface: `scripts/docs-check.sh --hook` exits 2 on failure with the fix list on stdout and never exits 0 while printing FAILED.
 
@@ -9364,10 +10186,10 @@ Run: `chmod +x scripts/format-file.sh`
 In `.github/workflows/ci.yml`, insert between `- run: npm test` and `- run: npm run build`:
 
 ```yaml
-      - name: docs check
-        run: bash scripts/docs-check.sh --ci
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+- name: docs check
+  run: bash scripts/docs-check.sh --ci
+  env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
 ```
 
 - [ ] **Step 5: Verify every rule by hand**
@@ -9469,15 +10291,17 @@ Expected: `docs-check: OK`, `exit=0`.
 ### Task 23: Skills and agents
 
 **Files:**
+
 - Create: `.claude/skills/add-api-endpoint/SKILL.md`, `.claude/skills/write-adr/SKILL.md`, `.claude/skills/release-notes/SKILL.md`, `.claude/agents/reviewer.md`, `.claude/agents/test-writer.md`
 
 **Interfaces:**
+
 - Consumes: the conventions from Tasks 2 through 22 (the templates below are the shapes those tasks produced).
 - Produces: the per-repo skills the assembly-line `implement-issue` skill invokes (master plan section 4: `backend/.claude/skills/add-api-endpoint/SKILL.md`, `write-adr`, `release-notes`) and the two agents from spec 8.5.
 
 - [ ] **Step 1: Write `.claude/skills/add-api-endpoint/SKILL.md`**
 
-```markdown
+````markdown
 ---
 name: add-api-endpoint
 description: Use when adding or changing an HTTP endpoint in this API. Walks the checklist from failing test to docs so two endpoints written in two sessions are indistinguishable in shape.
@@ -9523,7 +10347,9 @@ import { API_PREFIX, bearerAuth, registry } from "./registry.js";
 export const WidgetSchema = z
   .object({ id: z.uuid(), name: z.string(), createdAt: z.iso.datetime() })
   .openapi("Widget");
-export const CreateWidgetBody = z.object({ name: z.string().trim().min(1).max(80) }).openapi("CreateWidgetBody");
+export const CreateWidgetBody = z
+  .object({ name: z.string().trim().min(1).max(80) })
+  .openapi("CreateWidgetBody");
 export type Widget = z.infer<typeof WidgetSchema>;
 export type CreateWidgetInput = z.infer<typeof CreateWidgetBody>;
 
@@ -9534,9 +10360,13 @@ registry.registerPath({
   summary: "Create a widget",
   security: bearerAuth,
   request: { body: { content: { "application/json": { schema: CreateWidgetBody } } } },
-  responses: { 201: jsonResponse("Created", envelope(WidgetSchema)), ...errorResponses("VALIDATION_ERROR", "UNAUTHORIZED") },
+  responses: {
+    201: jsonResponse("Created", envelope(WidgetSchema)),
+    ...errorResponses("VALIDATION_ERROR", "UNAUTHORIZED"),
+  },
 });
 ```
+````
 
 Route (`src/routes/<resource>.ts`):
 
@@ -9596,7 +10426,11 @@ import type { DbOrTx } from "../db/client.js";
 import { widgets } from "../db/schema.js";
 
 export async function findWidget(db: DbOrTx, id: string, userId: string) {
-  const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.userId, userId))).limit(1);
+  const [row] = await db
+    .select()
+    .from(widgets)
+    .where(and(eq(widgets.id, id), eq(widgets.userId, userId)))
+    .limit(1);
   return row;
 }
 
@@ -9624,20 +10458,27 @@ afterAll(() => ctx.close());
 describe("POST /api/v1/widgets", () => {
   it("creates a widget", async () => {
     const user = await registerUser(ctx.app);
-    const res = await request(ctx.app).post("/api/v1/widgets").set(auth(user.token)).send({ name: "First" });
+    const res = await request(ctx.app)
+      .post("/api/v1/widgets")
+      .set(auth(user.token))
+      .send({ name: "First" });
     expect(res.status).toBe(201);
     expect(res.body.data).toMatchObject({ name: "First" });
   });
 
   it("validates the body", async () => {
     const user = await registerUser(ctx.app);
-    const res = await request(ctx.app).post("/api/v1/widgets").set(auth(user.token)).send({ name: "" });
+    const res = await request(ctx.app)
+      .post("/api/v1/widgets")
+      .set(auth(user.token))
+      .send({ name: "" });
     expect(res.status).toBe(400);
     expect(res.body.error.details[0].path).toBe("body.name");
   });
 });
 ```
-```
+
+````
 
 - [ ] **Step 2: Write `.claude/skills/write-adr/SKILL.md`**
 
@@ -9678,7 +10519,7 @@ and rules involved.
 
 What becomes easier, what becomes harder, what must now be remembered. Include the operational
 consequence (deploy, rollback, tests) when there is one.
-```
+````
 
 ## Procedure
 
@@ -9689,7 +10530,8 @@ consequence (deploy, rollback, tests) when there is one.
    same change.
 4. Add a `CHANGELOG.md` bullet if code changed alongside.
 5. Run `npm run docs:check`.
-```
+
+````
 
 - [ ] **Step 3: Write `.claude/skills/release-notes/SKILL.md`**
 
@@ -9726,7 +10568,7 @@ Before:
 ### Added
 
 - `PUT /api/v1/tasks/{id}/tags` replaces a task's tag set.
-```
+````
 
 After (version was 0.1.0, one additive endpoint, so 0.2.0):
 
@@ -9739,7 +10581,8 @@ After (version was 0.1.0, one additive endpoint, so 0.2.0):
 
 - `PUT /api/v1/tasks/{id}/tags` replaces a task's tag set.
 ```
-```
+
+````
 
 - [ ] **Step 4: Write `.claude/agents/reviewer.md`**
 
@@ -9782,8 +10625,10 @@ were given) and the surrounding code, and you report.
 
 Either the single line `PASS` or a list, one violation per line:
 
-```
+````
+
 <file>:<line> <rule number> <what is wrong> -> <what to do>
+
 ```
 
 Order violations by file. Do not pad the list with style remarks; prettier and eslint own style.
@@ -9855,10 +10700,12 @@ MSG
 ### Task 24: Promote workflow and the opt-in live model test
 
 **Files:**
+
 - Create: `.github/workflows/promote.yml`, `tests/live/breakdown.live.test.ts`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: Task 15 `AnthropicBreakdownModel`, `postValidate`, `loadSystemPrompt`; Task 4 `BreakdownSchema`; Task 1 `test:live` script and the `live` vitest project; Task 3 health endpoint (the promote poll reads `data.commit`).
 - Produces: workflow name `promote`, job id `promote` (the required check on `main` named in the master plan); `npm run test:live` proving verification V5 (`messages.parse` with `zodOutputFormat` accepts array `min` and `max` bounds).
 - Repository variable `STAGING_WEB_URL` (the staging web domain, set by the L3 lane) is the only external input.
@@ -9950,7 +10797,12 @@ import { describe, expect, it } from "vitest";
 import { AnthropicBreakdownModel } from "../../src/agent/anthropic-model.js";
 import { postValidate } from "../../src/agent/breakdown.js";
 import { loadSystemPrompt } from "../../src/agent/prompt.js";
-import { BreakdownSchema, MAX_STEPS, MAX_TAG_SUGGESTIONS, MIN_STEPS } from "../../src/schemas/breakdown.js";
+import {
+  BreakdownSchema,
+  MAX_STEPS,
+  MAX_TAG_SUGGESTIONS,
+  MIN_STEPS,
+} from "../../src/schemas/breakdown.js";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -10035,87 +10887,87 @@ L1-M2 is complete when every task above is done and the live test has passed onc
 
 ## 1. Spec coverage
 
-| Spec section | Where it lands |
-|---|---|
-| 2.1 Runtime, startup sequence, shutdown | Task 1 (Node pin, scripts), Task 6 (build, copy-assets), Task 20 (seven-step startup, `::` host, SIGTERM) |
-| 2.2 Layout and import rules | Layout follows the file structure table; rules in `CLAUDE.md` (Task 21) and the `reviewer` agent (Task 23) |
-| 2.3 Dependencies | Task 1 `package.json` with the versions checked on 2026-09-08 |
-| 2.4 Config | Task 1 `src/config.ts` (every variable, defaults, `ANTHROPIC_API_KEY` conditional, secure-cookie rule) |
-| 2.5 Observability | Task 2 (request id, pino-http line with user id), Task 16 and 17 (worker logs carry `jobId` and `taskId`) |
-| 3.1 Schema, indexes, check constraint, additive rule | Task 8; rule in Task 21 (`CLAUDE.md`, ADR 0004) |
-| 3.2 Redis keys | Task 10 (`refresh:<token>`), Task 11 (`ratelimit:breakdown:*`), Task 9 (prefix `kaizen`), Task 8 (tests on db 1) |
-| 3.3 Migrations and seed | Task 8 (`drizzle/`, migrator at startup and in global setup), Task 18 (seed, stable ids, one transaction, two entry points) |
-| 4.1 Envelopes and errors | Task 2 |
-| 4.2 Validation | Task 3 (`validate`, `validated`, `res.locals.validated`) |
-| 4.3 Authentication | Task 10 |
-| 4.4 Endpoints | auth Task 10; tasks list/create/get/delete Task 13; patch, accept-all, dismiss-all, tags Task 14; breakdown Task 16; tags Task 12; feature-requests Task 19; admin Task 18; health and openapi.json Task 3. The two contract additions ruled on 2026-09-08 (master plan section 4): `TaskSummary.suggestionCount` and `aiError` in Tasks 4 and 13 (schema, SQL aggregate, service) with assertions in Tasks 13, 14, 16, 18; health `features.featureRequests` in Tasks 3, 4, 10, 19 |
-| 4.5 Pagination | Task 3 (`cursor.ts`), Task 13 (`limit + 1`, keyset predicate) |
-| 4.6 OpenAPI | Task 4 (registry), Task 5 (generator, renderer, `--check`) |
-| 5.1 Queue and job, reservation | Task 9 (queue, job id, options), Task 16 (`reserveGeneration`), Task 17 (worker concurrency 3) |
-| 5.2 Processor | Task 16 |
-| 5.3 Agent module | Task 9 (seam, fake), Task 15 (`breakdownTask`, Anthropic adapter with the exact SDK shapes) |
-| 5.4 Prompt | Task 6 (content, `copy-assets`, `check-dist-assets`), Task 15 (`import.meta.url` loader) |
-| 5.5 Rate limit | Task 11; create behavior Task 13; breakdown behavior Task 16 |
-| 5.6 Reconciler | Task 17; started at worker start in Task 20 |
-| 6 Service rules | Tasks 10, 12, 13, 14, 16, 19 |
-| 7.1 Test setup | Task 1 (projects, `.env.test`), Task 8 (global and each), Task 10 (`createApp(deps)` harness with fake queue and model) |
-| 7.2 Test list | See table 2 |
-| 8.1 Docs set | Task 7 (skeletons), Task 5 (`docs/API.md`), Task 21 |
-| 8.2 docs-check | Task 22 |
-| 8.3 Hooks | Task 22 |
-| 8.4 Skills | Task 23 |
-| 8.5 Agents | Task 23 |
-| 8.6 CLAUDE.md | Task 7 (skeleton), Task 21 |
-| 9 Local development | Task 1 (scripts), Task 7 and 21 (README) |
-| 10.1 GitHub Actions | Task 7 (`ci`), Task 22 (docs step), Task 24 (`promote`) |
-| 10.2 Branch protection | Not in this repo: the master plan assigns it to the L3 lane (section 6, item 6) with a script in the assembly-line repo |
-| 10.3 Railway | Task 7 (`.railway/railway.ts`); project, environments and variables are the L3 lane's (master plan section 6, items 3 to 5) |
-| 10.4 Deploy flow | Documented in Task 21 `ARCHITECTURE.md`; executed by the L3 lane |
-| 11 Verification | V1 to V3 closed in the spec; V4 Task 7; V5 Task 24; V6 Tasks 9 and 17 |
-| 12 Out of scope | Nothing from this list is built |
+| Spec section                                         | Where it lands                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1 Runtime, startup sequence, shutdown              | Task 1 (Node pin, scripts), Task 6 (build, copy-assets), Task 20 (seven-step startup, `::` host, SIGTERM)                                                                                                                                                                                                                                                                                                                                                                           |
+| 2.2 Layout and import rules                          | Layout follows the file structure table; rules in `CLAUDE.md` (Task 21) and the `reviewer` agent (Task 23)                                                                                                                                                                                                                                                                                                                                                                          |
+| 2.3 Dependencies                                     | Task 1 `package.json` with the versions checked on 2026-09-08                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2.4 Config                                           | Task 1 `src/config.ts` (every variable, defaults, `ANTHROPIC_API_KEY` conditional, secure-cookie rule)                                                                                                                                                                                                                                                                                                                                                                              |
+| 2.5 Observability                                    | Task 2 (request id, pino-http line with user id), Task 16 and 17 (worker logs carry `jobId` and `taskId`)                                                                                                                                                                                                                                                                                                                                                                           |
+| 3.1 Schema, indexes, check constraint, additive rule | Task 8; rule in Task 21 (`CLAUDE.md`, ADR 0004)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 3.2 Redis keys                                       | Task 10 (`refresh:<token>`), Task 11 (`ratelimit:breakdown:*`), Task 9 (prefix `kaizen`), Task 8 (tests on db 1)                                                                                                                                                                                                                                                                                                                                                                    |
+| 3.3 Migrations and seed                              | Task 8 (`drizzle/`, migrator at startup and in global setup), Task 18 (seed, stable ids, one transaction, two entry points)                                                                                                                                                                                                                                                                                                                                                         |
+| 4.1 Envelopes and errors                             | Task 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 4.2 Validation                                       | Task 3 (`validate`, `validated`, `res.locals.validated`)                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 4.3 Authentication                                   | Task 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 4.4 Endpoints                                        | auth Task 10; tasks list/create/get/delete Task 13; patch, accept-all, dismiss-all, tags Task 14; breakdown Task 16; tags Task 12; feature-requests Task 19; admin Task 18; health and openapi.json Task 3. The two contract additions ruled on 2026-09-08 (master plan section 4): `TaskSummary.suggestionCount` and `aiError` in Tasks 4 and 13 (schema, SQL aggregate, service) with assertions in Tasks 13, 14, 16, 18; health `features.featureRequests` in Tasks 3, 4, 10, 19 |
+| 4.5 Pagination                                       | Task 3 (`cursor.ts`), Task 13 (`limit + 1`, keyset predicate)                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 4.6 OpenAPI                                          | Task 4 (registry), Task 5 (generator, renderer, `--check`)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 5.1 Queue and job, reservation                       | Task 9 (queue, job id, options), Task 16 (`reserveGeneration`), Task 17 (worker concurrency 3)                                                                                                                                                                                                                                                                                                                                                                                      |
+| 5.2 Processor                                        | Task 16                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 5.3 Agent module                                     | Task 9 (seam, fake), Task 15 (`breakdownTask`, Anthropic adapter with the exact SDK shapes)                                                                                                                                                                                                                                                                                                                                                                                         |
+| 5.4 Prompt                                           | Task 6 (content, `copy-assets`, `check-dist-assets`), Task 15 (`import.meta.url` loader)                                                                                                                                                                                                                                                                                                                                                                                            |
+| 5.5 Rate limit                                       | Task 11; create behavior Task 13; breakdown behavior Task 16                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 5.6 Reconciler                                       | Task 17; started at worker start in Task 20                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 6 Service rules                                      | Tasks 10, 12, 13, 14, 16, 19                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 7.1 Test setup                                       | Task 1 (projects, `.env.test`), Task 8 (global and each), Task 10 (`createApp(deps)` harness with fake queue and model)                                                                                                                                                                                                                                                                                                                                                             |
+| 7.2 Test list                                        | See table 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 8.1 Docs set                                         | Task 7 (skeletons), Task 5 (`docs/API.md`), Task 21                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 8.2 docs-check                                       | Task 22                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 8.3 Hooks                                            | Task 22                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 8.4 Skills                                           | Task 23                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 8.5 Agents                                           | Task 23                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 8.6 CLAUDE.md                                        | Task 7 (skeleton), Task 21                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 9 Local development                                  | Task 1 (scripts), Task 7 and 21 (README)                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 10.1 GitHub Actions                                  | Task 7 (`ci`), Task 22 (docs step), Task 24 (`promote`)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 10.2 Branch protection                               | Not in this repo: the master plan assigns it to the L3 lane (section 6, item 6) with a script in the assembly-line repo                                                                                                                                                                                                                                                                                                                                                             |
+| 10.3 Railway                                         | Task 7 (`.railway/railway.ts`); project, environments and variables are the L3 lane's (master plan section 6, items 3 to 5)                                                                                                                                                                                                                                                                                                                                                         |
+| 10.4 Deploy flow                                     | Documented in Task 21 `ARCHITECTURE.md`; executed by the L3 lane                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 11 Verification                                      | V1 to V3 closed in the spec; V4 Task 7; V5 Task 24; V6 Tasks 9 and 17                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 12 Out of scope                                      | Nothing from this list is built                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 2. Test list (spec 7.2) to concrete tests
 
-| Spec item | Test |
-|---|---|
-| envelope shape | `src/lib/envelope.test.ts` (Task 2) |
-| `statusFor` mapping | `src/lib/errors.test.ts` (Task 2) |
-| `AppError` middleware output for each code | `src/lib/error-handler.test.ts` "maps every AppError code" (Task 2) |
-| cursor round trip and garbage rejection | `src/lib/cursor.test.ts` (Task 3) |
-| config validation errors listing every missing variable | `src/config.test.ts` (Task 1) |
-| `breakdownTask` post-validation (dedup, trim, bounds) | `src/agent/breakdown.test.ts` "postValidate" (Task 15) |
-| skip rule | `src/agent/breakdown.test.ts` "shouldSkipBreakdown" (Task 15) |
-| suggestion-state transition table | `src/services/suggestions.test.ts` (Task 14) |
-| progress aggregation | `tests/db/progress.test.ts` (Task 13; repository level because the aggregate is SQL per spec 6) |
-| register and login flows incl. duplicate email and wrong password | `tests/api/auth.test.ts` "register", "login" (Task 10) |
-| refresh rotation invalidates the old cookie | `tests/api/auth.test.ts` "rotates the cookie" (Task 10) |
-| logout | `tests/api/auth.test.ts` "logout" (Task 10) |
-| create enqueues a job with reason create, pending with a generation id | `tests/api/tasks.test.ts` "root create enqueues" (Task 13) |
-| create with a failing queue fake returns 201 with ai_status failed | `tests/api/tasks.test.ts` "queue is unavailable" (Task 13) |
-| child under a root succeeds, under a child fails with the depth message | `tests/api/tasks.test.ts` "creates a child under a root" (Task 13) |
-| list pagination walks three pages without duplicates | `tests/api/tasks.test.ts` "walks three pages" (Task 13) |
-| filters by status and tag | `tests/api/tasks.test.ts` "filters by status and by tag" (Task 13) |
-| children ordered by position with rationale on an AI child | `tests/api/tasks-update.test.ts` "children ordering" (Task 14) |
-| patch position shifts siblings and keeps positions dense | `tests/api/tasks-update.test.ts` "moves a child to a target index" (Task 14) |
-| patch suggestion states through every allowed and one disallowed transition | `tests/api/tasks-update.test.ts` "walks every allowed suggestion transition" (Task 14) |
-| accept-all and dismiss-all | `tests/api/tasks-update.test.ts` "accept-all and dismiss-all" (Task 14) |
-| two breakdown calls yield one 202 and one CONFLICT | `tests/api/breakdown.test.ts` "two calls in quick succession" (Task 16) |
-| RATE_LIMITED past the user limit and past the global limit with details | `tests/api/breakdown.test.ts` "past the user limit", "scope global" (Task 16) |
-| `AI_ENABLED=false` creates skipped ai_disabled; breakdown returns UNAVAILABLE | `tests/api/tasks.test.ts` "with AI_ENABLED=false" (Task 13); `tests/api/breakdown.test.ts` "UNAVAILABLE 'AI is paused'" (Task 16) |
-| replace tags with a foreign tag id fails | `tests/api/tasks-update.test.ts` "PUT /tasks/:id/tags" (Task 14) |
-| delete cascades | `tests/api/tasks.test.ts` "DELETE cascades" (Task 13) |
-| health reports the commit SHA | `tests/api/health.test.ts` (Task 10; the stub version in Task 3 is replaced) |
-| feature-requests route absent when unconfigured | `tests/api/feature-requests.test.ts` "is absent" (Task 19) |
-| admin seed-reset absent, NOT_FOUND on wrong token, recreates fixtures with stable ids | `tests/api/admin.test.ts` (Task 18) |
-| error envelope carries the request id | `tests/api/health.test.ts` "carries the inbound request id" (Task 10); `src/lib/error-handler.test.ts` (Task 2) |
-| `TaskSummary.suggestionCount` and `aiError` (master plan section 4) | `tests/db/progress.test.ts` (Task 13); `tests/api/tasks-update.test.ts` "children ordering" and "accept-all and dismiss-all" (Task 14: 2 with suggested children, 0 after accept-all and after dismiss-all, also on the list row); `tests/api/breakdown.test.ts` (Task 16); `tests/api/admin.test.ts` (Task 18) |
-| health `features.featureRequests` (master plan section 4) | `src/app.test.ts` (Task 3) and `tests/api/health.test.ts` (Task 10): false in the default test config, true with `GITHUB_TOKEN` and `GITHUB_REPO` set |
-| jobs: real worker to done with 3 to 7 suggested children and tags, via real `enqueueBreakdown` | `tests/jobs/breakdown.test.ts` "processes a create job" (Task 17) |
-| jobs: refuse mode fails with a message | `tests/jobs/breakdown.test.ts` "marks a refused breakdown failed" (Task 17) |
-| jobs: regenerate replaces suggested, accepted survives | `tests/jobs/breakdown.test.ts` "regenerate replaces" (Task 17) |
-| jobs: mismatched generation writes nothing | `tests/jobs/breakdown.test.ts` "generation no longer matches" (Task 17); also `tests/api/breakdown.test.ts` inline (Task 16) |
-| jobs: reconciler fails a stuck running task with the timeout message | `tests/jobs/breakdown.test.ts` "reconciler" (Task 17) |
-| live, opt-in | `tests/live/breakdown.live.test.ts` (Task 24) |
+| Spec item                                                                                      | Test                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| envelope shape                                                                                 | `src/lib/envelope.test.ts` (Task 2)                                                                                                                                                                                                                                                                             |
+| `statusFor` mapping                                                                            | `src/lib/errors.test.ts` (Task 2)                                                                                                                                                                                                                                                                               |
+| `AppError` middleware output for each code                                                     | `src/lib/error-handler.test.ts` "maps every AppError code" (Task 2)                                                                                                                                                                                                                                             |
+| cursor round trip and garbage rejection                                                        | `src/lib/cursor.test.ts` (Task 3)                                                                                                                                                                                                                                                                               |
+| config validation errors listing every missing variable                                        | `src/config.test.ts` (Task 1)                                                                                                                                                                                                                                                                                   |
+| `breakdownTask` post-validation (dedup, trim, bounds)                                          | `src/agent/breakdown.test.ts` "postValidate" (Task 15)                                                                                                                                                                                                                                                          |
+| skip rule                                                                                      | `src/agent/breakdown.test.ts` "shouldSkipBreakdown" (Task 15)                                                                                                                                                                                                                                                   |
+| suggestion-state transition table                                                              | `src/services/suggestions.test.ts` (Task 14)                                                                                                                                                                                                                                                                    |
+| progress aggregation                                                                           | `tests/db/progress.test.ts` (Task 13; repository level because the aggregate is SQL per spec 6)                                                                                                                                                                                                                 |
+| register and login flows incl. duplicate email and wrong password                              | `tests/api/auth.test.ts` "register", "login" (Task 10)                                                                                                                                                                                                                                                          |
+| refresh rotation invalidates the old cookie                                                    | `tests/api/auth.test.ts` "rotates the cookie" (Task 10)                                                                                                                                                                                                                                                         |
+| logout                                                                                         | `tests/api/auth.test.ts` "logout" (Task 10)                                                                                                                                                                                                                                                                     |
+| create enqueues a job with reason create, pending with a generation id                         | `tests/api/tasks.test.ts` "root create enqueues" (Task 13)                                                                                                                                                                                                                                                      |
+| create with a failing queue fake returns 201 with ai_status failed                             | `tests/api/tasks.test.ts` "queue is unavailable" (Task 13)                                                                                                                                                                                                                                                      |
+| child under a root succeeds, under a child fails with the depth message                        | `tests/api/tasks.test.ts` "creates a child under a root" (Task 13)                                                                                                                                                                                                                                              |
+| list pagination walks three pages without duplicates                                           | `tests/api/tasks.test.ts` "walks three pages" (Task 13)                                                                                                                                                                                                                                                         |
+| filters by status and tag                                                                      | `tests/api/tasks.test.ts` "filters by status and by tag" (Task 13)                                                                                                                                                                                                                                              |
+| children ordered by position with rationale on an AI child                                     | `tests/api/tasks-update.test.ts` "children ordering" (Task 14)                                                                                                                                                                                                                                                  |
+| patch position shifts siblings and keeps positions dense                                       | `tests/api/tasks-update.test.ts` "moves a child to a target index" (Task 14)                                                                                                                                                                                                                                    |
+| patch suggestion states through every allowed and one disallowed transition                    | `tests/api/tasks-update.test.ts` "walks every allowed suggestion transition" (Task 14)                                                                                                                                                                                                                          |
+| accept-all and dismiss-all                                                                     | `tests/api/tasks-update.test.ts` "accept-all and dismiss-all" (Task 14)                                                                                                                                                                                                                                         |
+| two breakdown calls yield one 202 and one CONFLICT                                             | `tests/api/breakdown.test.ts` "two calls in quick succession" (Task 16)                                                                                                                                                                                                                                         |
+| RATE_LIMITED past the user limit and past the global limit with details                        | `tests/api/breakdown.test.ts` "past the user limit", "scope global" (Task 16)                                                                                                                                                                                                                                   |
+| `AI_ENABLED=false` creates skipped ai_disabled; breakdown returns UNAVAILABLE                  | `tests/api/tasks.test.ts` "with AI_ENABLED=false" (Task 13); `tests/api/breakdown.test.ts` "UNAVAILABLE 'AI is paused'" (Task 16)                                                                                                                                                                               |
+| replace tags with a foreign tag id fails                                                       | `tests/api/tasks-update.test.ts` "PUT /tasks/:id/tags" (Task 14)                                                                                                                                                                                                                                                |
+| delete cascades                                                                                | `tests/api/tasks.test.ts` "DELETE cascades" (Task 13)                                                                                                                                                                                                                                                           |
+| health reports the commit SHA                                                                  | `tests/api/health.test.ts` (Task 10; the stub version in Task 3 is replaced)                                                                                                                                                                                                                                    |
+| feature-requests route absent when unconfigured                                                | `tests/api/feature-requests.test.ts` "is absent" (Task 19)                                                                                                                                                                                                                                                      |
+| admin seed-reset absent, NOT_FOUND on wrong token, recreates fixtures with stable ids          | `tests/api/admin.test.ts` (Task 18)                                                                                                                                                                                                                                                                             |
+| error envelope carries the request id                                                          | `tests/api/health.test.ts` "carries the inbound request id" (Task 10); `src/lib/error-handler.test.ts` (Task 2)                                                                                                                                                                                                 |
+| `TaskSummary.suggestionCount` and `aiError` (master plan section 4)                            | `tests/db/progress.test.ts` (Task 13); `tests/api/tasks-update.test.ts` "children ordering" and "accept-all and dismiss-all" (Task 14: 2 with suggested children, 0 after accept-all and after dismiss-all, also on the list row); `tests/api/breakdown.test.ts` (Task 16); `tests/api/admin.test.ts` (Task 18) |
+| health `features.featureRequests` (master plan section 4)                                      | `src/app.test.ts` (Task 3) and `tests/api/health.test.ts` (Task 10): false in the default test config, true with `GITHUB_TOKEN` and `GITHUB_REPO` set                                                                                                                                                           |
+| jobs: real worker to done with 3 to 7 suggested children and tags, via real `enqueueBreakdown` | `tests/jobs/breakdown.test.ts` "processes a create job" (Task 17)                                                                                                                                                                                                                                               |
+| jobs: refuse mode fails with a message                                                         | `tests/jobs/breakdown.test.ts` "marks a refused breakdown failed" (Task 17)                                                                                                                                                                                                                                     |
+| jobs: regenerate replaces suggested, accepted survives                                         | `tests/jobs/breakdown.test.ts` "regenerate replaces" (Task 17)                                                                                                                                                                                                                                                  |
+| jobs: mismatched generation writes nothing                                                     | `tests/jobs/breakdown.test.ts` "generation no longer matches" (Task 17); also `tests/api/breakdown.test.ts` inline (Task 16)                                                                                                                                                                                    |
+| jobs: reconciler fails a stuck running task with the timeout message                           | `tests/jobs/breakdown.test.ts` "reconciler" (Task 17)                                                                                                                                                                                                                                                           |
+| live, opt-in                                                                                   | `tests/live/breakdown.live.test.ts` (Task 24)                                                                                                                                                                                                                                                                   |
 
 Additional tests beyond the list: `tests/db/schema.test.ts` (constraints), `tests/jobs/queue.test.ts` (job id and options), `tests/lib/rate-limit.test.ts`, `src/schemas/index.test.ts` (every endpoint documented), `src/routes/validate.test.ts`, `src/agent/anthropic-model.test.ts`, `src/lib/assets.test.ts`, `tests/api/tags.test.ts`.
 

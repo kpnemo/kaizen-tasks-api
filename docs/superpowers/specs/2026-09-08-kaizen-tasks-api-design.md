@@ -1,11 +1,11 @@
 # Kaizen Tasks API: Design Spec
 
-| Field | Value |
-|---|---|
-| Repo | `kaizen-tasks-api`, folder `webapp/backend/` |
-| Status | Approved design, revised after Codex challenge review on 2026-09-08 |
-| Date | 2026-09-08 |
-| Upstream | `webapp/docs/PRD.md` in the assembly-line repo (sections 5, 6, 7, 8.1) |
+| Field      | Value                                                                         |
+| ---------- | ----------------------------------------------------------------------------- |
+| Repo       | `kaizen-tasks-api`, folder `webapp/backend/`                                  |
+| Status     | Approved design, revised after Codex challenge review on 2026-09-08           |
+| Date       | 2026-09-08                                                                    |
+| Upstream   | `webapp/docs/PRD.md` in the assembly-line repo (sections 5, 6, 7, 8.1)        |
 | Downstream | `superpowers:writing-plans` produces `docs/superpowers/plans/` from this spec |
 
 ## 1. Purpose and scope
@@ -14,13 +14,13 @@ This spec designs the first of four sub-projects: the Kaizen Tasks API. It cover
 
 Everything in the PRD's decision log is settled. The approach decisions taken during design are:
 
-| # | Decision | Choice and reason |
-|---|---|---|
-| A1 | Task hierarchy | One `tasks` table with a nullable `parent_id`. Fewer endpoints, steps carry the same fields as tasks, and "break a step down further" becomes a later one-line feature. Depth capped at two by a named constant |
-| A2 | Auth transport | Same-origin. The web service proxies `/api/*` to the API over Railway private networking, and Vite's dev proxy does the same locally. Refresh token in a first-party httpOnly cookie. No CORS. The API has no public domain |
-| A3 | Worker topology | The BullMQ worker runs inside the API process, toggled by `WORKER_ENABLED`. One deployable per environment |
-| A4 | Test database | A real local Postgres, tables truncated before every test. CI uses service containers |
-| A5 | Layout | `webapp/` is the assembly-line repo; `webapp/backend/` and `webapp/frontend/` are independent nested repos, git-ignored by the parent |
+| #   | Decision        | Choice and reason                                                                                                                                                                                                           |
+| --- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Task hierarchy  | One `tasks` table with a nullable `parent_id`. Fewer endpoints, steps carry the same fields as tasks, and "break a step down further" becomes a later one-line feature. Depth capped at two by a named constant             |
+| A2  | Auth transport  | Same-origin. The web service proxies `/api/*` to the API over Railway private networking, and Vite's dev proxy does the same locally. Refresh token in a first-party httpOnly cookie. No CORS. The API has no public domain |
+| A3  | Worker topology | The BullMQ worker runs inside the API process, toggled by `WORKER_ENABLED`. One deployable per environment                                                                                                                  |
+| A4  | Test database   | A real local Postgres, tables truncated before every test. CI uses service containers                                                                                                                                       |
+| A5  | Layout          | `webapp/` is the assembly-line repo; `webapp/backend/` and `webapp/frontend/` are independent nested repos, git-ignored by the parent                                                                                       |
 
 ## 2. System shape
 
@@ -70,14 +70,14 @@ webapp/backend/
 
 Import rules, enforced by review and by the `reviewer` agent, not by tooling:
 
-| Layer | May import |
-|---|---|
-| `routes` | `schemas`, `services`, `lib` |
-| `services` | `repositories`, `agent`, `jobs/queue`, `lib` |
-| `repositories` | `db`, `lib` |
-| `jobs` | `services`, `repositories`, `agent`, `lib` |
-| `agent` | `lib`, `schemas` |
-| `lib`, `db`, `schemas` | nothing app-level above them |
+| Layer                  | May import                                   |
+| ---------------------- | -------------------------------------------- |
+| `routes`               | `schemas`, `services`, `lib`                 |
+| `services`             | `repositories`, `agent`, `jobs/queue`, `lib` |
+| `repositories`         | `db`, `lib`                                  |
+| `jobs`                 | `services`, `repositories`, `agent`, `lib`   |
+| `agent`                | `lib`, `schemas`                             |
+| `lib`, `db`, `schemas` | nothing app-level above them                 |
 
 Handlers never touch Drizzle. Services never import Express types.
 
@@ -91,28 +91,28 @@ Development: `typescript`, `tsx`, `drizzle-kit` 0.31, `vitest` 5, `supertest`, `
 
 `src/config.ts` exports a `Config` parsed once at startup:
 
-| Variable | Type | Default | Notes |
-|---|---|---|---|
-| `DATABASE_URL` | url | required | |
-| `REDIS_URL` | url | required | |
-| `JWT_SECRET` | string, min 32 chars | required | |
-| `ANTHROPIC_API_KEY` | string | required unless `AI_MODEL_PROVIDER=fake` | |
-| `AI_MODEL_PROVIDER` | `anthropic` or `fake` | `anthropic` | `fake` used by tests and by local dev without a key |
-| `AI_MODEL` | string | `claude-sonnet-5` | |
-| `AI_RATE_LIMIT_PER_HOUR` | int | `20` | Per user |
-| `AI_GLOBAL_LIMIT_PER_HOUR` | int | `300` | Across all users in the environment; the session budget |
-| `AI_ENABLED` | bool | `true` | Operator kill switch. When false, tasks are created with `ai_status = skipped`, reason `ai_disabled` |
-| `AI_STALE_MINUTES` | int | `10` | Reconciler threshold for stuck generations |
-| `ADMIN_TOKEN` | string, min 32 chars | optional | Enables the facilitator reset endpoint |
-| `APP_ENV` | `development`, `test`, `staging`, `production` | `development` | Reported by health |
-| `PORT` | int | `3000` | Railway injects it |
-| `WORKER_ENABLED` | bool | `true` | |
-| `SEED_DEMO_USER` | bool | `false` | |
-| `SEED_DEMO_PASSWORD` | string | `kaizen-demo-2026` | |
-| `LOG_LEVEL` | pino level | `info` | |
-| `GITHUB_TOKEN` | string | optional | Feature-request endpoint |
-| `GITHUB_REPO` | `owner/name` | optional | Feature-request endpoint |
-| `RAILWAY_GIT_COMMIT_SHA` | string | `local` | Provided by Railway |
+| Variable                   | Type                                           | Default                                  | Notes                                                                                                |
+| -------------------------- | ---------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | url                                            | required                                 |                                                                                                      |
+| `REDIS_URL`                | url                                            | required                                 |                                                                                                      |
+| `JWT_SECRET`               | string, min 32 chars                           | required                                 |                                                                                                      |
+| `ANTHROPIC_API_KEY`        | string                                         | required unless `AI_MODEL_PROVIDER=fake` |                                                                                                      |
+| `AI_MODEL_PROVIDER`        | `anthropic` or `fake`                          | `anthropic`                              | `fake` used by tests and by local dev without a key                                                  |
+| `AI_MODEL`                 | string                                         | `claude-sonnet-5`                        |                                                                                                      |
+| `AI_RATE_LIMIT_PER_HOUR`   | int                                            | `20`                                     | Per user                                                                                             |
+| `AI_GLOBAL_LIMIT_PER_HOUR` | int                                            | `300`                                    | Across all users in the environment; the session budget                                              |
+| `AI_ENABLED`               | bool                                           | `true`                                   | Operator kill switch. When false, tasks are created with `ai_status = skipped`, reason `ai_disabled` |
+| `AI_STALE_MINUTES`         | int                                            | `10`                                     | Reconciler threshold for stuck generations                                                           |
+| `ADMIN_TOKEN`              | string, min 32 chars                           | optional                                 | Enables the facilitator reset endpoint                                                               |
+| `APP_ENV`                  | `development`, `test`, `staging`, `production` | `development`                            | Reported by health                                                                                   |
+| `PORT`                     | int                                            | `3000`                                   | Railway injects it                                                                                   |
+| `WORKER_ENABLED`           | bool                                           | `true`                                   |                                                                                                      |
+| `SEED_DEMO_USER`           | bool                                           | `false`                                  |                                                                                                      |
+| `SEED_DEMO_PASSWORD`       | string                                         | `kaizen-demo-2026`                       |                                                                                                      |
+| `LOG_LEVEL`                | pino level                                     | `info`                                   |                                                                                                      |
+| `GITHUB_TOKEN`             | string                                         | optional                                 | Feature-request endpoint                                                                             |
+| `GITHUB_REPO`              | `owner/name`                                   | optional                                 | Feature-request endpoint                                                                             |
+| `RAILWAY_GIT_COMMIT_SHA`   | string                                         | `local`                                  | Provided by Railway                                                                                  |
 
 Cookies are `secure` unless `APP_ENV` is `development` or `test`.
 
@@ -126,35 +126,35 @@ Cookies are `secure` unless `APP_ENV` is `development` or `test`.
 
 Enums: `task_status` (todo, in_progress, done), `ai_status` (pending, running, done, failed, skipped), `ai_skip_reason` (too_short, rate_limited, ai_disabled), `task_origin` (user, ai), `suggestion_state` (suggested, accepted, dismissed).
 
-| Table | Column | Type | Constraints |
-|---|---|---|---|
-| `users` | id | uuid pk | default gen_random_uuid() |
-| | email | text | unique, stored lowercase |
-| | password_hash | text | |
-| | display_name | text | |
-| | created_at, updated_at | timestamptz | default now() |
-| `tasks` | id | uuid pk | |
-| | user_id | uuid | fk users on delete cascade |
-| | parent_id | uuid null | fk tasks on delete cascade |
-| | title | text | 1 to 200 chars, enforced by zod |
-| | description | text null | up to 4000 chars |
-| | status | task_status | default todo |
-| | position | integer | default 0, order among siblings |
-| | origin | task_origin | default user |
-| | suggestion_state | suggestion_state null | non-null only when origin = ai, enforced by a check constraint |
-| | rationale | text null | |
-| | ai_status | ai_status | default pending on root creates, skipped on child creates |
-| | ai_skip_reason | ai_skip_reason null | too_short, rate_limited, ai_disabled. Set only when ai_status = skipped |
-| | ai_error | text null | Set only when ai_status = failed |
-| | generation_id | uuid null | The generation currently owning the AI fields; set by the atomic reservation, matched by the worker before any write |
-| | ai_tag_suggestions | text[] | default empty |
-| | created_at, updated_at | timestamptz | |
-| `tags` | id | uuid pk | |
-| | user_id | uuid | fk users cascade |
-| | name | text | 1 to 40 chars |
-| | color | text | hex, validated by zod |
-| | created_at | timestamptz | |
-| `task_tags` | task_id, tag_id | uuid | composite pk, both fk cascade |
+| Table       | Column                 | Type                  | Constraints                                                                                                          |
+| ----------- | ---------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `users`     | id                     | uuid pk               | default gen_random_uuid()                                                                                            |
+|             | email                  | text                  | unique, stored lowercase                                                                                             |
+|             | password_hash          | text                  |                                                                                                                      |
+|             | display_name           | text                  |                                                                                                                      |
+|             | created_at, updated_at | timestamptz           | default now()                                                                                                        |
+| `tasks`     | id                     | uuid pk               |                                                                                                                      |
+|             | user_id                | uuid                  | fk users on delete cascade                                                                                           |
+|             | parent_id              | uuid null             | fk tasks on delete cascade                                                                                           |
+|             | title                  | text                  | 1 to 200 chars, enforced by zod                                                                                      |
+|             | description            | text null             | up to 4000 chars                                                                                                     |
+|             | status                 | task_status           | default todo                                                                                                         |
+|             | position               | integer               | default 0, order among siblings                                                                                      |
+|             | origin                 | task_origin           | default user                                                                                                         |
+|             | suggestion_state       | suggestion_state null | non-null only when origin = ai, enforced by a check constraint                                                       |
+|             | rationale              | text null             |                                                                                                                      |
+|             | ai_status              | ai_status             | default pending on root creates, skipped on child creates                                                            |
+|             | ai_skip_reason         | ai_skip_reason null   | too_short, rate_limited, ai_disabled. Set only when ai_status = skipped                                              |
+|             | ai_error               | text null             | Set only when ai_status = failed                                                                                     |
+|             | generation_id          | uuid null             | The generation currently owning the AI fields; set by the atomic reservation, matched by the worker before any write |
+|             | ai_tag_suggestions     | text[]                | default empty                                                                                                        |
+|             | created_at, updated_at | timestamptz           |                                                                                                                      |
+| `tags`      | id                     | uuid pk               |                                                                                                                      |
+|             | user_id                | uuid                  | fk users cascade                                                                                                     |
+|             | name                   | text                  | 1 to 40 chars                                                                                                        |
+|             | color                  | text                  | hex, validated by zod                                                                                                |
+|             | created_at             | timestamptz           |                                                                                                                      |
+| `task_tags` | task_id, tag_id        | uuid                  | composite pk, both fk cascade                                                                                        |
 
 Indexes: `tasks (user_id, created_at desc, id desc)` for keyset listing; `tasks (parent_id, position, created_at, id)`, which is also the deterministic child ordering; `tasks (ai_status, updated_at)` for the reconciler; unique `tags (user_id, lower(name))`.
 
@@ -164,12 +164,12 @@ Depth is not stored. A row is root when `parent_id` is null. The service rule `M
 
 ### 3.2 Redis keys
 
-| Key | Value | TTL |
-|---|---|---|
-| `refresh:<tokenId>` | user id | 7 days |
-| `ratelimit:breakdown:<userId>:<YYYYMMDDHH>` | counter | 1 hour |
-| `ratelimit:breakdown:global:<YYYYMMDDHH>` | counter | 1 hour |
-| BullMQ keys under prefix `kaizen` | queue state | managed by BullMQ |
+| Key                                         | Value       | TTL               |
+| ------------------------------------------- | ----------- | ----------------- |
+| `refresh:<tokenId>`                         | user id     | 7 days            |
+| `ratelimit:breakdown:<userId>:<YYYYMMDDHH>` | counter     | 1 hour            |
+| `ratelimit:breakdown:global:<YYYYMMDDHH>`   | counter     | 1 hour            |
+| BullMQ keys under prefix `kaizen`           | queue state | managed by BullMQ |
 
 Nothing that must survive a Redis flush lives in Redis. A flush loses queued jobs, which the reconciler (section 5.6) turns into retryable failed tasks within `AI_STALE_MINUTES`. Tests use Redis database index 1.
 
@@ -189,17 +189,17 @@ Error: `{ "error": { "code": "...", "message": "...", "details": ..., "requestId
 
 Codes and status, from one function `statusFor(code)` in `lib/errors.ts`:
 
-| Code | Status |
-|---|---|
-| `VALIDATION_ERROR` | 400 |
-| `UNAUTHORIZED` | 401 |
-| `FORBIDDEN` | 403 |
-| `NOT_FOUND` | 404 |
-| `CONFLICT` | 409 |
-| `RATE_LIMITED` | 429 |
-| `UPSTREAM_ERROR` | 502 |
-| `UNAVAILABLE` | 503 |
-| `INTERNAL` | 500 |
+| Code               | Status |
+| ------------------ | ------ |
+| `VALIDATION_ERROR` | 400    |
+| `UNAUTHORIZED`     | 401    |
+| `FORBIDDEN`        | 403    |
+| `NOT_FOUND`        | 404    |
+| `CONFLICT`         | 409    |
+| `RATE_LIMITED`     | 429    |
+| `UPSTREAM_ERROR`   | 502    |
+| `UNAVAILABLE`      | 503    |
+| `INTERNAL`         | 500    |
 
 `UNAVAILABLE` is used only by the health endpoint. `AppError extends Error` carries `code`, `message`, optional `details`. The single error middleware maps `AppError` to its envelope, zod errors to `VALIDATION_ERROR`, and anything else to `INTERNAL` with the message hidden outside development. Ownership failures are returned as `NOT_FOUND`, never `FORBIDDEN`.
 
@@ -217,30 +217,30 @@ Codes and status, from one function `statusFor(code)` in `lib/errors.ts`:
 
 All under `/api/v1`. User auth (bearer token) required everywhere except register, login, refresh, health, the OpenAPI document, and the admin seed-reset endpoint, which is guarded by its own `x-admin-token` header instead.
 
-| Method and path | Request | Response | Notes |
-|---|---|---|---|
-| POST `/auth/register` | email, password, displayName | 201 `{ user, accessToken }` + cookie | `CONFLICT` on duplicate email |
-| POST `/auth/login` | email, password | 200 `{ user, accessToken }` + cookie | `UNAUTHORIZED` on bad credentials, same message for both cases |
-| POST `/auth/refresh` | cookie | 200 `{ accessToken }` + rotated cookie | `UNAUTHORIZED` if missing or unknown |
-| POST `/auth/logout` | cookie | 204 | |
-| GET `/auth/me` | | 200 `{ user }` | |
-| GET `/tasks` | query: status?, tagId?, parentId?, limit? (1 to 100, default 50), cursor? | 200 `TaskSummary[]` + nextCursor | Top-level only unless parentId given |
-| POST `/tasks` | title, description?, parentId?, tagIds? | 201 `TaskDetail` | Root creates enqueue a breakdown; child creates set ai_status skipped |
-| GET `/tasks/:id` | | 200 `TaskDetail` | Includes children, tags, progress, aiTagSuggestions, aiError |
-| PATCH `/tasks/:id` | title?, description?, status?, position?, suggestionState? | 200 `TaskDetail` | suggestionState only valid on ai-origin rows. position is a target index among siblings; affected siblings are shifted in the same transaction |
-| DELETE `/tasks/:id` | | 204 | Cascades to children |
-| POST `/tasks/:id/breakdown` | | 202 `TaskDetail` | Root only. `CONFLICT` if a generation is already pending or running, decided by one atomic conditional update. `RATE_LIMITED` when over the user or global limit |
-| POST `/tasks/:id/suggestions/accept-all` | | 200 `TaskDetail` | All suggested children become accepted |
-| POST `/tasks/:id/suggestions/dismiss-all` | | 200 `TaskDetail` | All suggested children become dismissed |
-| PUT `/tasks/:id/tags` | tagIds[] | 200 `TaskDetail` | Replaces the set. Unknown or foreign tag ids give `VALIDATION_ERROR` |
-| GET `/tags` | | 200 `Tag[]` | |
-| POST `/tags` | name, color | 201 `Tag` | `CONFLICT` on duplicate name |
-| PATCH `/tags/:id` | name?, color? | 200 `Tag` | |
-| DELETE `/tags/:id` | | 204 | Removes links |
-| POST `/feature-requests` | title, problem, proposedBehavior, acceptanceCriteria, outOfScope? | 201 `{ issueNumber, issueUrl }` | Mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set. Body includes the submitter's display name. Labeled `feature-request`. GitHub failures give `UPSTREAM_ERROR` |
-| POST `/admin/seed-reset` | header `x-admin-token` | 200 `{ demoUserId }` | Mounted only when `ADMIN_TOKEN` is set. Wrong or missing token gives `NOT_FOUND`, so the route is invisible to guessing. Runs `seed.reset()` |
-| GET `/health` | | 200 `{ status, commit, env, checks: { db, redis }, features: { featureRequests } }` | 503 `UNAVAILABLE` if a check fails. `features.featureRequests` is true exactly when the feature-requests route is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set); added 2026-09-08 for the web app (master plan section 4) |
-| GET `/openapi.json` | | 200 document | Served from the committed file |
+| Method and path                           | Request                                                                   | Response                                                                            | Notes                                                                                                                                                                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST `/auth/register`                     | email, password, displayName                                              | 201 `{ user, accessToken }` + cookie                                                | `CONFLICT` on duplicate email                                                                                                                                                                                                   |
+| POST `/auth/login`                        | email, password                                                           | 200 `{ user, accessToken }` + cookie                                                | `UNAUTHORIZED` on bad credentials, same message for both cases                                                                                                                                                                  |
+| POST `/auth/refresh`                      | cookie                                                                    | 200 `{ accessToken }` + rotated cookie                                              | `UNAUTHORIZED` if missing or unknown                                                                                                                                                                                            |
+| POST `/auth/logout`                       | cookie                                                                    | 204                                                                                 |                                                                                                                                                                                                                                 |
+| GET `/auth/me`                            |                                                                           | 200 `{ user }`                                                                      |                                                                                                                                                                                                                                 |
+| GET `/tasks`                              | query: status?, tagId?, parentId?, limit? (1 to 100, default 50), cursor? | 200 `TaskSummary[]` + nextCursor                                                    | Top-level only unless parentId given                                                                                                                                                                                            |
+| POST `/tasks`                             | title, description?, parentId?, tagIds?                                   | 201 `TaskDetail`                                                                    | Root creates enqueue a breakdown; child creates set ai_status skipped                                                                                                                                                           |
+| GET `/tasks/:id`                          |                                                                           | 200 `TaskDetail`                                                                    | Includes children, tags, progress, aiTagSuggestions, aiError                                                                                                                                                                    |
+| PATCH `/tasks/:id`                        | title?, description?, status?, position?, suggestionState?                | 200 `TaskDetail`                                                                    | suggestionState only valid on ai-origin rows. position is a target index among siblings; affected siblings are shifted in the same transaction                                                                                  |
+| DELETE `/tasks/:id`                       |                                                                           | 204                                                                                 | Cascades to children                                                                                                                                                                                                            |
+| POST `/tasks/:id/breakdown`               |                                                                           | 202 `TaskDetail`                                                                    | Root only. `CONFLICT` if a generation is already pending or running, decided by one atomic conditional update. `RATE_LIMITED` when over the user or global limit                                                                |
+| POST `/tasks/:id/suggestions/accept-all`  |                                                                           | 200 `TaskDetail`                                                                    | All suggested children become accepted                                                                                                                                                                                          |
+| POST `/tasks/:id/suggestions/dismiss-all` |                                                                           | 200 `TaskDetail`                                                                    | All suggested children become dismissed                                                                                                                                                                                         |
+| PUT `/tasks/:id/tags`                     | tagIds[]                                                                  | 200 `TaskDetail`                                                                    | Replaces the set. Unknown or foreign tag ids give `VALIDATION_ERROR`                                                                                                                                                            |
+| GET `/tags`                               |                                                                           | 200 `Tag[]`                                                                         |                                                                                                                                                                                                                                 |
+| POST `/tags`                              | name, color                                                               | 201 `Tag`                                                                           | `CONFLICT` on duplicate name                                                                                                                                                                                                    |
+| PATCH `/tags/:id`                         | name?, color?                                                             | 200 `Tag`                                                                           |                                                                                                                                                                                                                                 |
+| DELETE `/tags/:id`                        |                                                                           | 204                                                                                 | Removes links                                                                                                                                                                                                                   |
+| POST `/feature-requests`                  | title, problem, proposedBehavior, acceptanceCriteria, outOfScope?         | 201 `{ issueNumber, issueUrl }`                                                     | Mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set. Body includes the submitter's display name. Labeled `feature-request`. GitHub failures give `UPSTREAM_ERROR`                                                        |
+| POST `/admin/seed-reset`                  | header `x-admin-token`                                                    | 200 `{ demoUserId }`                                                                | Mounted only when `ADMIN_TOKEN` is set. Wrong or missing token gives `NOT_FOUND`, so the route is invisible to guessing. Runs `seed.reset()`                                                                                    |
+| GET `/health`                             |                                                                           | 200 `{ status, commit, env, checks: { db, redis }, features: { featureRequests } }` | 503 `UNAVAILABLE` if a check fails. `features.featureRequests` is true exactly when the feature-requests route is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set); added 2026-09-08 for the web app (master plan section 4) |
+| GET `/openapi.json`                       |                                                                           | 200 document                                                                        | Served from the committed file                                                                                                                                                                                                  |
 
 Shapes:
 
@@ -306,7 +306,10 @@ Two implementations: `AnthropicBreakdownModel` and `FakeBreakdownModel` (returns
 
 ```ts
 const BreakdownSchema = z.object({
-  steps: z.array(z.object({ title: z.string(), rationale: z.string() })).min(3).max(7),
+  steps: z
+    .array(z.object({ title: z.string(), rationale: z.string() }))
+    .min(3)
+    .max(7),
   tagSuggestions: z.array(z.string()).max(3),
 });
 ```
@@ -315,13 +318,14 @@ The Anthropic adapter, per the current SDK surface:
 
 ```ts
 const response = await client.messages.parse({
-  model: config.AI_MODEL,                       // claude-sonnet-5
+  model: config.AI_MODEL, // claude-sonnet-5
   max_tokens: 4096,
   system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
   messages: [{ role: "user", content: JSON.stringify(input) }],
   output_config: { format: zodOutputFormat(BreakdownSchema), effort: "medium" },
 });
-if (response.stop_reason === "refusal") return { kind: "refused", reason: response.stop_details?.explanation ?? "refused" };
+if (response.stop_reason === "refusal")
+  return { kind: "refused", reason: response.stop_details?.explanation ?? "refused" };
 if (!response.parsed_output) return { kind: "invalid", reason: "unparseable" };
 return { kind: "ok", result: response.parsed_output };
 ```
@@ -427,20 +431,20 @@ Prerequisites: nvm with Node 24 (`nvm install 24 && nvm use`), Homebrew `postgre
 
 Scripts, identical names in the web repo where applicable:
 
-| Script | Does |
-|---|---|
-| `dev` | `tsx watch src/server.ts` |
-| `build` | `tsc -p tsconfig.build.json && scripts/copy-assets.sh` |
-| `start` | `node dist/server.js` |
-| `test` | vitest run, both projects |
-| `test:live` | the opt-in live model test |
-| `lint` | eslint and prettier check |
-| `typecheck` | `tsc --noEmit` |
-| `db:generate` | drizzle-kit generate |
-| `db:migrate` | run migrations |
-| `db:seed` | create the demo fixtures if absent; `-- --reset` deletes and recreates them |
-| `openapi` | regenerate `openapi.json` and `docs/API.md`; `-- --check` for drift |
-| `docs:check` | `scripts/docs-check.sh --hook` |
+| Script        | Does                                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| `dev`         | `tsx watch src/server.ts`                                                   |
+| `build`       | `tsc -p tsconfig.build.json && scripts/copy-assets.sh`                      |
+| `start`       | `node dist/server.js`                                                       |
+| `test`        | vitest run, both projects                                                   |
+| `test:live`   | the opt-in live model test                                                  |
+| `lint`        | eslint and prettier check                                                   |
+| `typecheck`   | `tsc --noEmit`                                                              |
+| `db:generate` | drizzle-kit generate                                                        |
+| `db:migrate`  | run migrations                                                              |
+| `db:seed`     | create the demo fixtures if absent; `-- --reset` deletes and recreates them |
+| `openapi`     | regenerate `openapi.json` and `docs/API.md`; `-- --check` for drift         |
+| `docs:check`  | `scripts/docs-check.sh --hook`                                              |
 
 ## 10. CI/CD and Railway
 
@@ -474,14 +478,14 @@ Merge to `develop`, Actions runs on the push, Railway holds the deployment while
 
 Not open design questions, but facts to confirm during the build, each with a fallback already chosen:
 
-| # | Check | Status | Fallback |
-|---|---|---|---|
-| V1 | `@asteasolutions/zod-to-openapi` supports zod 4 | Closed 2026-09-08: version 9.1 declares a zod 4 peer | none needed |
-| V2 | `.railway/railway.ts` supports per-environment branch | Closed 2026-09-08: branch is computed from the environment in the `defineRailway` context; the file is applied with `railway config apply`; wait-for-CI is the `source.checkSuites` field | none needed |
-| V3 | Railpack builds the pinned Node version | Closed 2026-09-08: only maintained LTS is supported, so Node 24 is pinned everywhere | none needed |
-| V4 | Wait-for-CI holds the deploy on a push-triggered workflow | Open, verified on the first staging deploy | GitHub Actions deploys through the Railway CLI |
-| V5 | `messages.parse` with `zodOutputFormat` accepts the schema with `min` and `max` array bounds | Open, verified by the live test | Drop the bounds from the schema and enforce them in post-validation only |
-| V6 | BullMQ 6 accepts the `${taskId}-${generationId}` job id | Open, verified by the real-queue integration test | none: the format contains no colon by construction |
+| #   | Check                                                                                        | Status                                                                                                                                                                                    | Fallback                                                                 |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| V1  | `@asteasolutions/zod-to-openapi` supports zod 4                                              | Closed 2026-09-08: version 9.1 declares a zod 4 peer                                                                                                                                      | none needed                                                              |
+| V2  | `.railway/railway.ts` supports per-environment branch                                        | Closed 2026-09-08: branch is computed from the environment in the `defineRailway` context; the file is applied with `railway config apply`; wait-for-CI is the `source.checkSuites` field | none needed                                                              |
+| V3  | Railpack builds the pinned Node version                                                      | Closed 2026-09-08: only maintained LTS is supported, so Node 24 is pinned everywhere                                                                                                      | none needed                                                              |
+| V4  | Wait-for-CI holds the deploy on a push-triggered workflow                                    | Open, verified on the first staging deploy                                                                                                                                                | GitHub Actions deploys through the Railway CLI                           |
+| V5  | `messages.parse` with `zodOutputFormat` accepts the schema with `min` and `max` array bounds | Open, verified by the live test                                                                                                                                                           | Drop the bounds from the schema and enforce them in post-validation only |
+| V6  | BullMQ 6 accepts the `${taskId}-${generationId}` job id                                      | Open, verified by the real-queue integration test                                                                                                                                         | none: the format contains no colon by construction                       |
 
 ## 12. Out of scope for this spec
 
