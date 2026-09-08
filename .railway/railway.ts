@@ -27,6 +27,7 @@ export default defineRailway((ctx) => {
       DATABASE_URL: "${{Postgres.DATABASE_URL}}",
       REDIS_URL: "${{Redis.REDIS_URL}}",
       WORKER_ENABLED: "true",
+      AI_MODEL_PROVIDER: "anthropic",
       AI_MODEL: "claude-sonnet-5",
       AI_RATE_LIMIT_PER_HOUR: "20",
       AI_GLOBAL_LIMIT_PER_HOUR: "300",
