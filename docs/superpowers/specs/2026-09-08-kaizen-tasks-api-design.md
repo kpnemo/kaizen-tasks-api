@@ -215,7 +215,7 @@ Codes and status, from one function `statusFor(code)` in `lib/errors.ts`:
 
 ### 4.4 Endpoints
 
-All under `/api/v1`. Auth required everywhere except register, login, refresh, health, and the OpenAPI document.
+All under `/api/v1`. User auth (bearer token) required everywhere except register, login, refresh, health, the OpenAPI document, and the admin seed-reset endpoint, which is guarded by its own `x-admin-token` header instead.
 
 | Method and path | Request | Response | Notes |
 |---|---|---|---|
@@ -460,7 +460,7 @@ Standing rule: the workshop touches only a new Railway project named `kaizen-tas
 
 Project `kaizen-tasks`, environments `staging` and `production`. In each: service `api` from GitHub `kaizen-tasks-api`, service `web` (web spec), `Postgres`, `Redis`. `api` tracks `develop` in staging and `main` in production, wait-for-CI on, no public domain, private hostname `api.railway.internal`.
 
-`.railway/railway.ts` uses `defineRailway`, `service`, and `github` from `railway/iac` and declares the `api` service: Railpack build, start `node dist/server.js`, healthcheck `/api/v1/health`, healthcheck timeout 120 seconds, and the source branch chosen from the environment in the callback context (`develop` when the environment is `staging`, `main` when `production`). Two facts about IaC shape the process: the file is not applied on push, the CLI applies it to the selected environment with `railway config apply` after a confirmation, once per environment; and wait-for-CI is not a field in the file, so it is switched on in the dashboard for each environment's `api` service and the runbook records the click path.
+`.railway/railway.ts` uses `defineRailway`, `service`, and `github` from `railway/iac` and declares the `api` service: Railpack build, start `node dist/server.js`, healthcheck `/api/v1/health`, healthcheck timeout 120 seconds, and the source branch chosen from the environment in the callback context (`develop` when the environment is `staging`, `main` when `production`). Two facts about IaC shape the process: the file is not applied on push, the CLI applies it to the selected environment with `railway config apply` after a confirmation, once per environment; and wait-for-CI is the service config field `source.checkSuites`, declared in the file as `checkSuites: true` on the GitHub source and already true on the provisioned services since 2026-09-08. The dashboard is used only to record the toggle's label for the runbook.
 
 Variables per environment: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `REDIS_URL=${{Redis.REDIS_URL}}`, `JWT_SECRET` generated per environment, `ANTHROPIC_API_KEY` pasted by the owner, `APP_ENV`, `WORKER_ENABLED=true`, `AI_MODEL=claude-sonnet-5`, `AI_RATE_LIMIT_PER_HOUR=20`, `LOG_LEVEL=info`, `SEED_DEMO_USER=true`, `SEED_DEMO_PASSWORD` set by the owner, and `GITHUB_TOKEN` and `GITHUB_REPO` once the feature-request page exists.
 
@@ -477,7 +477,7 @@ Not open design questions, but facts to confirm during the build, each with a fa
 | # | Check | Status | Fallback |
 |---|---|---|---|
 | V1 | `@asteasolutions/zod-to-openapi` supports zod 4 | Closed 2026-09-08: version 9.1 declares a zod 4 peer | none needed |
-| V2 | `.railway/railway.ts` supports per-environment branch | Closed 2026-09-08: branch is computed from the environment in the `defineRailway` context; the file is applied with `railway config apply`; wait-for-CI is dashboard-only | none needed |
+| V2 | `.railway/railway.ts` supports per-environment branch | Closed 2026-09-08: branch is computed from the environment in the `defineRailway` context; the file is applied with `railway config apply`; wait-for-CI is the `source.checkSuites` field | none needed |
 | V3 | Railpack builds the pinned Node version | Closed 2026-09-08: only maintained LTS is supported, so Node 24 is pinned everywhere | none needed |
 | V4 | Wait-for-CI holds the deploy on a push-triggered workflow | Open, verified on the first staging deploy | GitHub Actions deploys through the Railway CLI |
 | V5 | `messages.parse` with `zodOutputFormat` accepts the schema with `min` and `max` array bounds | Open, verified by the live test | Drop the bounds from the schema and enforce them in post-validation only |
