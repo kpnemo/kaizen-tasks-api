@@ -24,7 +24,9 @@ describe("GET /api/v1/health", () => {
       },
       meta: { requestId: expect.any(String) },
     });
-    const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ) as {
       version: string;
     };
     expect(res.body.data.version).toBe(pkg.version);

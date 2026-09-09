@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-09
+
 ### Added
 
 - `GET /health` reports `version` (the package.json version) next to `commit`, and the startup log prints it, so the web footer and the runbook can show which release each environment runs.
