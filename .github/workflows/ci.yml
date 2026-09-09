@@ -57,5 +57,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: docs check
+        run: bash scripts/docs-check.sh --ci
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: npm run build
       - run: bash scripts/check-dist-assets.sh

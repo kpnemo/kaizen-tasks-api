@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Docs-drift harness: `scripts/docs-check.sh` (Stop hook and CI, rules A, B, C with fix messages and the three-block escape hatch), `scripts/format-file.sh` (PostToolUse prettier), `.claude/settings.json`.
 - Toolchain: TypeScript strict ESM, ESLint flat config, Prettier, Vitest projects, Node 24 pin.
 - Config module that validates every environment variable at startup and lists all problems.
 - Error codes with a single status mapping, success and error envelopes, request ids, pino logging.
