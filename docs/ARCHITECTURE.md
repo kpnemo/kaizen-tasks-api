@@ -90,9 +90,10 @@ Railway's redeploy of the previous deployment, safe because migrations are addit
 
 ## Operations
 
-- Health: `GET /api/v1/health` returns `{ status, commit, env, checks: { db, redis }, features: { featureRequests } }`,
+- Health: `GET /api/v1/health` returns `{ status, commit, version, env, checks: { db, redis }, features: { featureRequests } }`,
   503 with `UNAVAILABLE` when a check fails. `featureRequests` is true exactly when
-  `POST /api/v1/feature-requests` is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set).
+  `POST /api/v1/feature-requests` is mounted (`GITHUB_TOKEN` and `GITHUB_REPO` both set). `version` is the
+  running build's package.json version, printed by the web app's footer.
 - Demo reset: `POST /api/v1/admin/seed-reset` with `x-admin-token` recreates `demo@kaizen.local`
   and its fixtures with stable ids; `npm run db:seed -- --reset` does the same locally.
 - Kill switch and budget: `AI_ENABLED`, `AI_RATE_LIMIT_PER_HOUR`, `AI_GLOBAL_LIMIT_PER_HOUR` are
