@@ -22,7 +22,7 @@ afterAll(async () => {
 
 describe("POST /admin/seed-reset", () => {
   it("is absent without ADMIN_TOKEN", async () => {
-    const res = await request(plain.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
+    const res = await request(plain.server).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(res.status).toBe(404);
     expect(res.body.error).toMatchObject({
       code: "NOT_FOUND",
@@ -31,8 +31,8 @@ describe("POST /admin/seed-reset", () => {
   });
 
   it("returns the same NOT_FOUND for a wrong or missing token", async () => {
-    const wrong = await request(admin.app).post(RESET).set("x-admin-token", "nope");
-    const missing = await request(admin.app).post(RESET);
+    const wrong = await request(admin.server).post(RESET).set("x-admin-token", "nope");
+    const missing = await request(admin.server).post(RESET);
     for (const res of [wrong, missing]) {
       expect(res.status).toBe(404);
       expect(res.body.error).toMatchObject({
@@ -43,17 +43,17 @@ describe("POST /admin/seed-reset", () => {
   });
 
   it("recreates the fixtures with their stable ids on a correct token, undoing changes", async () => {
-    const first = await request(admin.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
+    const first = await request(admin.server).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(first.status).toBe(200);
     expect(first.body.data).toEqual({ demoUserId: SEED_IDS.demoUser });
 
-    const login = await request(admin.app)
+    const login = await request(admin.server)
       .post("/api/v1/auth/login")
       .send({ email: DEMO_EMAIL, password: "demo-password-1" });
     expect(login.status).toBe(200);
     const token = login.body.data.accessToken as string;
 
-    const offsite = await request(admin.app)
+    const offsite = await request(admin.server)
       .get(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`)
       .set(auth(token));
     expect(offsite.status).toBe(200);
@@ -78,29 +78,31 @@ describe("POST /admin/seed-reset", () => {
       ),
     ).toBe(true);
 
-    const onboarding = await request(admin.app)
+    const onboarding = await request(admin.server)
       .get(`/api/v1/tasks/${SEED_IDS.tasks.onboarding}`)
       .set(auth(token));
     expect(
       onboarding.body.data.children.map((c: { suggestionState: string }) => c.suggestionState),
     ).toEqual(["suggested", "suggested", "suggested"]);
     expect(onboarding.body.data.suggestionCount).toBe(3);
-    const flaky = await request(admin.app)
+    const flaky = await request(admin.server)
       .get(`/api/v1/tasks/${SEED_IDS.tasks.flakyTest}`)
       .set(auth(token));
     expect(flaky.body.data).toMatchObject({ aiStatus: "failed", aiError: expect.any(String) });
-    const tagsRes = await request(admin.app).get("/api/v1/tags").set(auth(token));
+    const tagsRes = await request(admin.server).get("/api/v1/tags").set(auth(token));
     expect(tagsRes.body.data.map((t: { id: string }) => t.id).sort()).toEqual(
       Object.values(SEED_IDS.tags).sort(),
     );
 
     // mutate, then reset again: everything is pristine
-    await request(admin.app).delete(`/api/v1/tasks/${SEED_IDS.children.offsite1}`).set(auth(token));
-    await request(admin.app)
+    await request(admin.server)
+      .delete(`/api/v1/tasks/${SEED_IDS.children.offsite1}`)
+      .set(auth(token));
+    await request(admin.server)
       .patch(`/api/v1/tasks/${SEED_IDS.tasks.offsite}`)
       .set(auth(token))
       .send({ title: "Changed" });
-    const second = await request(admin.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
+    const second = await request(admin.server).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(second.status).toBe(200);
     expect(second.body.data).toEqual({ demoUserId: SEED_IDS.demoUser });
     const [restored] = await admin.db

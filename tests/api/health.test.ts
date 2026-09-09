@@ -10,7 +10,7 @@ afterAll(() => ctx.close());
 
 describe("GET /api/v1/health", () => {
   it("reports the commit SHA, env, passing checks against real Postgres and Redis, and features", async () => {
-    const res = await request(ctx.app).get("/api/v1/health");
+    const res = await request(ctx.server).get("/api/v1/health");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       data: {
@@ -30,7 +30,7 @@ describe("GET /api/v1/health", () => {
       GITHUB_REPO: "kpnemo/kaizen-tasks-assembly-line",
     });
     try {
-      const res = await request(configured.app).get("/api/v1/health");
+      const res = await request(configured.server).get("/api/v1/health");
       expect(res.status).toBe(200);
       expect(res.body.data.features).toEqual({ featureRequests: true });
     } finally {
@@ -50,7 +50,7 @@ describe("GET /api/v1/health", () => {
       },
     );
     try {
-      const res = await request(broken.app).get("/api/v1/health");
+      const res = await request(broken.server).get("/api/v1/health");
       expect(res.status).toBe(503);
       expect(res.body.error.code).toBe("UNAVAILABLE");
       expect(res.body.error.message).toBe("Health check failed: redis");
@@ -60,7 +60,7 @@ describe("GET /api/v1/health", () => {
   });
 
   it("serves the committed openapi.json", async () => {
-    const res = await request(ctx.app).get("/api/v1/openapi.json");
+    const res = await request(ctx.server).get("/api/v1/openapi.json");
     expect(res.status).toBe(200);
     expect(res.body.openapi).toBe("3.1.0");
     // Paths are bare with `servers: /api/v1` (fixed in 5d7caa7, predates this brief's test literal).
@@ -68,7 +68,7 @@ describe("GET /api/v1/health", () => {
   });
 
   it("carries the inbound request id in the error envelope", async () => {
-    const res = await request(ctx.app).get("/api/v1/nothing").set("x-request-id", "trace-me");
+    const res = await request(ctx.server).get("/api/v1/nothing").set("x-request-id", "trace-me");
     expect(res.status).toBe(404);
     expect(res.body.error).toEqual({
       code: "NOT_FOUND",

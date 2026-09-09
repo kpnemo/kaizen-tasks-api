@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import { createServer, type Server } from "node:http";
 import type { Redis } from "ioredis";
 import type { Sql } from "postgres";
 import { FakeBreakdownModel } from "../../src/agent/fake-model.js";
@@ -11,7 +11,8 @@ import { createRedis } from "../../src/lib/redis.js";
 import { FakeQueue } from "./fake-queue.js";
 
 export interface TestContext {
-  app: Express;
+  /** A listening server: supertest reuses it instead of listen(0)/close() per request. */
+  server: Server;
   config: Config;
   db: Db;
   sql: Sql;
@@ -44,8 +45,9 @@ export async function createTestApp(
     logger,
     ...extra,
   });
+  const server = createServer(app).listen(0, "127.0.0.1");
   return {
-    app,
+    server,
     config,
     db,
     sql,
@@ -54,6 +56,9 @@ export async function createTestApp(
     model,
     runQueue: () => queue.drain((data) => processBreakdownJob(data, { db, model, logger })),
     close: async () => {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
       await redis.quit();
       await sql.end();
     },

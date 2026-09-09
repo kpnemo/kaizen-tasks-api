@@ -25,18 +25,18 @@ afterAll(() => ctx.close());
 
 const TASKS = "/api/v1/tasks";
 const breakdown = (c: TestContext, user: TestUser, id: string) =>
-  request(c.app).post(`${TASKS}/${id}/breakdown`).set(auth(user.token));
+  request(c.server).post(`${TASKS}/${id}/breakdown`).set(auth(user.token));
 const get = (c: TestContext, user: TestUser, id: string) =>
-  request(c.app).get(`${TASKS}/${id}`).set(auth(user.token));
+  request(c.server).get(`${TASKS}/${id}`).set(auth(user.token));
 
 describe("processor through the fake queue", () => {
   it("writes suggested children with rationale, tag suggestions not already on the task, and aiStatus done", async () => {
-    const user = await registerUser(ctx.app);
-    const tag = await request(ctx.app)
+    const user = await registerUser(ctx.server);
+    const tag = await request(ctx.server)
       .post("/api/v1/tags")
       .set(auth(user.token))
       .send({ name: "Planning", color: "#666666" });
-    const task = await createTask(ctx.app, user.token, {
+    const task = await createTask(ctx.server, user.token, {
       title: "Plan the Q4 team offsite",
       tagIds: [tag.body.data.id],
     });
@@ -66,7 +66,7 @@ describe("processor through the fake queue", () => {
   });
 
   it("passes existing steps and up to 30 open root titles to the model", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     // Inserted directly: 32 root creates through the API would exhaust the per-user AI limit (20 per hour)
     // and the 33rd create would be skipped with reason rate_limited instead of enqueuing a job.
     await ctx.db.insert(tasks).values(
@@ -76,8 +76,8 @@ describe("processor through the fake queue", () => {
         aiStatus: "skipped" as const,
       })),
     );
-    const task = await createTask(ctx.app, user.token, { title: "The one being broken down" });
-    await createTask(ctx.app, user.token, { title: "Existing manual step", parentId: task.id });
+    const task = await createTask(ctx.server, user.token, { title: "The one being broken down" });
+    await createTask(ctx.server, user.token, { title: "Existing manual step", parentId: task.id });
     await ctx.runQueue();
     const call = ctx.model.calls.at(-1)!;
     expect(call.existingSteps).toEqual(["Existing manual step"]);
@@ -86,8 +86,8 @@ describe("processor through the fake queue", () => {
   });
 
   it("skips titles under three words with an empty description", async () => {
-    const user = await registerUser(ctx.app);
-    const task = await createTask(ctx.app, user.token, { title: "Buy milk" });
+    const user = await registerUser(ctx.server);
+    const task = await createTask(ctx.server, user.token, { title: "Buy milk" });
     await ctx.runQueue();
     const res = await get(ctx, user, task.id);
     expect(res.body.data).toMatchObject({
@@ -98,9 +98,9 @@ describe("processor through the fake queue", () => {
   });
 
   it("marks refusals and invalid answers failed with a human-readable message", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     ctx.model.mode = "refuse";
-    const refused = await createTask(ctx.app, user.token, {
+    const refused = await createTask(ctx.server, user.token, {
       title: "Something the model declines",
     });
     await ctx.runQueue();
@@ -110,7 +110,9 @@ describe("processor through the fake queue", () => {
     });
 
     ctx.model.mode = "invalid";
-    const invalid = await createTask(ctx.app, user.token, { title: "Something the model garbles" });
+    const invalid = await createTask(ctx.server, user.token, {
+      title: "Something the model garbles",
+    });
     await ctx.runQueue();
     expect((await get(ctx, user, invalid.id)).body.data).toMatchObject({
       aiStatus: "failed",
@@ -120,17 +122,17 @@ describe("processor through the fake queue", () => {
   });
 
   it("rethrows retryable failures and leaves the task running for the queue to retry", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     ctx.model.mode = "retryable-error";
-    const task = await createTask(ctx.app, user.token, { title: "Upstream is flaky today" });
+    const task = await createTask(ctx.server, user.token, { title: "Upstream is flaky today" });
     await expect(ctx.runQueue()).rejects.toBeInstanceOf(ModelRetryableError);
     expect((await get(ctx, user, task.id)).body.data.aiStatus).toBe("running");
     ctx.model.mode = "ok";
   });
 
   it("writes nothing when the job's generation no longer owns the task", async () => {
-    const user = await registerUser(ctx.app);
-    const task = await createTask(ctx.app, user.token, { title: "Superseded before it ran" });
+    const user = await registerUser(ctx.server);
+    const task = await createTask(ctx.server, user.token, { title: "Superseded before it ran" });
     const newer = randomUUID();
     await ctx.db.update(tasks).set({ generationId: newer }).where(eq(tasks.id, task.id));
     await ctx.runQueue();
@@ -143,8 +145,8 @@ describe("processor through the fake queue", () => {
 
 describe("POST /tasks/:id/breakdown", () => {
   it("two calls in quick succession yield one 202 and one CONFLICT", async () => {
-    const user = await registerUser(ctx.app);
-    const task = await createTask(ctx.app, user.token, { title: "Regenerate this task please" });
+    const user = await registerUser(ctx.server);
+    const task = await createTask(ctx.server, user.token, { title: "Regenerate this task please" });
     await ctx.runQueue();
     const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, task.id));
     const oldGeneration = row?.generationId;
@@ -174,8 +176,10 @@ describe("POST /tasks/:id/breakdown", () => {
   it("returns RATE_LIMITED past the user limit with the documented details", async () => {
     const limited = await createTestApp({ AI_RATE_LIMIT_PER_HOUR: 1 });
     try {
-      const user = await registerUser(limited.app);
-      const task = await createTask(limited.app, user.token, { title: "Consumes the only slot" });
+      const user = await registerUser(limited.server);
+      const task = await createTask(limited.server, user.token, {
+        title: "Consumes the only slot",
+      });
       await limited.runQueue();
       const res = await breakdown(limited, user, task.id);
       expect(res.status).toBe(429);
@@ -195,10 +199,10 @@ describe("POST /tasks/:id/breakdown", () => {
   it("returns RATE_LIMITED with scope global past the environment budget", async () => {
     const budget = await createTestApp({ AI_RATE_LIMIT_PER_HOUR: 20, AI_GLOBAL_LIMIT_PER_HOUR: 1 });
     try {
-      const a = await registerUser(budget.app);
-      const b = await registerUser(budget.app);
-      await createTask(budget.app, a.token, { title: "Spends the whole budget" });
-      const task = await createTask(budget.app, b.token, { title: "Arrives after the budget" });
+      const a = await registerUser(budget.server);
+      const b = await registerUser(budget.server);
+      await createTask(budget.server, a.token, { title: "Spends the whole budget" });
+      const task = await createTask(budget.server, b.token, { title: "Arrives after the budget" });
       expect(task.aiStatus).toBe("skipped");
       expect(task.aiSkipReason).toBe("rate_limited");
       const res = await breakdown(budget, b, task.id);
@@ -216,8 +220,8 @@ describe("POST /tasks/:id/breakdown", () => {
   it("returns UNAVAILABLE 'AI is paused' when AI_ENABLED is false", async () => {
     const paused = await createTestApp({ AI_ENABLED: false });
     try {
-      const user = await registerUser(paused.app);
-      const task = await createTask(paused.app, user.token, { title: "Nothing happens here" });
+      const user = await registerUser(paused.server);
+      const task = await createTask(paused.server, user.token, { title: "Nothing happens here" });
       const res = await breakdown(paused, user, task.id);
       expect(res.status).toBe(503);
       expect(res.body.error).toMatchObject({ code: "UNAVAILABLE", message: "AI is paused" });
@@ -227,10 +231,13 @@ describe("POST /tasks/:id/breakdown", () => {
   });
 
   it("rejects children, hides foreign tasks, and records enqueue failures", async () => {
-    const owner = await registerUser(ctx.app);
-    const other = await registerUser(ctx.app);
-    const root = await createTask(ctx.app, owner.token, { title: "Root for breakdown rules" });
-    const child = await createTask(ctx.app, owner.token, { title: "A child", parentId: root.id });
+    const owner = await registerUser(ctx.server);
+    const other = await registerUser(ctx.server);
+    const root = await createTask(ctx.server, owner.token, { title: "Root for breakdown rules" });
+    const child = await createTask(ctx.server, owner.token, {
+      title: "A child",
+      parentId: root.id,
+    });
     await ctx.runQueue();
     const onChild = await breakdown(ctx, owner, child.id);
     expect(onChild.status).toBe(400);

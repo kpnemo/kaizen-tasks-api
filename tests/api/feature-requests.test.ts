@@ -74,23 +74,26 @@ afterAll(async () => {
 
 describe("POST /feature-requests", () => {
   it("is absent when GITHUB_TOKEN and GITHUB_REPO are not set", async () => {
-    const user = await registerUser(plain.app);
-    const res = await request(plain.app).post(URL).set(auth(user.token)).send(body);
+    const user = await registerUser(plain.server);
+    const res = await request(plain.server).post(URL).set(auth(user.token)).send(body);
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
 
   it("requires authentication and validates the body", async () => {
-    expect((await request(configured.app).post(URL).send(body)).status).toBe(401);
-    const user = await registerUser(configured.app);
-    const res = await request(configured.app).post(URL).set(auth(user.token)).send({ title: "x" });
+    expect((await request(configured.server).post(URL).send(body)).status).toBe(401);
+    const user = await registerUser(configured.server);
+    const res = await request(configured.server)
+      .post(URL)
+      .set(auth(user.token))
+      .send({ title: "x" });
     expect(res.status).toBe(400);
     expect(res.body.error.details.map((d: { path: string }) => d.path)).toContain("body.problem");
   });
 
   it("creates a labeled issue carrying the submitter's display name", async () => {
-    const user = await registerUser(configured.app, { displayName: "Ada Lovelace" });
-    const res = await request(configured.app).post(URL).set(auth(user.token)).send(body);
+    const user = await registerUser(configured.server, { displayName: "Ada Lovelace" });
+    const res = await request(configured.server).post(URL).set(auth(user.token)).send(body);
     expect(res.status).toBe(201);
     expect(res.body.data).toEqual({
       issueNumber: 42,
@@ -117,10 +120,10 @@ describe("POST /feature-requests", () => {
   });
 
   it("maps GitHub failures to UPSTREAM_ERROR", async () => {
-    const user = await registerUser(configured.app);
+    const user = await registerUser(configured.server);
     issues.fail = true;
     try {
-      const res = await request(configured.app).post(URL).set(auth(user.token)).send(body);
+      const res = await request(configured.server).post(URL).set(auth(user.token)).send(body);
       expect(res.status).toBe(502);
       expect(res.body.error).toMatchObject({
         code: "UPSTREAM_ERROR",
@@ -132,8 +135,8 @@ describe("POST /feature-requests", () => {
   });
 
   it("never logs the raw GitHub response, only the status and message", async () => {
-    const user = await registerUser(leaky.app);
-    const res = await request(leaky.app).post(URL).set(auth(user.token)).send(body);
+    const user = await registerUser(leaky.server);
+    const res = await request(leaky.server).post(URL).set(auth(user.token)).send(body);
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe("UPSTREAM_ERROR");
     expect(JSON.stringify(res.body)).not.toContain("secret-marker");

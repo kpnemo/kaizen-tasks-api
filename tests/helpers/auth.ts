@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Express } from "express";
+import type { Server } from "node:http";
 import request, { type Response } from "supertest";
 
 export interface TestUser {
@@ -16,11 +16,11 @@ export function refreshCookieFrom(res: Response): string {
 }
 
 export async function registerUser(
-  app: Express,
+  server: Server,
   overrides: { email?: string; password?: string; displayName?: string } = {},
 ): Promise<TestUser> {
   const email = overrides.email ?? `user-${randomUUID()}@test.local`;
-  const res = await request(app)
+  const res = await request(server)
     .post("/api/v1/auth/register")
     .send({
       email,

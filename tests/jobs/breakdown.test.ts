@@ -83,7 +83,7 @@ const row = (id: string, userId: string) => () => findOwnedTask(ctx.db, id, user
 
 describe("real BullMQ worker", () => {
   it("processes a create job added through enqueueBreakdown to done with suggested children and tags (V6)", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     startWorker();
     const task = await service.create(user.userId, { title: "Plan the Q4 team offsite" });
     expect(task.aiStatus).toBe("pending");
@@ -102,7 +102,7 @@ describe("real BullMQ worker", () => {
   });
 
   it("marks a refused breakdown failed with a message", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     model.mode = "refuse";
     startWorker();
     const task = await service.create(user.userId, { title: "Something it will refuse" });
@@ -111,7 +111,7 @@ describe("real BullMQ worker", () => {
   });
 
   it("regenerate replaces suggested children and keeps an accepted one", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     startWorker();
     const task = await service.create(user.userId, { title: "Regenerate keeps accepted steps" });
     await waitFor(row(task.id, user.userId), (t) => t?.aiStatus === "done");
@@ -140,7 +140,7 @@ describe("real BullMQ worker", () => {
   });
 
   it("completes a job whose generation no longer matches without writing", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     const task = await service.create(user.userId, {
       title: "Superseded before the worker starts",
     });
@@ -163,7 +163,7 @@ describe("real BullMQ worker", () => {
 
 describe("reconciler", () => {
   it("fails generations stuck in pending or running past AI_STALE_MINUTES, keeping the generation id", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     const old = new Date(Date.now() - 20 * 60_000);
     const stuckGeneration = randomUUID();
     const [stuck] = await ctx.db

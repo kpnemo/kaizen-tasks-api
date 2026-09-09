@@ -17,7 +17,7 @@ const ME = "/api/v1/auth/me";
 
 describe("register", () => {
   it("creates the user, returns an access token and sets the refresh cookie", async () => {
-    const res = await request(ctx.app)
+    const res = await request(ctx.server)
       .post(REGISTER)
       .send({ email: "Ada@Example.com", password: "password123", displayName: "Ada" });
     expect(res.status).toBe(201);
@@ -38,8 +38,8 @@ describe("register", () => {
   });
 
   it("rejects a duplicate email regardless of case with CONFLICT", async () => {
-    await registerUser(ctx.app, { email: "dup@example.com" });
-    const res = await request(ctx.app)
+    await registerUser(ctx.server, { email: "dup@example.com" });
+    const res = await request(ctx.server)
       .post(REGISTER)
       .send({ email: "DUP@example.com", password: "password123", displayName: "Again" });
     expect(res.status).toBe(409);
@@ -47,7 +47,7 @@ describe("register", () => {
   });
 
   it("validates the body", async () => {
-    const res = await request(ctx.app)
+    const res = await request(ctx.server)
       .post(REGISTER)
       .send({ email: "bad", password: "short", displayName: "" });
     expect(res.status).toBe(400);
@@ -61,11 +61,11 @@ describe("register", () => {
 
 describe("login", () => {
   it("returns a session for correct credentials", async () => {
-    const user = await registerUser(ctx.app, {
+    const user = await registerUser(ctx.server, {
       email: "login@example.com",
       password: "password123",
     });
-    const res = await request(ctx.app)
+    const res = await request(ctx.server)
       .post(LOGIN)
       .send({ email: "LOGIN@example.com", password: "password123" });
     expect(res.status).toBe(200);
@@ -75,11 +75,11 @@ describe("login", () => {
   });
 
   it("uses one message for wrong password and unknown email", async () => {
-    await registerUser(ctx.app, { email: "wp@example.com", password: "password123" });
-    const wrong = await request(ctx.app)
+    await registerUser(ctx.server, { email: "wp@example.com", password: "password123" });
+    const wrong = await request(ctx.server)
       .post(LOGIN)
       .send({ email: "wp@example.com", password: "nope-nope" });
-    const unknown = await request(ctx.app)
+    const unknown = await request(ctx.server)
       .post(LOGIN)
       .send({ email: "ghost@example.com", password: "password123" });
     expect(wrong.status).toBe(401);
@@ -91,37 +91,37 @@ describe("login", () => {
 
 describe("refresh", () => {
   it("rotates the cookie and invalidates the old one", async () => {
-    const user = await registerUser(ctx.app);
-    const first = await request(ctx.app).post(REFRESH).set("Cookie", user.cookie);
+    const user = await registerUser(ctx.server);
+    const first = await request(ctx.server).post(REFRESH).set("Cookie", user.cookie);
     expect(first.status).toBe(200);
     expect(first.body.data.accessToken).toEqual(expect.any(String));
     const rotated = refreshCookieFrom(first);
     expect(rotated).not.toBe(user.cookie);
 
-    const me = await request(ctx.app)
+    const me = await request(ctx.server)
       .get(ME)
       .set(auth(first.body.data.accessToken as string));
     expect(me.status).toBe(200);
     expect(me.body.data.user.id).toBe(user.userId);
 
-    const replay = await request(ctx.app).post(REFRESH).set("Cookie", user.cookie);
+    const replay = await request(ctx.server).post(REFRESH).set("Cookie", user.cookie);
     expect(replay.status).toBe(401);
     expect(replay.body.error.code).toBe("UNAUTHORIZED");
 
-    const second = await request(ctx.app).post(REFRESH).set("Cookie", rotated);
+    const second = await request(ctx.server).post(REFRESH).set("Cookie", rotated);
     expect(second.status).toBe(200);
   });
 
   it("returns UNAUTHORIZED without a cookie", async () => {
-    const res = await request(ctx.app).post(REFRESH);
+    const res = await request(ctx.server).post(REFRESH);
     expect(res.status).toBe(401);
   });
 
   it("lets only one of two concurrent requests with the same cookie succeed", async () => {
-    const user = await registerUser(ctx.app);
+    const user = await registerUser(ctx.server);
     const [a, b] = await Promise.all([
-      request(ctx.app).post(REFRESH).set("Cookie", user.cookie),
-      request(ctx.app).post(REFRESH).set("Cookie", user.cookie),
+      request(ctx.server).post(REFRESH).set("Cookie", user.cookie),
+      request(ctx.server).post(REFRESH).set("Cookie", user.cookie),
     ]);
     expect([a.status, b.status].sort()).toEqual([200, 401]);
   });
@@ -129,24 +129,24 @@ describe("refresh", () => {
 
 describe("logout", () => {
   it("revokes the refresh token and clears the cookie", async () => {
-    const user = await registerUser(ctx.app);
-    const res = await request(ctx.app).post(LOGOUT).set("Cookie", user.cookie);
+    const user = await registerUser(ctx.server);
+    const res = await request(ctx.server).post(LOGOUT).set("Cookie", user.cookie);
     expect(res.status).toBe(204);
     const cleared = (res.get("Set-Cookie") ?? []).find((c) => c.startsWith("kaizen_refresh="));
     expect(cleared).toMatch(/kaizen_refresh=;/);
     expect(cleared).toContain("Path=/api/v1/auth");
-    const after = await request(ctx.app).post(REFRESH).set("Cookie", user.cookie);
+    const after = await request(ctx.server).post(REFRESH).set("Cookie", user.cookie);
     expect(after.status).toBe(401);
   });
 });
 
 describe("me", () => {
   it("returns the current user with a valid token and UNAUTHORIZED otherwise", async () => {
-    const user = await registerUser(ctx.app, { email: "me@example.com" });
-    const ok = await request(ctx.app).get(ME).set(auth(user.token));
+    const user = await registerUser(ctx.server, { email: "me@example.com" });
+    const ok = await request(ctx.server).get(ME).set(auth(user.token));
     expect(ok.status).toBe(200);
     expect(ok.body.data.user.email).toBe("me@example.com");
-    expect((await request(ctx.app).get(ME)).status).toBe(401);
-    expect((await request(ctx.app).get(ME).set(auth("garbage.token.here"))).status).toBe(401);
+    expect((await request(ctx.server).get(ME)).status).toBe(401);
+    expect((await request(ctx.server).get(ME).set(auth("garbage.token.here"))).status).toBe(401);
   });
 });
