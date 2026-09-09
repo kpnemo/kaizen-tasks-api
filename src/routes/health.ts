@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Config } from "../config.js";
 import { sendData } from "../lib/envelope.js";
 import { unavailable } from "../lib/errors.js";
+import { APP_VERSION } from "../lib/version.js";
 
 export interface HealthProbes {
   db(): Promise<void>;
@@ -39,6 +40,7 @@ export function healthRouter(
     sendData(res, {
       status: "ok",
       commit: config.RAILWAY_GIT_COMMIT_SHA,
+      version: APP_VERSION,
       env: config.APP_ENV,
       checks,
       features,

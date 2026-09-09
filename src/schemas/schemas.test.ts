@@ -141,6 +141,7 @@ describe("HealthSchema", () => {
   const validHealth = {
     status: "ok",
     commit: "abc123",
+    version: "1.0.0",
     env: "test",
     checks: { db: "ok", redis: "ok" },
     features: { featureRequests: true },

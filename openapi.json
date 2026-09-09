@@ -52,6 +52,10 @@
           "commit": {
             "type": "string"
           },
+          "version": {
+            "type": "string",
+            "description": "package.json version of the running build; the web app prints it in its footer"
+          },
           "env": {
             "type": "string",
             "enum": [
@@ -99,6 +103,7 @@
         "required": [
           "status",
           "commit",
+          "version",
           "env",
           "checks",
           "features"

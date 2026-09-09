@@ -13,6 +13,7 @@ import { startBreakdownWorker, type BreakdownWorker } from "./jobs/worker.js";
 import { assertRuntimeAssets } from "./lib/assets.js";
 import { createLogger } from "./lib/logger.js";
 import { createRedis } from "./lib/redis.js";
+import { APP_VERSION } from "./lib/version.js";
 
 export const OPENAPI_PATH = resolve(process.cwd(), "openapi.json");
 const SHUTDOWN_TIMEOUT_MS = 15_000;
@@ -96,7 +97,12 @@ async function main(): Promise<void> {
   const app = createApp({ config, db, redis, queue, model, logger });
   const server = app.listen(config.PORT, "::", () => {
     logger.info(
-      { port: config.PORT, env: config.APP_ENV, commit: config.RAILWAY_GIT_COMMIT_SHA },
+      {
+        port: config.PORT,
+        env: config.APP_ENV,
+        commit: config.RAILWAY_GIT_COMMIT_SHA,
+        version: APP_VERSION,
+      },
       "api listening",
     );
   });

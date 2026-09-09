@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `GET /health` reports `version` (the package.json version) next to `commit`, and the startup log prints it, so the web footer and the runbook can show which release each environment runs.
 - Harness: `add-api-endpoint`, `write-adr`, `release-notes` skills and `reviewer`, `test-writer` agents under `.claude/`.
 - Docs-drift harness: `scripts/docs-check.sh` (Stop hook and CI, rules A, B, C with fix messages and the three-block escape hatch), `scripts/format-file.sh` (PostToolUse prettier), `.claude/settings.json`.
 - Toolchain: TypeScript strict ESM, ESLint flat config, Prettier, Vitest projects, Node 24 pin.
