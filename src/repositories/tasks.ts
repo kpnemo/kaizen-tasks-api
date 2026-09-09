@@ -6,6 +6,7 @@ import {
   exists,
   inArray,
   isNull,
+  lt,
   ne,
   notInArray,
   sql,
@@ -166,6 +167,20 @@ export async function updateAiState(
   return rows.length;
 }
 
+/** Reconciler write: stuck generations become retryable failures; generation_id is kept so a late job still cannot write. */
+export async function failStaleGenerations(
+  db: DbOrTx,
+  olderThan: Date,
+  message: string,
+): Promise<number> {
+  const rows = await db
+    .update(tasks)
+    .set({ aiStatus: "failed", aiError: message, updatedAt: new Date() })
+    .where(and(inArray(tasks.aiStatus, ["pending", "running"]), lt(tasks.updatedAt, olderThan)))
+    .returning({ id: tasks.id });
+  return rows.length;
+}
+
 export type TaskFieldPatch = Partial<
   Pick<TaskRow, "title" | "description" | "status" | "suggestionState">
 >;
@@ -288,10 +303,21 @@ export interface ReplaceSuggestedChildrenOptions {
 }
 
 /**
+ * Thrown only inside replaceSuggestedChildren's inner savepoint, to unwind the delete/insert
+ * it already issued when the final guarded UPDATE turns out not to match. Never escapes the
+ * function that throws it.
+ */
+class SupersededGenerationError extends Error {}
+
+/**
  * Persists a breakdown result inside the caller's transaction, guarded by generation_id:
- * locks the task row, deletes still-suggested AI children, inserts the new steps after the
- * current maximum position, sets tag suggestions and ai_status done. Returns false when the
- * generation was superseded, in which case nothing is written.
+ * locks the task row (FOR UPDATE), then runs the delete/insert/final-update in a nested
+ * savepoint transaction so that if the closing guarded UPDATE finds the generation no longer
+ * matches, the whole savepoint (delete and insert included) rolls back instead of leaving
+ * children written under a `false` return. In practice the row lock already makes that case
+ * unreachable, since it stops any concurrent writer from changing this row's generation_id for
+ * the life of the transaction — this is a hard safety net for if that invariant ever breaks.
+ * Returns false when the generation was superseded, in which case nothing is written.
  */
 export async function replaceSuggestedChildren(
   tx: DbOrTx,
@@ -304,41 +330,49 @@ export async function replaceSuggestedChildren(
     .for("update");
   if (!locked) return false;
 
-  await tx
-    .delete(tasks)
-    .where(
-      and(
-        eq(tasks.parentId, opts.taskId),
-        eq(tasks.origin, "ai"),
-        eq(tasks.suggestionState, "suggested"),
-      ),
-    );
+  try {
+    await tx.transaction(async (inner) => {
+      await inner
+        .delete(tasks)
+        .where(
+          and(
+            eq(tasks.parentId, opts.taskId),
+            eq(tasks.origin, "ai"),
+            eq(tasks.suggestionState, "suggested"),
+          ),
+        );
 
-  const start = (await maxSiblingPosition(tx, opts.userId, opts.taskId)) + 1;
-  if (opts.steps.length > 0) {
-    await tx.insert(tasks).values(
-      opts.steps.map((step, index) => ({
-        userId: opts.userId,
-        parentId: opts.taskId,
-        title: step.title,
-        rationale: step.rationale,
-        position: start + index,
-        origin: "ai" as const,
-        suggestionState: "suggested" as const,
-        aiStatus: "skipped" as const,
-      })),
-    );
+      const start = (await maxSiblingPosition(inner, opts.userId, opts.taskId)) + 1;
+      if (opts.steps.length > 0) {
+        await inner.insert(tasks).values(
+          opts.steps.map((step, index) => ({
+            userId: opts.userId,
+            parentId: opts.taskId,
+            title: step.title,
+            rationale: step.rationale,
+            position: start + index,
+            origin: "ai" as const,
+            suggestionState: "suggested" as const,
+            aiStatus: "skipped" as const,
+          })),
+        );
+      }
+
+      const updated = await inner
+        .update(tasks)
+        .set({
+          aiStatus: "done",
+          aiTagSuggestions: opts.tagSuggestions,
+          aiError: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(tasks.id, opts.taskId), eq(tasks.generationId, opts.generationId)))
+        .returning({ id: tasks.id });
+      if (updated.length === 0) throw new SupersededGenerationError();
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof SupersededGenerationError) return false;
+    throw err;
   }
-
-  const updated = await tx
-    .update(tasks)
-    .set({
-      aiStatus: "done",
-      aiTagSuggestions: opts.tagSuggestions,
-      aiError: null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(tasks.id, opts.taskId), eq(tasks.generationId, opts.generationId)))
-    .returning({ id: tasks.id });
-  return updated.length > 0;
 }
