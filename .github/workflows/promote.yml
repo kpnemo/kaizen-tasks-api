@@ -17,6 +17,8 @@ jobs:
       STAGING_URL: ${{ vars.STAGING_WEB_URL }}
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Require the staging URL
         run: |
           if [[ -z "$STAGING_URL" ]]; then

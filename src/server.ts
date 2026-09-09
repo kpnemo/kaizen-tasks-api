@@ -49,7 +49,12 @@ async function main(): Promise<void> {
   logger.info({ folder: MIGRATIONS_FOLDER }, "migrations applied");
 
   // 4. Redis.
-  const redis = createRedis(config.REDIS_URL, { lazyConnect: true });
+  const redis = createRedis(config.REDIS_URL, {
+    lazyConnect: true,
+    maxRetriesPerRequest: 3,
+    commandTimeout: 5_000,
+  });
+  redis.on("error", (err) => logger.error({ err }, "redis error"));
   await redis.connect();
   await redis.ping();
   logger.info("redis connected");
@@ -67,12 +72,14 @@ async function main(): Promise<void> {
     apiKey: config.ANTHROPIC_API_KEY,
   });
   const queueConnection = createRedis(config.REDIS_URL);
+  queueConnection.on("error", (err) => logger.error({ err }, "redis error"));
   const queue = createBreakdownQueue(queueConnection);
   let worker: BreakdownWorker | undefined;
   let workerConnection: ReturnType<typeof createRedis> | undefined;
   let reconciler: { stop(): void } | undefined;
   if (config.WORKER_ENABLED) {
     workerConnection = createRedis(config.REDIS_URL);
+    workerConnection.on("error", (err) => logger.error({ err }, "redis error"));
     worker = startBreakdownWorker({ connection: workerConnection, db, model, logger });
     reconciler = startReconciler({ db, staleMinutes: config.AI_STALE_MINUTES, logger });
     logger.info(
@@ -114,12 +121,13 @@ async function main(): Promise<void> {
         process.exit(1);
       });
     });
+    server.closeIdleConnections();
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.message : err);
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
   process.exit(1);
 });

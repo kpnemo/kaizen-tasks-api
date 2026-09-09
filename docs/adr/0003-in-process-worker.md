@@ -32,3 +32,12 @@ Graceful shutdown on SIGTERM: stop accepting connections, stop the reconciler, c
   within `AI_STALE_MINUTES`.
 - Tests run with `WORKER_ENABLED=false` and drive the processor directly, plus one real-worker
   suite under `tests/jobs/`.
+
+## Amendment 2026-09-09
+
+The reconciler now ticks every 60 seconds (`RECONCILE_INTERVAL_MS`), down from 5 minutes; the
+query it runs is indexed (`tasks_ai_status_updated_idx`) and costs nothing at workshop scale.
+Workshop environments (staging, and production if the session runs there) set
+`AI_STALE_MINUTES=3`. Together this bounds a stuck spinner — worker crash, Redis flush, or a lost
+job — to roughly 4 minutes instead of the previous worst case of 15 minutes, well inside a 3-hour
+session.

@@ -38,7 +38,14 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - Layering: services may import `db/seed` (demo fixture and reset are db-layer code).
+- Reconciler tick interval lowered from five minutes to 60 seconds (`RECONCILE_INTERVAL_MS`); the underlying query is indexed and the cost is negligible.
+- Railway IaC: `AI_STALE_MINUTES` lowered to `3` on the `api` service so a stuck spinner is bounded to roughly 4 minutes instead of 15 (see ADR 0003 amendment).
 
 ### Fixed
 
 - docs-check: manifest lines are trimmed; hook mode falls back to the root commit when merge-base fails.
+- `promote` workflow: check out this repository as the first step so `node-version-file: .nvmrc` resolves.
+- Redis: the app's own connection now sets `maxRetriesPerRequest: 3` and a 5s `commandTimeout` so a Redis outage surfaces as an error instead of hanging requests forever; an `error` listener is attached to the app, queue and worker connections so an unhandled `error` event no longer crashes the process.
+- Graceful shutdown calls `server.closeIdleConnections()` right after `server.close()` so idle keep-alive sockets no longer force a Railway redeploy to time out and exit 1.
+- Startup failures now print the full stack (`err.stack`) instead of only the message.
+- Test harness: `createTestApp` starts one listening `http.Server` per test context and the helpers reuse it, instead of supertest allocating a fresh ephemeral port per request — this removes the local port-collision flake (~15% of runs) caused by other local processes squatting on fixed ports inside the ephemeral range.

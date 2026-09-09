@@ -3,7 +3,7 @@ import type { Logger } from "../lib/logger.js";
 import { failStaleGenerations } from "../repositories/tasks.js";
 
 export const STALE_ERROR_MESSAGE = "Timed out, try again";
-export const RECONCILE_INTERVAL_MS = 5 * 60 * 1000;
+export const RECONCILE_INTERVAL_MS = 60 * 1000;
 
 /** Tasks pending or running with updated_at older than staleMinutes become retryable failures. */
 export async function reconcileStaleGenerations(
@@ -18,7 +18,7 @@ export async function reconcileStaleGenerations(
   return count;
 }
 
-/** Runs once now and every five minutes. The timer is unref'd so it never keeps the process alive. */
+/** Runs once now and every minute. The timer is unref'd so it never keeps the process alive. */
 export function startReconciler(deps: { db: Db; staleMinutes: number; logger: Logger }): {
   stop(): void;
 } {

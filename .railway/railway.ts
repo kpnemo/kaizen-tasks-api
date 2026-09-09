@@ -32,7 +32,7 @@ export default defineRailway((ctx) => {
       AI_RATE_LIMIT_PER_HOUR: "20",
       AI_GLOBAL_LIMIT_PER_HOUR: "300",
       AI_ENABLED: "true",
-      AI_STALE_MINUTES: "10",
+      AI_STALE_MINUTES: "3",
       SEED_DEMO_USER: "true",
       LOG_LEVEL: "info",
       // Secrets are pasted by Mike in the dashboard and never written here.
