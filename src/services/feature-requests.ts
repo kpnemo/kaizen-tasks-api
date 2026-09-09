@@ -18,7 +18,8 @@ export interface GitHubIssues {
 }
 
 export function createOctokitIssues(token: string): GitHubIssues {
-  const octokit = new Octokit({ auth: token });
+  // request.timeout (ms, Node only) keeps a hanging GitHub call from stalling a request.
+  const octokit = new Octokit({ auth: token, request: { timeout: 10_000 } });
   return {
     async create(params) {
       const { data } = await octokit.rest.issues.create(params);
@@ -80,7 +81,14 @@ export function createFeatureRequestsService(deps: {
         });
         return { issueNumber: issue.number, issueUrl: issue.html_url };
       } catch (err) {
-        deps.logger.error({ err, repo: deps.repo }, "github issue creation failed");
+        // Never log the raw error: Octokit's RequestError carries `.response.data`, the raw
+        // GitHub response body, which pino's default `err` serializer would otherwise dump.
+        const status =
+          typeof err === "object" && err !== null && "status" in err
+            ? (err as { status?: number }).status
+            : undefined;
+        const message = err instanceof Error ? err.message : String(err);
+        deps.logger.error({ status, repo: deps.repo, message }, "github issue creation failed");
         throw upstreamError("Could not create the GitHub issue");
       }
     },

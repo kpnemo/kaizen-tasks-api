@@ -1,5 +1,7 @@
+import type { DestinationStream } from "pino";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createLogger } from "../../src/lib/logger.js";
 import type { GitHubIssues } from "../../src/services/feature-requests.js";
 import { createTestApp, type TestContext } from "../helpers/app.js";
 import { auth, registerUser } from "../helpers/auth.js";
@@ -27,19 +29,47 @@ class FakeIssues implements GitHubIssues {
   }
 }
 
+/** Captures pino output in memory so a test can assert on what actually got logged. */
+class CapturingDestination implements DestinationStream {
+  private lines: string[] = [];
+  write(msg: string): void {
+    this.lines.push(msg);
+  }
+  get text(): string {
+    return this.lines.join("");
+  }
+}
+
+/** Shaped like an Octokit RequestError: `.status` plus the raw GitHub response on `.response`. */
+class LeakyIssues implements GitHubIssues {
+  async create(): ReturnType<GitHubIssues["create"]> {
+    throw Object.assign(new Error("Validation Failed"), {
+      status: 422,
+      response: { data: { message: "secret-marker" } },
+    });
+  }
+}
+
 let plain: TestContext;
 let configured: TestContext;
+let leaky: TestContext;
 const issues = new FakeIssues();
+const leakyLog = new CapturingDestination();
 beforeAll(async () => {
   plain = await createTestApp();
   configured = await createTestApp(
     { GITHUB_TOKEN: "ghp_test_token", GITHUB_REPO: "kpnemo/kaizen-tasks-assembly-line" },
     { github: issues },
   );
+  leaky = await createTestApp(
+    { GITHUB_TOKEN: "ghp_test_token", GITHUB_REPO: "kpnemo/kaizen-tasks-assembly-line" },
+    { github: new LeakyIssues(), logger: createLogger("error", leakyLog) },
+  );
 });
 afterAll(async () => {
   await plain.close();
   await configured.close();
+  await leaky.close();
 });
 
 describe("POST /feature-requests", () => {
@@ -99,5 +129,15 @@ describe("POST /feature-requests", () => {
     } finally {
       issues.fail = false;
     }
+  });
+
+  it("never logs the raw GitHub response, only the status and message", async () => {
+    const user = await registerUser(leaky.app);
+    const res = await request(leaky.app).post(URL).set(auth(user.token)).send(body);
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe("UPSTREAM_ERROR");
+    expect(JSON.stringify(res.body)).not.toContain("secret-marker");
+    expect(leakyLog.text).not.toContain("secret-marker");
+    expect(leakyLog.text).toContain("422");
   });
 });

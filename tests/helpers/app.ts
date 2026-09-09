@@ -22,7 +22,7 @@ export interface TestContext {
   close(): Promise<void>;
 }
 
-type ExtraDeps = Partial<Omit<AppDeps, "config" | "db" | "redis" | "queue" | "model" | "logger">>;
+type ExtraDeps = Partial<Omit<AppDeps, "config" | "db" | "redis" | "queue" | "model">>;
 
 /** A full app over the real test database and Redis, with a fake queue and a fake model. */
 export async function createTestApp(

@@ -1,12 +1,13 @@
 import type { IncomingMessage } from "node:http";
 import type { RequestHandler } from "express";
-import { pino, type Logger } from "pino";
+import { pino, type DestinationStream, type Logger } from "pino";
 import { pinoHttp } from "pino-http";
 
 export type { Logger };
 
-export function createLogger(level: string): Logger {
-  return pino({ level });
+/** `destination` lets tests capture log output (e.g. to assert nothing sensitive is logged). */
+export function createLogger(level: string, destination?: DestinationStream): Logger {
+  return destination ? pino({ level }, destination) : pino({ level });
 }
 
 interface RequestWithUser extends IncomingMessage {
