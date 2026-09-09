@@ -47,6 +47,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `scripts/docs-check.sh` Rule A accepts a release cut: a diff that adds a dated version heading to `CHANGELOG.md` counts as documented even though `[Unreleased]` is left empty, so the `release-notes` procedure can pass the docs gate and CI.
 - docs-check: manifest lines are trimmed; hook mode falls back to the root commit when merge-base fails.
 - `promote` workflow: check out this repository as the first step so `node-version-file: .nvmrc` resolves.
 - reviewer agent's migration grep is case-insensitive.
