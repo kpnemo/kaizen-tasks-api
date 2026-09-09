@@ -62,5 +62,10 @@ export function tasksRouter(service: TasksService): Router {
     sendData(res, await service.replaceTags(currentUser(req).id, params.id, body.tagIds));
   });
 
+  router.post("/:id/breakdown", validate(idSchemas), async (req, res) => {
+    const { params } = validated<typeof idSchemas>(res);
+    sendData(res, await service.breakdown(currentUser(req).id, params.id), { status: 202 });
+  });
+
   return router;
 }

@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, exists, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  inArray,
+  isNull,
+  ne,
+  notInArray,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import type { DbOrTx } from "../db/client.js";
 import { tasks, taskTags, type NewTaskRow, type TaskRow } from "../db/schema.js";
 import type { Cursor } from "../lib/cursor.js";
@@ -218,4 +230,115 @@ export async function setSuggestionStateForAll(
     )
     .returning({ id: tasks.id });
   return rows.length;
+}
+
+/**
+ * The concurrency guard lives in data: one conditional update reserves the generation.
+ * No row means a generation is already pending or running (CONFLICT).
+ */
+export async function reserveGeneration(
+  db: DbOrTx,
+  id: string,
+  userId: string,
+  generationId: string,
+): Promise<TaskRow | undefined> {
+  const [row] = await db
+    .update(tasks)
+    .set({
+      aiStatus: "pending",
+      generationId,
+      aiError: null,
+      aiSkipReason: null,
+      updatedAt: new Date(),
+    })
+    .where(and(owned(id, userId), notInArray(tasks.aiStatus, ["pending", "running"])))
+    .returning();
+  return row;
+}
+
+/** Titles of the user's other open root tasks, newest first. */
+export async function openRootTitles(
+  db: DbOrTx,
+  userId: string,
+  excludeId: string,
+  limit: number,
+): Promise<string[]> {
+  const rows = await db
+    .select({ title: tasks.title })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNull(tasks.parentId),
+        ne(tasks.id, excludeId),
+        ne(tasks.status, "done"),
+      ),
+    )
+    .orderBy(desc(tasks.createdAt), desc(tasks.id))
+    .limit(limit);
+  return rows.map((r) => r.title);
+}
+
+export interface ReplaceSuggestedChildrenOptions {
+  taskId: string;
+  userId: string;
+  generationId: string;
+  steps: { title: string; rationale: string }[];
+  tagSuggestions: string[];
+}
+
+/**
+ * Persists a breakdown result inside the caller's transaction, guarded by generation_id:
+ * locks the task row, deletes still-suggested AI children, inserts the new steps after the
+ * current maximum position, sets tag suggestions and ai_status done. Returns false when the
+ * generation was superseded, in which case nothing is written.
+ */
+export async function replaceSuggestedChildren(
+  tx: DbOrTx,
+  opts: ReplaceSuggestedChildrenOptions,
+): Promise<boolean> {
+  const [locked] = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, opts.taskId), eq(tasks.generationId, opts.generationId)))
+    .for("update");
+  if (!locked) return false;
+
+  await tx
+    .delete(tasks)
+    .where(
+      and(
+        eq(tasks.parentId, opts.taskId),
+        eq(tasks.origin, "ai"),
+        eq(tasks.suggestionState, "suggested"),
+      ),
+    );
+
+  const start = (await maxSiblingPosition(tx, opts.userId, opts.taskId)) + 1;
+  if (opts.steps.length > 0) {
+    await tx.insert(tasks).values(
+      opts.steps.map((step, index) => ({
+        userId: opts.userId,
+        parentId: opts.taskId,
+        title: step.title,
+        rationale: step.rationale,
+        position: start + index,
+        origin: "ai" as const,
+        suggestionState: "suggested" as const,
+        aiStatus: "skipped" as const,
+      })),
+    );
+  }
+
+  const updated = await tx
+    .update(tasks)
+    .set({
+      aiStatus: "done",
+      aiTagSuggestions: opts.tagSuggestions,
+      aiError: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(tasks.id, opts.taskId), eq(tasks.generationId, opts.generationId)))
+    .returning({ id: tasks.id });
+  return updated.length > 0;
 }

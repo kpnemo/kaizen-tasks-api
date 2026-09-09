@@ -5,6 +5,7 @@ import { FakeBreakdownModel } from "../../src/agent/fake-model.js";
 import { createApp, type AppDeps } from "../../src/app.js";
 import { loadConfig, type Config } from "../../src/config.js";
 import { createDb, type Db } from "../../src/db/client.js";
+import { processBreakdownJob } from "../../src/jobs/processors/breakdown.js";
 import { createLogger } from "../../src/lib/logger.js";
 import { createRedis } from "../../src/lib/redis.js";
 import { FakeQueue } from "./fake-queue.js";
@@ -17,6 +18,7 @@ export interface TestContext {
   redis: Redis;
   queue: FakeQueue;
   model: FakeBreakdownModel;
+  runQueue(): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -32,13 +34,14 @@ export async function createTestApp(
   const redis = createRedis(config.REDIS_URL);
   const queue = new FakeQueue();
   const model = new FakeBreakdownModel();
+  const logger = createLogger("silent");
   const app = createApp({
     config,
     db,
     redis,
     queue,
     model,
-    logger: createLogger("silent"),
+    logger,
     ...extra,
   });
   return {
@@ -49,6 +52,7 @@ export async function createTestApp(
     redis,
     queue,
     model,
+    runQueue: () => queue.drain((data) => processBreakdownJob(data, { db, model, logger })),
     close: async () => {
       await redis.quit();
       await sql.end();

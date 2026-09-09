@@ -3,7 +3,7 @@ import type { Db, DbOrTx } from "../db/client.js";
 import type { NewTaskRow, TaskRow } from "../db/schema.js";
 import type { BreakdownQueue } from "../jobs/queue.js";
 import { decodeCursor, encodeCursor } from "../lib/cursor.js";
-import { notFound, validationError } from "../lib/errors.js";
+import { conflict, notFound, rateLimited, unavailable, validationError } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
 import type { RateLimiter } from "../lib/rate-limit.js";
 import { findOwnedTags, replaceTaskTags, tagsForTasks } from "../repositories/tags.js";
@@ -16,6 +16,7 @@ import {
   listSiblings,
   listTasks,
   maxSiblingPosition,
+  reserveGeneration,
   setPositions,
   setSuggestionStateForAll,
   updateAiState,
@@ -64,6 +65,7 @@ export interface TasksService {
   acceptAll(userId: string, id: string): Promise<TaskDetail>;
   dismissAll(userId: string, id: string): Promise<TaskDetail>;
   replaceTags(userId: string, id: string, tagIds: string[]): Promise<TaskDetail>;
+  breakdown(userId: string, id: string): Promise<TaskDetail>;
 }
 
 const NO_CHILDREN: ChildAggregate = { done: 0, total: 0, suggestionCount: 0 };
@@ -308,6 +310,38 @@ export function createTasksService(deps: TasksServiceDeps): TasksService {
       await db.transaction(async (tx) => {
         await replaceTaskTags(tx, task.id, unique);
       });
+      return loadTaskDetail(db, id, userId);
+    },
+
+    async breakdown(userId, id) {
+      const task = await findOwnedTask(db, id, userId);
+      if (!task) throw notFound("Task not found");
+      if (task.parentId !== null) {
+        throw validationError([
+          { path: "params.id", message: "Only top-level tasks can be broken down" },
+        ]);
+      }
+      const consumed = await rateLimiter.consume(userId);
+      if (consumed.reason === "ai_disabled") throw unavailable("AI is paused");
+      if (!consumed.allowed) {
+        throw rateLimited({
+          scope: consumed.scope,
+          limit: consumed.limit,
+          resetAt: consumed.resetAt,
+        });
+      }
+      const generationId = randomUUID();
+      const reserved = await reserveGeneration(db, id, userId, generationId);
+      if (!reserved) throw conflict("A breakdown is already pending or running for this task");
+      try {
+        await queue.enqueueBreakdown({ taskId: id, userId, generationId, reason: "regenerate" });
+      } catch (err) {
+        logger.error({ err, taskId: id }, "could not enqueue breakdown");
+        await updateAiState(db, id, generationId, {
+          aiStatus: "failed",
+          aiError: ENQUEUE_FAILED_MESSAGE,
+        });
+      }
       return loadTaskDetail(db, id, userId);
     },
   };
