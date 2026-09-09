@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Docs-drift check. Same script for the Claude Code Stop hook (--hook) and CI (--ci).
 # Rules (spec 8.2):
-#   A: code changed  -> CHANGELOG.md changed and [Unreleased] has a bullet
+#   A: code changed  -> CHANGELOG.md changed and [Unreleased] has a bullet (or the diff cuts a release: a new dated version heading)
 #   B: routes/schemas changed -> npm run openapi -- --check passes
 #   C: architectural file changed -> an ADR under docs/adr/ changed
 set -uo pipefail
@@ -109,14 +109,27 @@ unreleased_has_bullet() {
   ' CHANGELOG.md
 }
 
+# A release cut (the release-notes skill) moves every [Unreleased] bullet under a new dated
+# heading and leaves [Unreleased] empty on purpose. The added heading in this change's diff is
+# the documentation, so it satisfies Rule A on its own.
+changelog_adds_release_heading() {
+  local diff
+  if [[ "$MODE" == "--hook" ]]; then
+    diff="$(git diff "$BASE" -- CHANGELOG.md 2>/dev/null || true)"
+  else
+    diff="$(git diff "$BASE_SHA...HEAD" -- CHANGELOG.md 2>/dev/null || git diff "$BASE_SHA" HEAD -- CHANGELOG.md 2>/dev/null || true)"
+  fi
+  grep -qE '^\+## \[[0-9]+\.[0-9]+\.[0-9]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}' <<<"$diff"
+}
+
 FAILURES=()
 
 # 3. Rule A.
 if [[ -n "$CODE_SET" ]]; then
   if ! grep -qx 'CHANGELOG.md' <<<"$CHANGED"; then
     FAILURES+=("Rule A: code changed but CHANGELOG.md did not. Fix: add a bullet under [Unreleased] in CHANGELOG.md")
-  elif ! unreleased_has_bullet; then
-    FAILURES+=("Rule A: CHANGELOG.md [Unreleased] has no bullet. Fix: add a bullet under [Unreleased] in CHANGELOG.md")
+  elif ! unreleased_has_bullet && ! changelog_adds_release_heading; then
+    FAILURES+=("Rule A: CHANGELOG.md [Unreleased] has no bullet. Fix: add a bullet under [Unreleased] in CHANGELOG.md (a release cut that adds a dated version heading also counts)")
   fi
 fi
 

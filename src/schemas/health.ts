@@ -8,6 +8,9 @@ export const HealthSchema = z
   .object({
     status: z.literal("ok"),
     commit: z.string(),
+    version: z
+      .string()
+      .describe("package.json version of the running build; the web app prints it in its footer"),
     env: z.enum(["development", "test", "staging", "production"]),
     checks: z.object({ db: CheckState, redis: CheckState }),
     // Master plan section 4: true exactly when POST /feature-requests is mounted.

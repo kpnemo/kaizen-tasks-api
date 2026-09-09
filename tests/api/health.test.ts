@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestApp, type TestContext } from "../helpers/app.js";
@@ -19,9 +20,16 @@ describe("GET /api/v1/health", () => {
         env: "test",
         checks: { db: "ok", redis: "ok" },
         features: { featureRequests: false },
+        version: expect.stringMatching(/^\d+\.\d+\.\d+$/),
       },
       meta: { requestId: expect.any(String) },
     });
+    const pkg = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ) as {
+      version: string;
+    };
+    expect(res.body.data.version).toBe(pkg.version);
   });
 
   it("reports features.featureRequests true when GITHUB_TOKEN and GITHUB_REPO are set", async () => {
