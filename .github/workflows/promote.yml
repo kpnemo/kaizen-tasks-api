@@ -1,0 +1,74 @@
+name: promote
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: promote-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    name: promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      STAGING_URL: ${{ vars.STAGING_WEB_URL }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Require the staging URL
+        run: |
+          if [[ -z "$STAGING_URL" ]]; then
+            echo "Repository variable STAGING_WEB_URL is not set" >&2
+            exit 1
+          fi
+
+      - name: Wait until staging serves the candidate SHA (15 minute timeout)
+        run: |
+          deadline=$(( $(date +%s) + 900 ))
+          while :; do
+            served="$(curl -fsS --max-time 10 "$STAGING_URL/api/v1/health" | jq -r '.data.commit // empty' 2>/dev/null || true)"
+            if [[ "$served" == "$CANDIDATE_SHA" ]]; then
+              echo "staging serves $served"
+              break
+            fi
+            if (( $(date +%s) > deadline )); then
+              echo "timeout: staging serves '${served:-nothing}', wanted $CANDIDATE_SHA (deploy skipped or still failing?)" >&2
+              exit 1
+            fi
+            echo "staging serves '${served:-nothing}', waiting for $CANDIDATE_SHA"
+            sleep 15
+          done
+
+      - name: Check out the smoke package
+        uses: actions/checkout@v4
+        with:
+          repository: kpnemo/kaizen-tasks-assembly-line
+          ref: main
+          path: assembly-line
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install the smoke package
+        working-directory: assembly-line/smoke
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run the smoke test against staging
+        working-directory: assembly-line/smoke
+        env:
+          SMOKE_BASE_URL: ${{ env.STAGING_URL }}
+          SMOKE_AI_TIMEOUT_MS: "180000"
+        run: npm test
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: assembly-line/smoke/test-results
+          if-no-files-found: ignore
