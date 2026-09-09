@@ -28,7 +28,7 @@ were given) and the surrounding code, and you report.
    `src/routes/` or `src/schemas/` changed, run `npm run openapi -- --check`; if a file matching
    `docs/architectural-files.txt` changed, a `docs/adr/*.md` file changed too.
 7. Migrations. New files under `drizzle/` contain no `DROP`, `RENAME`, or `ALTER COLUMN ... TYPE`
-   (ADR 0004). Run `grep -nE 'DROP|RENAME|ALTER COLUMN .* TYPE' drizzle/*.sql` on new files.
+   (ADR 0004). Run `grep -nE -i 'DROP|RENAME|ALTER COLUMN .* TYPE' drizzle/*.sql` on new files.
 8. AI pipeline writes. Any new write to `ai_status`, `ai_error`, `ai_skip_reason`,
    `ai_tag_suggestions` or to AI children from `src/jobs/` carries a `generation_id` guard.
 

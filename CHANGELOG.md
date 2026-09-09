@@ -45,6 +45,7 @@ All notable changes to this project are documented here. The format follows
 
 - docs-check: manifest lines are trimmed; hook mode falls back to the root commit when merge-base fails.
 - `promote` workflow: check out this repository as the first step so `node-version-file: .nvmrc` resolves.
+- reviewer agent's migration grep is case-insensitive.
 - Redis: the app's own connection now sets `maxRetriesPerRequest: 3` and a 5s `commandTimeout` so a Redis outage surfaces as an error instead of hanging requests forever; an `error` listener is attached to the app, queue and worker connections so an unhandled `error` event no longer crashes the process.
 - Graceful shutdown calls `server.closeIdleConnections()` right after `server.close()` so idle keep-alive sockets no longer force a Railway redeploy to time out and exit 1.
 - Startup failures now print the full stack (`err.stack`) instead of only the message.
