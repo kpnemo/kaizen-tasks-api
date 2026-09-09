@@ -15,9 +15,11 @@ import { requestId } from "./lib/request-id.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
+import { adminRouter } from "./routes/admin.js";
 import { openapiRouter } from "./routes/openapi.js";
 import { tagsRouter } from "./routes/tags.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { createAdminService } from "./services/admin.js";
 import { createAuthService } from "./services/auth.js";
 import { createTagsService } from "./services/tags.js";
 import { createTasksService } from "./services/tasks.js";
@@ -78,6 +80,12 @@ export function createApp(deps: AppDeps): Express {
   const rateLimiter = createRateLimiter(redis, config);
   const tasksService = createTasksService({ db, queue, rateLimiter, logger });
   api.use("/tasks", requireAuth(config), tasksRouter(tasksService));
+  if (config.ADMIN_TOKEN) {
+    api.use(
+      "/admin",
+      adminRouter({ adminToken: config.ADMIN_TOKEN, service: createAdminService({ db, config }) }),
+    );
+  }
   app.use("/api/v1", api);
 
   app.use(notFoundHandler);
