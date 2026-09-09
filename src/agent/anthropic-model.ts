@@ -5,7 +5,9 @@ import { ModelNonRetryableError, ModelRetryableError } from "./errors.js";
 import type { BreakdownInput, BreakdownModel, BreakdownOutcome } from "./model.js";
 
 export const MODEL_TIMEOUT_MS = 45_000;
-export const MAX_OUTPUT_TOKENS = 4096;
+// Adaptive thinking on Sonnet 5 shares this budget with the structured payload; 16000 is cheap
+// insurance and the 45s client timeout still bounds the call.
+export const MAX_OUTPUT_TOKENS = 16_000;
 
 /**
  * The narrowest shape `complete()` needs from a client: just the one `messages.parse` call it
@@ -84,6 +86,13 @@ export class AnthropicBreakdownModel implements BreakdownModel {
       if (!response.parsed_output) return { kind: "invalid", reason: "unparseable" };
       return { kind: "ok", result: response.parsed_output };
     } catch (err) {
+      // `messages.parse` throws a bare `AnthropicError` (not an `APIError`) when its own
+      // zodOutputFormat parser fails on the model's JSON — that's a bad answer, not a transport
+      // failure, so it maps to "invalid" here rather than falling through to `toModelError` and
+      // being retried three times by BullMQ for an answer that will never parse.
+      if (err instanceof Anthropic.AnthropicError && !(err instanceof Anthropic.APIError)) {
+        return { kind: "invalid", reason: err.message };
+      }
       throw toModelError(err);
     }
   }

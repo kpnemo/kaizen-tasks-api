@@ -79,7 +79,7 @@ describe("AnthropicBreakdownModel", () => {
     });
     expect(model).toBeInstanceOf(AnthropicBreakdownModel);
     expect(MODEL_TIMEOUT_MS).toBe(45_000);
-    expect(MAX_OUTPUT_TOKENS).toBe(4096);
+    expect(MAX_OUTPUT_TOKENS).toBe(16_000);
   });
 });
 
@@ -145,6 +145,30 @@ describe("AnthropicBreakdownModel.complete via a fake client", () => {
     expect((err as { cause?: unknown }).cause).toBe(rejection);
   });
 
+  it("returns invalid when the SDK's own structured-output parser throws a bare AnthropicError", async () => {
+    // `messages.parse` throws this (not an `APIError`) when zodOutputFormat's own JSON/zod
+    // parsing fails on the model's answer — a bad answer, not a transport failure, so it must
+    // not fall through to `toModelError` and come out unclassified.
+    const parse = fakeParse().mockRejectedValue(
+      new Anthropic.AnthropicError("Failed to parse structured output: boom"),
+    );
+    const model = modelWithFakeClient(parse);
+
+    await expect(model.complete(input)).resolves.toEqual({
+      kind: "invalid",
+      reason: expect.stringContaining("Failed to parse"),
+    });
+  });
+
+  it("still lets a plain error propagate through toModelError unchanged", async () => {
+    const rejection = new Error("x");
+    const parse = fakeParse().mockRejectedValue(rejection);
+    const model = modelWithFakeClient(parse);
+
+    const err = await model.complete(input).catch((e: unknown) => e);
+    expect(err).toBe(rejection);
+  });
+
   it("calls the SDK with the model, token cap, prompt and structured-output effort", async () => {
     const parse = fakeParse().mockResolvedValue({
       stop_reason: "end_turn",
@@ -160,11 +184,14 @@ describe("AnthropicBreakdownModel.complete via a fake client", () => {
       model: string;
       max_tokens: number;
       system: Array<{ text: string }>;
-      output_config: { effort: string };
+      messages: Array<{ content: string }>;
+      output_config: { format: unknown; effort: string };
     };
     expect(call.model).toBe("claude-sonnet-5");
     expect(call.max_tokens).toBe(MAX_OUTPUT_TOKENS);
     expect(call.system[0]?.text).toBe(systemPromptText);
+    expect(call.messages[0]?.content).toBe(JSON.stringify(input));
+    expect(call.output_config.format).toBeTruthy();
     expect(call.output_config.effort).toBe("medium");
   });
 });
