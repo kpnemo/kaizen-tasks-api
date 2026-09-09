@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     maxRetriesPerRequest: 3,
     commandTimeout: 5_000,
   });
-  redis.on("error", (err) => logger.error({ err }, "redis error"));
+  redis.on("error", (err) => logger.error({ name: err.name, message: err.message }, "redis error"));
   await redis.connect();
   await redis.ping();
   logger.info("redis connected");
@@ -72,14 +72,18 @@ async function main(): Promise<void> {
     apiKey: config.ANTHROPIC_API_KEY,
   });
   const queueConnection = createRedis(config.REDIS_URL);
-  queueConnection.on("error", (err) => logger.error({ err }, "redis error"));
+  queueConnection.on("error", (err) =>
+    logger.error({ name: err.name, message: err.message }, "redis error"),
+  );
   const queue = createBreakdownQueue(queueConnection);
   let worker: BreakdownWorker | undefined;
   let workerConnection: ReturnType<typeof createRedis> | undefined;
   let reconciler: { stop(): void } | undefined;
   if (config.WORKER_ENABLED) {
     workerConnection = createRedis(config.REDIS_URL);
-    workerConnection.on("error", (err) => logger.error({ err }, "redis error"));
+    workerConnection.on("error", (err) =>
+      logger.error({ name: err.name, message: err.message }, "redis error"),
+    );
     worker = startBreakdownWorker({ connection: workerConnection, db, model, logger });
     reconciler = startReconciler({ db, staleMinutes: config.AI_STALE_MINUTES, logger });
     logger.info(

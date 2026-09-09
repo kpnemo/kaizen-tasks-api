@@ -41,3 +41,17 @@ Workshop environments (staging, and production if the session runs there) set
 `AI_STALE_MINUTES=3`. Together this bounds a stuck spinner — worker crash, Redis flush, or a lost
 job — to roughly 4 minutes instead of the previous worst case of 15 minutes, well inside a 3-hour
 session.
+
+## Amendment 2026-09-09 (2)
+
+Worker concurrency raised from 3 to 5 (`WORKER_CONCURRENCY` in `src/jobs/queue.ts`). Up to 30
+attendees can each trigger a breakdown within the same short window, and a single breakdown call
+takes roughly 10 seconds; at concurrency 3 the fourth attendee's spinner could sit queued for most
+of that window. Five slots keeps the queue draining fast for a room this size without meaningfully
+changing per-job resource use, since each slot is a network-bound Anthropic call, not CPU work.
+
+This does not change the Postgres pool (`createDb`'s default `max: 10`, still unset by
+`src/server.ts`). Five worker slots plus the HTTP handlers now share that pool, but each breakdown
+job only holds a connection for the short, specific writes in `processBreakdownJob` — it does not
+hold one for the network call to the model — so 10 connections comfortably covers 5 concurrent
+workers plus request handling at workshop scale (one room, not sustained production load).
