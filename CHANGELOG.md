@@ -36,3 +36,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - Layering: services may import `db/seed` (demo fixture and reset are db-layer code).
+
+### Fixed
+
+- docs-check: manifest lines are trimmed; hook mode falls back to the root commit when merge-base fails.

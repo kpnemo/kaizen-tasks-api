@@ -52,6 +52,9 @@ if [[ "$MODE" == "--hook" ]]; then
   else
     BASE="$(root_commit)"
   fi
+  if [[ -z "$BASE" ]] || ! git cat-file -e "$BASE" 2>/dev/null; then
+    BASE="$(root_commit)"
+  fi
   CHANGED="$( { git diff --name-only "$BASE"; git ls-files --others --exclude-standard; } | sort -u )"
 else
   : "${BASE_SHA:?BASE_SHA is required in --ci mode}"
@@ -78,6 +81,9 @@ match_glob() {
 ARCH_MATCHES=""
 if [[ -f docs/architectural-files.txt ]]; then
   while IFS= read -r glob; do
+    glob="${glob%$'\r'}"
+    glob="${glob#"${glob%%[![:space:]]*}"}"
+    glob="${glob%"${glob##*[![:space:]]}"}"
     [[ -z "$glob" || "$glob" == \#* ]] && continue
     while IFS= read -r file; do
       [[ -z "$file" ]] && continue
