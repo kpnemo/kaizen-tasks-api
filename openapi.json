@@ -692,6 +692,10 @@
           "outOfScope": {
             "type": "string",
             "maxLength": 4000
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -699,6 +703,362 @@
           "problem",
           "proposedBehavior",
           "acceptanceCriteria"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConversationStatus"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            }
+          },
+          "draft": {
+            "$ref": "#/components/schemas/FeatureRequestDraft"
+          },
+          "score": {
+            "$ref": "#/components/schemas/RubricScore"
+          },
+          "questionCount": {
+            "type": "integer"
+          },
+          "stillMissing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issueNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "messages",
+          "draft",
+          "score",
+          "questionCount",
+          "stillMissing",
+          "issueNumber",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ConversationStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "ready",
+          "filed",
+          "abandoned"
+        ]
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "assistant",
+              "user"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skipped": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content",
+          "at"
+        ]
+      },
+      "FeatureRequestDraft": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "problem": {
+            "type": "string"
+          },
+          "proposedBehavior": {
+            "type": "string"
+          },
+          "acceptanceCriteria": {
+            "type": "string"
+          },
+          "outOfScope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "problem",
+          "proposedBehavior",
+          "acceptanceCriteria",
+          "outOfScope"
+        ]
+      },
+      "RubricScore": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "clarity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "complexity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "risk": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "archChange": {
+            "type": "boolean"
+          },
+          "readiness": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 20
+          },
+          "reasons": {
+            "type": "object",
+            "properties": {
+              "clarity": {
+                "type": "string"
+              },
+              "complexity": {
+                "type": "string"
+              },
+              "risk": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "clarity",
+              "complexity",
+              "risk"
+            ]
+          }
+        },
+        "required": [
+          "clarity",
+          "complexity",
+          "risk",
+          "archChange",
+          "readiness",
+          "reasons"
+        ]
+      },
+      "ConversationEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConversationDeltaEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ConversationStateEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ConversationErrorEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ConversationDoneEvent"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "delta": "#/components/schemas/ConversationDeltaEvent",
+            "state": "#/components/schemas/ConversationStateEvent",
+            "error": "#/components/schemas/ConversationErrorEvent",
+            "done": "#/components/schemas/ConversationDoneEvent"
+          }
+        }
+      },
+      "ConversationDeltaEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "delta"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationDelta"
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ]
+      },
+      "ConversationDelta": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "ConversationStateEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "state"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationState"
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ]
+      },
+      "ConversationState": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/Conversation"
+          }
+        },
+        "required": [
+          "conversation"
+        ]
+      },
+      "ConversationErrorEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationError"
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ]
+      },
+      "ConversationError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "UNAUTHORIZED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "RATE_LIMITED",
+              "UPSTREAM_ERROR",
+              "UNAVAILABLE",
+              "INTERNAL"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "ConversationDoneEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "done"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationDone"
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ]
+      },
+      "ConversationDone": {
+        "type": "object",
+        "properties": {}
+      },
+      "ConversationTurnBody": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "skip": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "content"
         ]
       },
       "SeedResetResponse": {
@@ -2050,7 +2410,7 @@
           "feature-requests"
         ],
         "summary": "File a feature request as a GitHub issue",
-        "description": "Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name.",
+        "description": "Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name. With `conversationId`, the issue body also carries the interview's self-score and transcript, and the conversation becomes `filed`.",
         "security": [
           {
             "bearerAuth": []
@@ -2108,8 +2468,238 @@
               }
             }
           },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "502": {
             "description": "UPSTREAM_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feature-requests/conversation": {
+      "get": {
+        "tags": [
+          "feature-requests"
+        ],
+        "summary": "Get the caller's open interview conversation",
+        "description": "Returns the caller's conversation whose status is `open` or `ready`. `NOT_FOUND` when there is none, which is how the web knows to start one.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "feature-requests"
+        ],
+        "summary": "Start a new interview conversation",
+        "description": "Abandons any `open` or `ready` conversation the caller has, then creates one whose first assistant message is the fixed greeting. No body, no model call.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The new conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feature-requests/conversation/{id}/messages": {
+      "post": {
+        "tags": [
+          "feature-requests"
+        ],
+        "summary": "Send one answer and stream the assistant's reply",
+        "description": "`skip: true` records `(skipped)` as the user message and tells the model the PM skipped; the submitted `content` is ignored, and the turn still counts. Ownership, status and rate-limit failures happen before the stream starts and are ordinary JSON error envelopes. Once the stream has started a failed turn is an `error` event and nothing is persisted, so a resend is a clean retry.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationTurnBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The turn as Server-Sent Events: `delta` chunks in order, then one `state` or one `error`, then `done`. A `: ping` comment line is written every 15 seconds while waiting on the model.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationEvent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "UNAVAILABLE",
             "content": {
               "application/json": {
                 "schema": {

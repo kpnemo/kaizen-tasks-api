@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Contract for the feature-request interview: `GET`/`POST /api/v1/feature-requests/conversation` and `POST /api/v1/feature-requests/conversation/{id}/messages` (a `text/event-stream` whose events are the `ConversationEvent` union), the `Conversation`, `ConversationMessage`, `FeatureRequestDraft`, `RubricScore` and `ConversationTurnBody` components, an optional `conversationId` on `POST /api/v1/feature-requests`, and `src/lib/interview-constants.ts` as the one home for `EMPTY_DRAFT`, `SKIPPED_CONTENT` and `TRANSCRIPT_OPENER`.
+
 ## [1.0.0] - 2026-09-09
 
 ### Added
