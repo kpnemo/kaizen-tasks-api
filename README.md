@@ -61,3 +61,32 @@ The API service has no public domain of its own; the web service proxies `/api/*
 - `docs/adr/`: architecture decision records.
 - `CHANGELOG.md`: Keep a Changelog format; every change adds a bullet under `[Unreleased]`.
 - `CLAUDE.md`: conventions for agentic work in this repo.
+
+## Testing
+
+`npm test` runs two Vitest projects: `unit` (`src/**/*.test.ts`, parallel) and `integration`
+(`tests/**`, sequential, real Postgres `kaizen_test` and Redis db 1; tables are truncated and Redis
+flushed before every test). `tests/jobs/breakdown.test.ts` runs a real BullMQ worker. The global
+setup creates `kaizen_test` if it is missing and applies migrations.
+
+`npm run test:live` runs one test against Anthropic with the committed prompt; it needs
+`ANTHROPIC_API_KEY` in `.env` and is excluded from CI.
+
+## Demo user and facilitator reset
+
+With `SEED_DEMO_USER=true` the API creates `demo@kaizen.local` (password `SEED_DEMO_PASSWORD`) and
+its fixtures at startup if absent. `POST /api/v1/admin/seed-reset` with header `x-admin-token`
+(mounted only when `ADMIN_TOKEN` is set) deletes and recreates them with the same ids; locally,
+`npm run db:seed -- --reset` does the same.
+
+## Feature requests
+
+When `GITHUB_TOKEN` and `GITHUB_REPO` (`owner/name`) are set, `POST /api/v1/feature-requests`
+files a `feature-request` issue in that repository with the submitter's display name in the body.
+
+## Operator switches
+
+`AI_ENABLED=false` pauses the assistant (creates still succeed, skipped with reason
+`ai_disabled`; the breakdown action returns 503 `UNAVAILABLE`). `AI_RATE_LIMIT_PER_HOUR` and
+`AI_GLOBAL_LIMIT_PER_HOUR` bound breakdowns per user and per environment per hour. All three are
+Railway variables and take effect on restart without a deploy.
