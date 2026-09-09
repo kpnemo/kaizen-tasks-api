@@ -13,7 +13,7 @@ in-process worker.
 ## Decision
 
 `src/server.ts` starts the BullMQ worker and the stale-generation reconciler in the same process
-as the HTTP API when `WORKER_ENABLED=true` (the default). Worker concurrency is 3. The Anthropic
+as the HTTP API when `WORKER_ENABLED=true` (the default). Worker concurrency is 5 (3 until the second amendment below). The Anthropic
 client is created with `maxRetries: 0` and a 45-second timeout so BullMQ is the only retry layer
 (3 attempts, exponential backoff from 3 seconds).
 
