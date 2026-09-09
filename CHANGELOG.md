@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Contract for the feature-request interview: `GET`/`POST /api/v1/feature-requests/conversation` and `POST /api/v1/feature-requests/conversation/{id}/messages` (a `text/event-stream` whose events are the `ConversationEvent` union), the `Conversation`, `ConversationMessage`, `FeatureRequestDraft`, `RubricScore` and `ConversationTurnBody` components, an optional `conversationId` on `POST /api/v1/feature-requests`, and `src/lib/interview-constants.ts` as the one home for `EMPTY_DRAFT`, `SKIPPED_CONTENT` and `TRANSCRIPT_OPENER`.
+- `feature_request_conversations` table (additive migration `0001`) holding one assistant-led interview per user: status enum `open`/`ready`/`filed`/`abandoned`, `jsonb` transcript, draft, score and still-missing, a `version` column for optimistic concurrency, and a partial unique index that allows at most one `open` or `ready` conversation per user.
 
 ## [1.0.0] - 2026-09-09
 
