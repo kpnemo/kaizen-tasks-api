@@ -3,7 +3,7 @@ import type { Redis } from "ioredis";
 
 export const BREAKDOWN_QUEUE_NAME = "breakdown";
 export const QUEUE_PREFIX = "kaizen";
-export const WORKER_CONCURRENCY = 3;
+export const WORKER_CONCURRENCY = 5;
 
 export type BreakdownReason = "create" | "retry" | "regenerate";
 

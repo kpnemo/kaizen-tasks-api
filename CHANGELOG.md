@@ -40,12 +40,14 @@ All notable changes to this project are documented here. The format follows
 - Layering: services may import `db/seed` (demo fixture and reset are db-layer code).
 - Reconciler tick interval lowered from five minutes to 60 seconds (`RECONCILE_INTERVAL_MS`); the underlying query is indexed and the cost is negligible.
 - Railway IaC: `AI_STALE_MINUTES` lowered to `3` on the `api` service so a stuck spinner is bounded to roughly 4 minutes instead of 15 (see ADR 0003 amendment).
+- Worker concurrency (`WORKER_CONCURRENCY` in `src/jobs/queue.ts`) raised from 3 to 5 so up to 30 attendees creating tasks at once don't queue behind ~10s breakdown calls; the Postgres pool stays at its default of 10 (see ADR 0003 amendment).
 
 ### Fixed
 
 - docs-check: manifest lines are trimmed; hook mode falls back to the root commit when merge-base fails.
 - `promote` workflow: check out this repository as the first step so `node-version-file: .nvmrc` resolves.
 - reviewer agent's migration grep is case-insensitive.
+- Redis and worker `error` listeners (`src/server.ts`, `src/jobs/worker.ts`) log only `{ name, message }` instead of the raw `err` object, since an ioredis `AUTH`/connection error can carry command arguments (e.g. credentials) on the error object. The shared logger also gets a `redactError` serializer that drops `command` and `args` from every serialized error, so the enqueue, unhandled-error and shutdown log lines are covered without touching each site.
 - Redis: the app's own connection now sets `maxRetriesPerRequest: 3` and a 5s `commandTimeout` so a Redis outage surfaces as an error instead of hanging requests forever; an `error` listener is attached to the app, queue and worker connections so an unhandled `error` event no longer crashes the process.
 - Graceful shutdown calls `server.closeIdleConnections()` right after `server.close()` so idle keep-alive sockets no longer force a Railway redeploy to time out and exit 1.
 - Startup failures now print the full stack (`err.stack`) instead of only the message.

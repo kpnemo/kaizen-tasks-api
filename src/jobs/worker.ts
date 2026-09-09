@@ -51,7 +51,7 @@ export function startBreakdownWorker(deps: WorkerDeps): BreakdownWorker {
   });
 
   worker.on("error", (err) => {
-    logger.error({ err }, "breakdown worker error");
+    logger.error({ name: err.name, message: err.message }, "breakdown worker error");
   });
 
   return worker;
