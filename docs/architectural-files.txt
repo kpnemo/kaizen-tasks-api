@@ -1,0 +1,8 @@
+# One glob per line. ** matches any number of path segments.
+# A change to any matching file requires adding or updating an ADR under docs/adr/.
+src/db/schema.ts
+drizzle/**
+src/jobs/**
+src/lib/auth.ts
+src/agent/prompts/**
+.railway/**
