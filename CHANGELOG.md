@@ -28,3 +28,7 @@ All notable changes to this project are documented here. The format follows
 - Breakdown processor (`processBreakdownJob`) running a job end to end with every write guarded by `generation_id` (skip rule, superseded-generation discard, refused/invalid/non-retryable failures recorded, retryable failures rethrown for the queue to retry) and the `POST /api/v1/tasks/:id/breakdown` action that reserves a generation with one conditional update, enqueues the job, and never fails the request when the queue is unavailable.
 - Real BullMQ breakdown worker (`startBreakdownWorker`, concurrency 3) that marks a task failed with the "unavailable" message only on its final attempt and only when the generation still matches, and a stale-generation reconciler (`reconcileStaleGenerations`, `startReconciler`) that fails tasks stuck in `pending`/`running` past `AI_STALE_MINUTES` on a five-minute unref'd interval.
 - Deterministic demo seed (`src/db/seed.ts`, `DEMO_EMAIL`, `SEED_IDS`, `ensureDemoSeed`, `resetDemoSeed`, `npm run db:seed [-- --reset]`) with five root tasks, ten AI-generated children and four tags at stable ids, and `POST /api/v1/admin/seed-reset` mounted only when `ADMIN_TOKEN` is set, authenticated by a constant-time `x-admin-token` check that returns the same `NOT_FOUND` as an unmounted route on a wrong or missing token.
+
+### Changed
+
+- Layering: services may import `db/seed` (demo fixture and reset are db-layer code).

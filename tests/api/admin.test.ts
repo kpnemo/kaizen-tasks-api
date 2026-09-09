@@ -102,6 +102,7 @@ describe("POST /admin/seed-reset", () => {
       .send({ title: "Changed" });
     const second = await request(admin.app).post(RESET).set("x-admin-token", ADMIN_TOKEN);
     expect(second.status).toBe(200);
+    expect(second.body.data).toEqual({ demoUserId: SEED_IDS.demoUser });
     const [restored] = await admin.db
       .select()
       .from(tasks)

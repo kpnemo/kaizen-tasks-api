@@ -8,11 +8,13 @@ Spec: `docs/superpowers/specs/2026-09-08-kaizen-tasks-api-design.md`. Plan: `doc
 | Layer                              | May import                                                                         |
 | ---------------------------------- | ---------------------------------------------------------------------------------- |
 | `src/routes`                       | `schemas`, `services`, `lib`                                                       |
-| `src/services`                     | `repositories`, `agent`, `jobs/queue`, `lib`                                       |
+| `src/services`                     | `repositories`, `agent`, `jobs/queue`, `lib`, `db/seed`                            |
 | `src/repositories`                 | `db`, `lib`                                                                        |
 | `src/jobs`                         | `services`, `repositories`, `agent`, `lib`                                         |
 | `src/agent`                        | `lib`, `schemas`                                                                   |
 | `src/lib`, `src/db`, `src/schemas` | nothing app-level above them (`schemas` may import `lib/errors` for the code list) |
+
+`src/db/seed.ts` holds the demo fixture and its reset routine; it is db-layer code like the migrations, importable by services and by the server startup.
 
 `import type` from `src/schemas` is allowed anywhere. Handlers never touch Drizzle. Services never import Express types.
 
