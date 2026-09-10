@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-10
+
 ### Changed
 
 - The interview system prompt states in one sentence that the reply text comes first, as plain text, and that a turn which only calls `report_turn` is a mistake. Nothing else in the prompt changed.
