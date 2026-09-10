@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createRateLimiter, hourBucket, nextHourIso } from "../../src/lib/rate-limit.js";
+import {
+  createInterviewRateLimiter,
+  createRateLimiter,
+  hourBucket,
+  nextHourIso,
+} from "../../src/lib/rate-limit.js";
 import { createRedis } from "../../src/lib/redis.js";
 
 let redis: Redis;
@@ -83,5 +88,68 @@ describe("consume", () => {
     const ttl = await redis.ttl(`ratelimit:breakdown:${userId}:2026090810`);
     expect(ttl).toBeGreaterThan(3500);
     expect(ttl).toBeLessThanOrEqual(3600);
+  });
+});
+
+const interview = (limit: number, enabled = true) =>
+  createInterviewRateLimiter(
+    redis,
+    { AI_ENABLED: enabled, INTERVIEW_HOURLY_LIMIT: limit },
+    () => NOW,
+  );
+
+describe("createInterviewRateLimiter", () => {
+  it("counts on its own key so the breakdown limiter is untouched", async () => {
+    const userId = randomUUID();
+    const rl = interview(2);
+    expect((await rl.consume(userId)).allowed).toBe(true);
+    expect(await redis.get(`ratelimit:interview:${userId}:${hourBucket(NOW)}`)).toBe("1");
+    expect(await redis.get(`ratelimit:breakdown:${userId}:${hourBucket(NOW)}`)).toBeNull();
+    expect(await redis.ttl(`ratelimit:interview:${userId}:${hourBucket(NOW)}`)).toBeGreaterThan(0);
+  });
+
+  it("allows up to the hourly limit, then denies with scope user and the reset time", async () => {
+    const userId = randomUUID();
+    const rl = interview(2);
+    expect(await rl.consume(userId)).toEqual({
+      allowed: true,
+      reason: "ok",
+      scope: "user",
+      limit: 2,
+      remaining: 1,
+      resetAt: "2026-09-08T11:00:00.000Z",
+    });
+    expect((await rl.consume(userId)).remaining).toBe(0);
+    expect(await rl.consume(userId)).toEqual({
+      allowed: false,
+      reason: "rate_limited",
+      scope: "user",
+      limit: 2,
+      remaining: 0,
+      resetAt: "2026-09-08T11:00:00.000Z",
+    });
+  });
+
+  it("decrements what a denial incremented, so the counter never runs away", async () => {
+    const userId = randomUUID();
+    const rl = interview(1);
+    await rl.consume(userId);
+    await rl.consume(userId);
+    await rl.consume(userId);
+    expect(await redis.get(`ratelimit:interview:${userId}:${hourBucket(NOW)}`)).toBe("1");
+  });
+
+  it("honours the AI_ENABLED kill switch without touching Redis", async () => {
+    const userId = randomUUID();
+    const result = await interview(60, false).consume(userId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe("ai_disabled");
+    expect(await redis.get(`ratelimit:interview:${userId}:${hourBucket(NOW)}`)).toBeNull();
+  });
+
+  it("counts each user separately", async () => {
+    const rl = interview(1);
+    expect((await rl.consume(randomUUID())).allowed).toBe(true);
+    expect((await rl.consume(randomUUID())).allowed).toBe(true);
   });
 });

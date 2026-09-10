@@ -113,3 +113,55 @@ export function createRateLimiter(
     },
   };
 }
+
+export type InterviewRateLimitConfig = Pick<Config, "AI_ENABLED" | "INTERVIEW_HOURLY_LIMIT">;
+
+/**
+ * A second limiter instance for the interview: its own key prefix and its own hourly limit, so a
+ * PM's interview turns never eat the breakdown budget and the breakdown limiter above is untouched.
+ * One scope only — there is no global interview budget — but the same `ConsumeResult` shape, so the
+ * route maps a denial to `RATE_LIMITED` with `{ scope, limit, resetAt }` exactly as tasks do.
+ */
+export function createInterviewRateLimiter(
+  redis: Redis,
+  config: InterviewRateLimitConfig,
+  now: () => Date = () => new Date(),
+): RateLimiter {
+  return {
+    async consume(userId) {
+      const at = now();
+      const resetAt = nextHourIso(at);
+      if (!config.AI_ENABLED) {
+        return {
+          allowed: false,
+          reason: "ai_disabled",
+          scope: "user",
+          limit: 0,
+          remaining: 0,
+          resetAt,
+        };
+      }
+      const key = `ratelimit:interview:${userId}:${hourBucket(at)}`;
+      const count = await incrWithTtl(redis, key);
+      if (count > config.INTERVIEW_HOURLY_LIMIT) {
+        await redis.decr(key);
+        return {
+          allowed: false,
+          reason: "rate_limited",
+          scope: "user",
+          limit: config.INTERVIEW_HOURLY_LIMIT,
+          remaining: 0,
+          resetAt,
+        };
+      }
+      return {
+        allowed: true,
+        reason: "ok",
+        scope: "user",
+        limit: config.INTERVIEW_HOURLY_LIMIT,
+        remaining: config.INTERVIEW_HOURLY_LIMIT - count,
+        resetAt,
+      };
+    },
+  };
+}

@@ -54,6 +54,42 @@ the web app's origin. There is no CORS configuration by design (ADR 0002).
 The API service has no public domain of its own; the web service proxies `/api/*` to
 `http://api.railway.internal:3000`.
 
+## Routes
+
+Every path below is relative to the base `/api/v1`. The generated reference with request and
+response shapes is `docs/API.md`; the contract itself is `openapi.json`.
+
+| Route                                               | Auth   | What it does                                                        |
+| --------------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| `GET /health`                                       | none   | Status, commit, version, database and Redis checks, feature flags   |
+| `GET /openapi.json`                                 | none   | The committed contract                                              |
+| `POST /auth/register`                               | none   | Create an account, return an access token and a refresh cookie      |
+| `POST /auth/login`                                  | none   | Sign in                                                             |
+| `POST /auth/refresh`                                | cookie | Rotate the refresh token                                            |
+| `POST /auth/logout`                                 | cookie | Revoke the refresh token                                            |
+| `GET /auth/me`                                      | bearer | The signed-in user                                                  |
+| `GET /tasks`                                        | bearer | Keyset page of tasks                                                |
+| `POST /tasks`                                       | bearer | Create a task and enqueue its breakdown                             |
+| `GET /tasks/{id}`                                   | bearer | One task with its children                                          |
+| `PATCH /tasks/{id}`                                 | bearer | Edit, reorder, or move a suggestion through its states              |
+| `DELETE /tasks/{id}`                                | bearer | Delete a task and its children                                      |
+| `POST /tasks/{id}/breakdown`                        | bearer | Ask the assistant for steps                                         |
+| `POST /tasks/{id}/suggestions/accept-all`           | bearer | Accept every suggested child                                        |
+| `POST /tasks/{id}/suggestions/dismiss-all`          | bearer | Dismiss every suggested child                                       |
+| `PUT /tasks/{id}/tags`                              | bearer | Replace a task's tag set                                            |
+| `GET /tags`                                         | bearer | The user's tags                                                     |
+| `POST /tags`                                        | bearer | Create a tag                                                        |
+| `PATCH /tags/{id}`                                  | bearer | Rename or recolor a tag                                             |
+| `DELETE /tags/{id}`                                 | bearer | Delete a tag                                                        |
+| `POST /feature-requests`                            | bearer | File a GitHub issue, optionally attaching an interview              |
+| `GET /feature-requests/conversation`                | bearer | The caller's open interview, or `NOT_FOUND`                         |
+| `POST /feature-requests/conversation`               | bearer | Start a new interview, abandoning any live one                      |
+| `POST /feature-requests/conversation/{id}/messages` | bearer | One turn, streamed as `text/event-stream`                           |
+| `POST /admin/seed-reset`                            | token  | Recreate the demo fixtures (mounted only when `ADMIN_TOKEN` is set) |
+
+The four `feature-requests` routes are mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set,
+which is exactly when `GET /health` reports `features.featureRequests: true`.
+
 ## Documentation
 
 - `docs/API.md`: generated reference (do not edit by hand; run `npm run openapi`).
@@ -84,9 +120,31 @@ its fixtures at startup if absent. `POST /api/v1/admin/seed-reset` with header `
 When `GITHUB_TOKEN` and `GITHUB_REPO` (`owner/name`) are set, `POST /api/v1/feature-requests`
 files a `feature-request` issue in that repository with the submitter's display name in the body.
 
+The same condition mounts the interview: `POST /api/v1/feature-requests/conversation` starts an
+assistant-led interview, `GET` resumes the caller's open one, and
+`POST /api/v1/feature-requests/conversation/{id}/messages` sends one answer and streams the reply as
+Server-Sent Events (`delta` chunks, then one `state` or one `error`, then `done`; a `: ping` comment
+every 15 seconds while the model is thinking). A conversation holds the transcript, the five draft
+fields, the readiness score and a question count; at most one is `open` or `ready` per user. Filing
+with that conversation's `conversationId` appends the self-score and the transcript to the issue and
+marks the conversation `filed`. Interview turns have their own hourly budget,
+`INTERVIEW_HOURLY_LIMIT`.
+
+## The readiness rubric
+
+`src/agent/prompts/readiness.md` is a byte-identical copy of `rubric/readiness.md` in
+`kaizen-tasks-assembly-line`, sent as the second system block of the interview prompt so the in-app
+assistant, the product manager's local `refine-request` skill and engineering's triage all score
+from the same text. Refresh it with `npm run rubric:sync` (add `-- --local ../rubric/readiness.md`
+to copy from a local checkout); `npm run rubric:check` compares the two `version:` lines and warns.
+CI runs the check as a warning step. Never edit the copy by hand: it lives under
+`src/agent/prompts/**`, so a change to it is a prompt change and needs an ADR.
+
 ## Operator switches
 
-`AI_ENABLED=false` pauses the assistant (creates still succeed, skipped with reason
-`ai_disabled`; the breakdown action returns 503 `UNAVAILABLE`). `AI_RATE_LIMIT_PER_HOUR` and
-`AI_GLOBAL_LIMIT_PER_HOUR` bound breakdowns per user and per environment per hour. All three are
-Railway variables and take effect on restart without a deploy.
+`AI_ENABLED=false` pauses the assistant everywhere: task creates still succeed, skipped with reason
+`ai_disabled`; the breakdown action returns 503 `UNAVAILABLE`; and an interview turn returns 503
+`UNAVAILABLE` before the stream starts. `AI_RATE_LIMIT_PER_HOUR` and `AI_GLOBAL_LIMIT_PER_HOUR`
+bound breakdowns per user and per environment per hour. `INTERVIEW_HOURLY_LIMIT` (default 60) bounds
+interview turns per user per hour on its own Redis counter, so an interview never spends the
+breakdown budget. All four are Railway variables and take effect on restart without a deploy.

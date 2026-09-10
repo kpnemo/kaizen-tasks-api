@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -12,6 +13,11 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import type {
+  ConversationMessage,
+  FeatureRequestDraft,
+  RubricScore,
+} from "../schemas/feature-request-conversations.js";
 
 export const taskStatusEnum = pgEnum("task_status", ["todo", "in_progress", "done"]);
 export const aiStatusEnum = pgEnum("ai_status", [
@@ -109,6 +115,60 @@ export const taskTags = pgTable(
   },
   (t) => [primaryKey({ columns: [t.taskId, t.tagId] })],
 );
+
+export const featureRequestConversationStatusEnum = pgEnum("feature_request_conversation_status", [
+  "open",
+  "ready",
+  "filed",
+  "abandoned",
+]);
+
+/**
+ * One assistant-led interview. `draft` is stored partial (the model fills fields as it learns
+ * them) and the service fills the missing keys from EMPTY_DRAFT before it leaves the service.
+ * The partial unique index is the invariant the service relies on: at most one open or ready
+ * conversation per user, so "resume mine" and "start over" need no id, and a concurrent second
+ * "start over" is a 23505 the repository maps to a conflict rather than a second live row.
+ */
+export const featureRequestConversations = pgTable(
+  "feature_request_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: featureRequestConversationStatusEnum("status").notNull().default("open"),
+    messages: jsonb("messages")
+      .$type<ConversationMessage[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    draft: jsonb("draft")
+      .$type<Partial<FeatureRequestDraft>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    score: jsonb("score").$type<RubricScore>(),
+    questionCount: integer("question_count").notNull().default(0),
+    stillMissing: jsonb("still_missing")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    issueNumber: integer("issue_number"),
+    // Optimistic-concurrency token. Every turn reads it, then persists with a conditional UPDATE
+    // that matches on it and increments it, so a slower overlapping turn updates zero rows
+    // instead of overwriting newer state (ADR 0005).
+    version: integer("version").notNull().default(0),
+    createdAt: stamp("created_at"),
+    updatedAt: stamp("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("feature_request_conversations_open_user_idx")
+      .on(t.userId)
+      .where(sql`${t.status} in ('open', 'ready')`),
+  ],
+);
+
+export type FeatureRequestConversationRow = typeof featureRequestConversations.$inferSelect;
+export type NewFeatureRequestConversationRow = typeof featureRequestConversations.$inferInsert;
 
 export type UserRow = typeof users.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;

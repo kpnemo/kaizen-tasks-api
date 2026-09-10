@@ -4,6 +4,7 @@ import "./auth.js";
 import "./tasks.js";
 import "./tags.js";
 import "./feature-requests.js";
+import "./feature-request-conversations.js";
 import "./admin.js";
 import { API_PREFIX, registry } from "./registry.js";
 

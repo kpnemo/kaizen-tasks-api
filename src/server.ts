@@ -1,5 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { createInterviewModel } from "./agent/interview/model.js";
+import { interviewPromptPath, rubricPath } from "./agent/interview/prompt.js";
 import { createBreakdownModel } from "./agent/model.js";
 import { promptPath } from "./agent/prompt.js";
 import { createApp } from "./app.js";
@@ -40,6 +42,8 @@ async function main(): Promise<void> {
   // 2. Runtime assets, with resolved paths in the failure message.
   assertRuntimeAssets([
     { name: "system prompt", path: promptPath() },
+    { name: "interview system prompt", path: interviewPromptPath() },
+    { name: "readiness rubric", path: rubricPath() },
     { name: "migrations folder", path: MIGRATIONS_FOLDER },
     { name: "openapi.json", path: OPENAPI_PATH },
   ]);
@@ -72,6 +76,11 @@ async function main(): Promise<void> {
     model: config.AI_MODEL,
     apiKey: config.ANTHROPIC_API_KEY,
   });
+  const interviewModel = createInterviewModel({
+    provider: config.AI_MODEL_PROVIDER,
+    model: config.AI_MODEL,
+    apiKey: config.ANTHROPIC_API_KEY,
+  });
   const queueConnection = createRedis(config.REDIS_URL);
   queueConnection.on("error", (err) =>
     logger.error({ name: err.name, message: err.message }, "redis error"),
@@ -94,7 +103,7 @@ async function main(): Promise<void> {
   }
 
   // 7. App. Host :: is dual-stack; some Railway environments resolve private hostnames to IPv6 only.
-  const app = createApp({ config, db, redis, queue, model, logger });
+  const app = createApp({ config, db, redis, queue, model, interviewModel, logger });
   const server = app.listen(config.PORT, "::", () => {
     logger.info(
       {

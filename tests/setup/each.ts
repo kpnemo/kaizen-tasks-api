@@ -18,7 +18,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
-  await sql`truncate table users, tasks, tags, task_tags cascade`;
+  await sql`truncate table users, tasks, tags, task_tags, feature_request_conversations cascade`;
   await redis.flushdb();
 });
 

@@ -23,7 +23,7 @@ async function user(email = `${randomUUID()}@test.local`) {
 }
 
 describe("schema", () => {
-  it("has the four tables and five enums", async () => {
+  it("has the four tables and six enums", async () => {
     const tables = await db.execute<{ table_name: string }>(
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
     );
@@ -33,7 +33,14 @@ describe("schema", () => {
       `select typname from pg_type where typtype = 'e' order by typname`,
     );
     expect(enums.map((r) => r.typname).sort()).toEqual(
-      ["ai_skip_reason", "ai_status", "suggestion_state", "task_origin", "task_status"].sort(),
+      [
+        "ai_skip_reason",
+        "ai_status",
+        "feature_request_conversation_status",
+        "suggestion_state",
+        "task_origin",
+        "task_status",
+      ].sort(),
     );
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "kaizen-tasks-api",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Kaizen Tasks API: tasks broken into small steps by an AI assistant, with the human in control",
   "type": "module",
@@ -19,7 +19,9 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "openapi": "tsx scripts/generate-openapi.ts",
-    "docs:check": "bash scripts/docs-check.sh --hook"
+    "docs:check": "bash scripts/docs-check.sh --hook",
+    "rubric:sync": "bash scripts/sync-rubric.sh",
+    "rubric:check": "bash scripts/sync-rubric.sh --check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

@@ -15,6 +15,8 @@ export const configSchema = z
     AI_GLOBAL_LIMIT_PER_HOUR: int.positive().default(300),
     AI_ENABLED: bool.default(true),
     AI_STALE_MINUTES: int.positive().default(10),
+    /** Interview turns per user per hour (spec 3.6). Its own budget, separate from breakdowns. */
+    INTERVIEW_HOURLY_LIMIT: int.positive().default(60),
     ADMIN_TOKEN: z.string().min(32).optional(),
     APP_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
     PORT: int.min(1).max(65535).default(3000),
