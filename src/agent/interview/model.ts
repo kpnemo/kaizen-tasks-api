@@ -4,6 +4,8 @@ import type {
   InterviewQuestion,
   RubricScore,
 } from "../../schemas/feature-request-conversations.js";
+import { AnthropicInterviewModel } from "./anthropic-interview-model.js";
+import { FAKE_INTERVIEW_DELAY_MS, FakeInterviewModel } from "./fake-interview-model.js";
 
 /** Eight questions, then the assistant stops asking (spec 2, refine-request Step 4). */
 export const MAX_INTERVIEW_QUESTIONS = 8;
@@ -43,4 +45,21 @@ export interface InterviewModel {
     onDelta: InterviewDelta,
     signal: AbortSignal,
   ): Promise<InterviewOutcome>;
+}
+
+export interface InterviewModelSelection {
+  provider: "anthropic" | "fake";
+  model: string;
+  apiKey?: string;
+}
+
+/** Picks the adapter from config once at startup, like `createBreakdownModel`. */
+export function createInterviewModel(selection: InterviewModelSelection): InterviewModel {
+  if (selection.provider === "fake") {
+    return new FakeInterviewModel({ delayMs: FAKE_INTERVIEW_DELAY_MS });
+  }
+  if (!selection.apiKey) {
+    throw new Error("ANTHROPIC_API_KEY is required when AI_MODEL_PROVIDER=anthropic");
+  }
+  return new AnthropicInterviewModel({ apiKey: selection.apiKey, model: selection.model });
 }
