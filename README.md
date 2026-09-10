@@ -41,6 +41,7 @@ the web app's origin. There is no CORS configuration by design (ADR 0002).
 | `npm run db:migrate`  | run migrations                                                              |
 | `npm run db:seed`     | create the demo fixtures if absent; `-- --reset` deletes and recreates them |
 | `npm run openapi`     | regenerate `openapi.json` and `docs/API.md`; `-- --check` for drift         |
+| `npm run product-map` | regenerate `docs/product-map.md` below its marker                           |
 | `npm run docs:check`  | `scripts/docs-check.sh --hook`                                              |
 
 ## URLs
@@ -97,11 +98,23 @@ which is exactly when `GET /health` reports `features.featureRequests: true`.
 - `docs/ARCHITECTURE.md`: service shape, AI pipeline, deploy topology.
 - `docs/adr/`: architecture decision records.
 - `CHANGELOG.md`: Keep a Changelog format; every change adds a bullet under `[Unreleased]`.
+- `docs/product-map.md`: what this app is and what it already has, for an agent about to
+  interview a product owner about a request.
 - `CLAUDE.md`: conventions for agentic work in this repo.
+
+The docs gate is one script, `scripts/docs-check.sh`, run by the Stop hook (`--hook`) and by CI
+(`--ci`). Rule A wants an `[Unreleased]` bullet when code changes, Rule B a regenerated contract
+when routes or schemas change, Rule C an ADR when an architectural file changes, and Rule D — on
+every run, with no trigger list — that regenerating the product map reproduces the committed
+`docs/product-map.md`. So run `npm run product-map` and commit the result whenever `openapi.json`,
+`src/db/schema.ts`, `CHANGELOG.md` or `docs/adr/` change; `node scripts/product-map.mjs --sources`
+prints that list. Rule D's claim is deliberately narrow: the generated part matches this checkout;
+the header above the marker is prose reviewed by a person, dated by its own `Reviewed:` line.
 
 ## Testing
 
-`npm test` runs two Vitest projects: `unit` (`src/**/*.test.ts`, parallel) and `integration`
+`npm test` runs two Vitest projects: `unit` (`src/**/*.test.ts` and `scripts/**/*.test.mjs`,
+parallel, no services needed) and `integration`
 (`tests/**`, sequential, real Postgres `kaizen_test` and Redis db 1; tables are truncated and Redis
 flushed before every test). `tests/jobs/breakdown.test.ts` runs a real BullMQ worker. The global
 setup creates `kaizen_test` if it is missing and applies migrations.

@@ -19,6 +19,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "openapi": "tsx scripts/generate-openapi.ts",
+    "product-map": "node scripts/product-map.mjs",
     "docs:check": "bash scripts/docs-check.sh --hook",
     "rubric:sync": "bash scripts/sync-rubric.sh",
     "rubric:check": "bash scripts/sync-rubric.sh --check"

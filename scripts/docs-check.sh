@@ -4,6 +4,7 @@
 #   A: code changed  -> CHANGELOG.md changed and [Unreleased] has a bullet (or the diff cuts a release: a new dated version heading)
 #   B: routes/schemas changed -> npm run openapi -- --check passes
 #   C: architectural file changed -> an ADR under docs/adr/ changed
+#   D: always -> regenerating docs/product-map.md produces the committed file
 set -uo pipefail
 
 MODE="${1:-}"
@@ -64,13 +65,46 @@ else
   CHANGED="$( { git diff --name-only "$BASE_SHA...HEAD" 2>/dev/null || git diff --name-only "$BASE_SHA" HEAD; } | sort -u )"
 fi
 
-if [[ -z "$CHANGED" ]]; then
+FAILURES=()
+
+# 2. Rule D, on every invocation and in both modes. The product map is what an agent reads before
+# it interviews a product owner, so a stale one must not merge. Regenerating is cheap, so this runs
+# before and independent of the early returns below: no trigger list, no exceptions.
+PRODUCT_MAP="docs/product-map.md"
+MAP_TMP="$(mktemp "${TMPDIR:-/tmp}/product-map.XXXXXX")"
+MAP_FIX="Fix: run npm run product-map and commit ${PRODUCT_MAP}"
+MARKER_LINE="<!-- product-map:generated -->"
+if [[ ! -f "$PRODUCT_MAP" ]]; then
+  # The generator rebuilds only the half below the marker; it cannot invent the hand-written
+  # header, so "run npm run product-map" would be an instruction that cannot succeed.
+  FAILURES+=("Rule D: ${PRODUCT_MAP} is missing and the generator cannot rebuild its hand-written header. Fix: restore the file (git checkout origin/develop -- ${PRODUCT_MAP}), or write the header back with its Reviewed: line and the ${MARKER_LINE} marker, then run npm run product-map")
+else
+  MAP_ERROR="$(node scripts/product-map.mjs --out "$MAP_TMP" 2>&1 >/dev/null)"
+  MAP_STATUS=$?
+  if (( MAP_STATUS != 0 )); then
+    REASON="$(printf '%s' "$MAP_ERROR" | tail -n 1)"
+    FAILURES+=("Rule D: node scripts/product-map.mjs exited ${MAP_STATUS}: ${REASON:-no output on stderr}. Fix: run npm run product-map and fix what it reports")
+  elif ! cmp -s "$MAP_TMP" "$PRODUCT_MAP"; then
+    # The generator is the one manifest of what it reads; the list is for the message only.
+    MAP_SOURCES="$( { node scripts/product-map.mjs --sources 2>/dev/null; echo "$PRODUCT_MAP"; } || true )"
+    TOUCHED="$(grep -Fxf <(printf '%s\n' "$MAP_SOURCES") <<<"$CHANGED" | sort -u | tr '\n' ' ' || true)"
+    TOUCHED="${TOUCHED% }"
+    if [[ -n "$TOUCHED" ]]; then
+      FAILURES+=("Rule D: ${TOUCHED} changed but ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
+    else
+      FAILURES+=("Rule D: ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
+    fi
+  fi
+fi
+rm -f "$MAP_TMP"
+
+if [[ -z "$CHANGED" && ${#FAILURES[@]} -eq 0 ]]; then
   echo "docs-check: no changes"
   rm -f "$COUNTER_FILE" "$MARKER_FILE"
   exit 0
 fi
 
-# 2. Code set and architectural matches.
+# 3. Code set and architectural matches.
 CODE_SET="$(grep -E '^(src/|drizzle/|\.railway/|scripts/|package\.json$)' <<<"$CHANGED" || true)"
 
 match_glob() {
@@ -94,7 +128,7 @@ if [[ -f docs/architectural-files.txt ]]; then
   done < docs/architectural-files.txt
 fi
 
-if [[ -z "$CODE_SET" && -z "$ARCH_MATCHES" ]]; then
+if [[ -z "$CODE_SET" && -z "$ARCH_MATCHES" && ${#FAILURES[@]} -eq 0 ]]; then
   echo "docs-check: no code or architectural changes"
   rm -f "$COUNTER_FILE" "$MARKER_FILE"
   exit 0
@@ -122,9 +156,7 @@ changelog_adds_release_heading() {
   grep -qE '^\+## \[[0-9]+\.[0-9]+\.[0-9]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}' <<<"$diff"
 }
 
-FAILURES=()
-
-# 3. Rule A.
+# 4. Rule A.
 if [[ -n "$CODE_SET" ]]; then
   if ! grep -qx 'CHANGELOG.md' <<<"$CHANGED"; then
     FAILURES+=("Rule A: code changed but CHANGELOG.md did not. Fix: add a bullet under [Unreleased] in CHANGELOG.md")
@@ -133,14 +165,14 @@ if [[ -n "$CODE_SET" ]]; then
   fi
 fi
 
-# 4. Rule B.
+# 5. Rule B.
 if grep -qE '^src/(routes|schemas)/' <<<"$CHANGED"; then
   if ! npm run --silent openapi -- --check >/dev/null 2>&1; then
     FAILURES+=("Rule B: routes or schemas changed and openapi.json or docs/API.md is stale. Fix: run npm run openapi and commit")
   fi
 fi
 
-# 5. Rule C, independent of Rule A.
+# 6. Rule C, independent of Rule A.
 if [[ -n "$ARCH_MATCHES" ]]; then
   if ! grep -qE '^docs/adr/[^/]+\.md$' <<<"$CHANGED"; then
     LIST="$(printf '%s' "$ARCH_MATCHES" | sort -u | tr '\n' ' ')"
@@ -154,7 +186,7 @@ if [[ ${#FAILURES[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# 6. Failure output with the exact fix per rule.
+# 7. Failure output with the exact fix per rule.
 MESSAGE="DOCS CHECK FAILED"$'\n'
 for failure in "${FAILURES[@]}"; do
   MESSAGE+="  - ${failure}"$'\n'
@@ -165,7 +197,7 @@ if [[ "$MODE" == "--ci" ]]; then
   exit 1
 fi
 
-# 7. Hook mode: block (exit 2) up to MAX_BLOCKS consecutive times, then stop blocking but never report success.
+# 8. Hook mode: block (exit 2) up to MAX_BLOCKS consecutive times, then stop blocking but never report success.
 mkdir -p .claude
 if [[ "$STOP_HOOK_ACTIVE" == "false" ]]; then
   rm -f "$COUNTER_FILE" # a fresh stop, not a continuation of an earlier block: the count starts over

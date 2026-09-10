@@ -31,12 +31,16 @@ CHANGELOG entry. The Stop hook checks the docs; this checklist gets you there in
    `currentUser(req)`, `sendData` / `sendNoContent`. Mount it in `src/app.ts` if the router is new
    (`api.use("/widgets", requireAuth(config), widgetsRouter(...))`, following the `tags` and
    `tasks` mounts — omit `requireAuth` only for a genuinely public endpoint).
-7. Run the tests to green: `npm test`. Then `npm run typecheck && npm run lint`.
-8. Regenerate the contract: `npm run openapi`. Commit `openapi.json` and `docs/API.md`.
-9. Add a bullet under `[Unreleased]` in `CHANGELOG.md`.
-10. If a file matching `docs/architectural-files.txt` changed, add or update an ADR with the
-    `write-adr` skill.
-11. Run `npm run docs:check`. Fix anything it reports. Commit with the `Co-Authored-By` trailer line.
+7. Regenerate the contract: `npm run openapi`. `openapi.json` and `docs/API.md` are part of this
+   change, not a follow-up.
+8. Add a bullet under `[Unreleased]` in `CHANGELOG.md`.
+9. If a file matching `docs/architectural-files.txt` changed, add or update an ADR with the
+   `write-adr` skill.
+10. Regenerate the product map: `npm run product-map`. Steps 7, 8 and 9 each touched one of its
+    sources, and a test asserts the committed map is fresh, so this comes before the test run and
+    not after it.
+11. Run the tests to green: `npm test`. Then `npm run typecheck && npm run lint`.
+12. Run `npm run docs:check`. Fix anything it reports. Commit with the `Co-Authored-By` trailer line.
 
 ## Templates
 
