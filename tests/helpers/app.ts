@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { Redis } from "ioredis";
 import type { Sql } from "postgres";
 import { FakeBreakdownModel } from "../../src/agent/fake-model.js";
+import { FakeInterviewModel } from "../../src/agent/interview/fake-interview-model.js";
 import { createApp, type AppDeps } from "../../src/app.js";
 import { loadConfig, type Config } from "../../src/config.js";
 import { createDb, type Db } from "../../src/db/client.js";
@@ -19,11 +20,15 @@ export interface TestContext {
   redis: Redis;
   queue: FakeQueue;
   model: FakeBreakdownModel;
+  /** The scripted interview fake this app was built with; tests flip `.mode`. */
+  interviewModel: FakeInterviewModel;
   runQueue(): Promise<number>;
   close(): Promise<void>;
 }
 
-type ExtraDeps = Partial<Omit<AppDeps, "config" | "db" | "redis" | "queue" | "model">>;
+type ExtraDeps = Partial<
+  Omit<AppDeps, "config" | "db" | "redis" | "queue" | "model" | "interviewModel">
+>;
 
 /** A full app over the real test database and Redis, with a fake queue and a fake model. */
 export async function createTestApp(
@@ -35,6 +40,7 @@ export async function createTestApp(
   const redis = createRedis(config.REDIS_URL);
   const queue = new FakeQueue();
   const model = new FakeBreakdownModel();
+  const interviewModel = new FakeInterviewModel();
   const logger = createLogger("silent");
   const app = createApp({
     config,
@@ -42,6 +48,7 @@ export async function createTestApp(
     redis,
     queue,
     model,
+    interviewModel,
     logger,
     ...extra,
   });
@@ -54,6 +61,7 @@ export async function createTestApp(
     redis,
     queue,
     model,
+    interviewModel,
     runQueue: () => queue.drain((data) => processBreakdownJob(data, { db, model, logger })),
     close: async () => {
       await new Promise<void>((resolve) => {

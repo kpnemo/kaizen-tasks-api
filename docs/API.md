@@ -118,7 +118,7 @@ Auth: none
 
 File a feature request as a GitHub issue
 
-Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name.
+Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name. With `conversationId`, the issue body also carries the interview's self-score and transcript, and the conversation becomes `filed`.
 
 Auth: bearer access token
 
@@ -131,6 +131,7 @@ Auth: bearer access token
 | proposedBehavior | string | yes |
 | acceptanceCriteria | string | yes |
 | outOfScope | string | no |
+| conversationId | string (uuid) | no |
 
 **Responses**
 
@@ -139,7 +140,73 @@ Auth: bearer access token
 | 201 | Issue created | object |
 | 400 | VALIDATION_ERROR | ErrorEnvelope |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
+| 404 | NOT_FOUND | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
 | 502 | UPSTREAM_ERROR | ErrorEnvelope |
+
+## GET /feature-requests/conversation
+
+Get the caller's open interview conversation
+
+Returns the caller's conversation whose status is `open` or `ready`. `NOT_FOUND` when there is none, which is how the web knows to start one.
+
+Auth: bearer access token
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | The caller's conversation | object |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 404 | NOT_FOUND | ErrorEnvelope |
+
+## POST /feature-requests/conversation
+
+Start a new interview conversation
+
+Abandons any `open` or `ready` conversation the caller has, then creates one whose first assistant message is the fixed greeting. No body, no model call.
+
+Auth: bearer access token
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 201 | The new conversation | object |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+
+## POST /feature-requests/conversation/{id}/messages
+
+Send one answer and stream the assistant's reply
+
+`skip: true` records `(skipped)` as the user message and tells the model the PM skipped; the submitted `content` is ignored, and the turn still counts. Ownership, status and rate-limit failures happen before the stream starts and are ordinary JSON error envelopes. Once the stream has started a failed turn is an `error` event and nothing is persisted, so a resend is a clean retry.
+
+Auth: bearer access token
+
+**Parameters**
+
+| Name | In | Type | Required | Description |
+|---|---|---|---|---|
+| id | path | string (uuid) | yes |  |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| content | string | yes |
+| skip | boolean | no |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | The turn as Server-Sent Events: `delta` chunks in order, then one `state` or one `error`, then `done`. A `: ping` comment line is written every 15 seconds while waiting on the model. |  |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 404 | NOT_FOUND | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
 
 ## GET /health
 

@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import express, { Router, type Express } from "express";
 import helmet from "helmet";
 import type { Redis } from "ioredis";
+import type { InterviewModel } from "./agent/interview/model.js";
 import type { BreakdownModel } from "./agent/model.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db/client.js";
@@ -12,7 +13,7 @@ import { requireAuth } from "./lib/auth.js";
 import { errorHandler, notFoundHandler } from "./lib/error-handler.js";
 import { createHttpLogger, type Logger } from "./lib/logger.js";
 import { requestId } from "./lib/request-id.js";
-import { createRateLimiter } from "./lib/rate-limit.js";
+import { createInterviewRateLimiter, createRateLimiter } from "./lib/rate-limit.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/health.js";
 import { adminRouter } from "./routes/admin.js";
@@ -22,6 +23,7 @@ import { tagsRouter } from "./routes/tags.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { createAdminService } from "./services/admin.js";
 import { createAuthService } from "./services/auth.js";
+import { createFeatureRequestConversationsService } from "./services/feature-request-conversations.js";
 import {
   createFeatureRequestsService,
   createOctokitIssues,
@@ -36,6 +38,10 @@ export interface AppDeps {
   redis: Redis;
   queue: BreakdownQueue;
   model: BreakdownModel;
+  /** The interview seam. Tests inject the scripted fake; production picks it from config. */
+  interviewModel: InterviewModel;
+  /** Test override for the per-turn deadline. Production omits it (45 s, the breakdown's). */
+  interviewTurnTimeoutMs?: number;
   logger: Logger;
   /** Test override for the health probes. Defaults to `select 1` and `PING`. */
   probes?: Partial<HealthProbes>;
@@ -90,13 +96,27 @@ export function createApp(deps: AppDeps): Express {
   api.use("/tasks", requireAuth(config), tasksRouter(tasksService));
   if (featureRequestsConfig) {
     const issues = deps.github ?? createOctokitIssues(featureRequestsConfig.token);
+    const conversations = createFeatureRequestConversationsService({
+      db,
+      model: deps.interviewModel,
+      rateLimiter: createInterviewRateLimiter(redis, config),
+      logger,
+      ...(deps.interviewTurnTimeoutMs === undefined
+        ? {}
+        : { turnTimeoutMs: deps.interviewTurnTimeoutMs }),
+    });
     const featureRequests = createFeatureRequestsService({
       db,
       issues,
       repo: featureRequestsConfig.repo,
       logger,
+      conversations,
     });
-    api.use("/feature-requests", requireAuth(config), featureRequestsRouter(featureRequests));
+    api.use(
+      "/feature-requests",
+      requireAuth(config),
+      featureRequestsRouter(featureRequests, conversations),
+    );
   }
   if (config.ADMIN_TOKEN) {
     api.use(

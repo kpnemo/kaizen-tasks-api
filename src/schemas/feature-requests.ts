@@ -9,6 +9,8 @@ export const FeatureRequestBody = z
     proposedBehavior: z.string().trim().min(10).max(4000),
     acceptanceCriteria: z.string().trim().min(10).max(4000),
     outOfScope: z.string().trim().max(4000).optional(),
+    /** An interview conversation of the caller's, status `open` or `ready` (spec 3.2). */
+    conversationId: z.uuid().optional(),
   })
   .openapi("FeatureRequestBody");
 
@@ -24,11 +26,17 @@ registry.registerPath({
   tags: ["feature-requests"],
   summary: "File a feature request as a GitHub issue",
   description:
-    "Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name.",
+    "Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. The issue is labeled `feature-request` and carries the submitter's display name. With `conversationId`, the issue body also carries the interview's self-score and transcript, and the conversation becomes `filed`.",
   security: bearerAuth,
   request: { body: { content: { "application/json": { schema: FeatureRequestBody } } } },
   responses: {
     201: jsonResponse("Issue created", envelope(FeatureRequestResponse)),
-    ...errorResponses("VALIDATION_ERROR", "UNAUTHORIZED", "UPSTREAM_ERROR"),
+    ...errorResponses(
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "NOT_FOUND",
+      "CONFLICT",
+      "UPSTREAM_ERROR",
+    ),
   },
 });

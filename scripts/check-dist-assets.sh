@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 missing=0
-for f in dist/server.js dist/agent/prompts/breakdown.system.md; do
+for f in dist/server.js dist/agent/prompts/breakdown.system.md dist/agent/prompts/interview.system.md dist/agent/prompts/readiness.md; do
   if [[ ! -f "$f" ]]; then
     echo "check-dist-assets: missing $f" >&2
     missing=1
