@@ -7,10 +7,11 @@ on:
   push:
     branches: [develop]
 
-# One run per ref, never cancelled in flight: each push carries its own commit to announce, so a
-# newer push must not take the labelling away from the run already doing it.
+# One group per commit, never cancelled in flight: each push carries its own commit to announce.
+# Grouping per ref would not do -- GitHub keeps only one *pending* run per group, so three rapid
+# pushes would lose the middle one's comment.
 concurrency:
-  group: staging-label-${{ github.ref }}
+  group: staging-label-${{ github.sha }}
   cancel-in-progress: false
 
 permissions:
@@ -100,10 +101,22 @@ jobs:
           # One listing per app repository, flattened to "<repo>#<number> <body>" lines. `gh pr list`
           # reads the repository directly on purpose: the search API's index lags a merge by minutes
           # and would still report a just-merged pull request as open.
+          PR_LIMIT=100
           open_prs=""
           for repo in kpnemo/kaizen-tasks-api kpnemo/kaizen-tasks-web; do
-            listing="$(gh pr list --repo "$repo" --state open --json number,body \
-              --jq '.[] | "\(.number) \((.body // "") | gsub("\\s+"; " "))"')"
+            raw="$(gh pr list --repo "$repo" --state open --limit "$PR_LIMIT" \
+              --json number,headRefName,body)"
+            # A full page means the listing may be truncated, and one missed open pull request would
+            # label a half-finished feature. Stop here, before anything is commented on or labelled.
+            count="$(jq 'length' <<<"$raw")"
+            if [[ "$count" -eq "$PR_LIMIT" ]]; then
+              echo "::error::$repo returned $count open pull requests, a full --limit page: the listing may be truncated. Raise PR_LIMIT." >&2
+              exit 1
+            fi
+            # The same feat/ and fix/ filter step 1 uses. A release or promotion pull request quotes
+            # the issue number in its body too, so without this an open release would block the label.
+            listing="$(jq -r '.[] | select(.headRefName | test("^(feat|fix)/"))
+              | "\(.number) \((.body // "") | gsub("\\s+"; " "))"' <<<"$raw")"
             while IFS= read -r line; do
               if [[ -n "$line" ]]; then
                 open_prs+="$repo#$line"$'\n'
