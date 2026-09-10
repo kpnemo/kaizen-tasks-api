@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A theme preference on the account. `users.theme` is a new `theme_preference` column (`light`, `dark`, `system`, default `system`, additive migration `0002_user_theme_preference`), it is returned on the user in every auth response and on `GET /auth/me`, and `PATCH /auth/me` with `{ "theme": ... }` saves it for the signed-in user, so the choice follows them to another device or browser. See ADR 0006.
+
 ## [1.1.1] - 2026-09-10
 
 ### Changed

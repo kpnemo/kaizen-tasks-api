@@ -68,6 +68,7 @@ response shapes is `docs/API.md`; the contract itself is `openapi.json`.
 | `POST /auth/refresh`                                | cookie | Rotate the refresh token                                            |
 | `POST /auth/logout`                                 | cookie | Revoke the refresh token                                            |
 | `GET /auth/me`                                      | bearer | The signed-in user                                                  |
+| `PATCH /auth/me`                                    | bearer | Save the signed-in user's theme preference                          |
 | `GET /tasks`                                        | bearer | Keyset page of tasks                                                |
 | `POST /tasks`                                       | bearer | Create a task and enqueue its breakdown                             |
 | `GET /tasks/{id}`                                   | bearer | One task with its children                                          |

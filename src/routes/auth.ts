@@ -9,12 +9,13 @@ import {
   setRefreshCookie,
 } from "../lib/auth.js";
 import { sendData, sendNoContent } from "../lib/envelope.js";
-import { LoginBody, RegisterBody } from "../schemas/auth.js";
+import { LoginBody, RegisterBody, UpdateMeBody } from "../schemas/auth.js";
 import type { AuthService } from "../services/auth.js";
 import { validate, validated } from "./validate.js";
 
 const registerSchemas = { body: RegisterBody };
 const loginSchemas = { body: LoginBody };
+const updateMeSchemas = { body: UpdateMeBody };
 
 export function authRouter(service: AuthService, config: Config): Router {
   const router = Router();
@@ -47,6 +48,11 @@ export function authRouter(service: AuthService, config: Config): Router {
 
   router.get("/me", requireAuth(config), async (req, res) => {
     sendData(res, { user: await service.me(currentUser(req).id) });
+  });
+
+  router.patch("/me", requireAuth(config), validate(updateMeSchemas), async (req, res) => {
+    const { body } = validated<typeof updateMeSchemas>(res);
+    sendData(res, { user: await service.updateMe(currentUser(req).id, body) });
   });
 
   return router;
