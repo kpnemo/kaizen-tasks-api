@@ -73,19 +73,27 @@ FAILURES=()
 PRODUCT_MAP="docs/product-map.md"
 MAP_TMP="$(mktemp "${TMPDIR:-/tmp}/product-map.XXXXXX")"
 MAP_FIX="Fix: run npm run product-map and commit ${PRODUCT_MAP}"
+MARKER_LINE="<!-- product-map:generated -->"
 if [[ ! -f "$PRODUCT_MAP" ]]; then
-  FAILURES+=("Rule D: ${PRODUCT_MAP} is missing. ${MAP_FIX}")
-elif ! node scripts/product-map.mjs --out "$MAP_TMP" >/dev/null 2>&1; then
-  FAILURES+=("Rule D: node scripts/product-map.mjs failed. Fix: run npm run product-map and fix what it reports")
-elif ! cmp -s "$MAP_TMP" "$PRODUCT_MAP"; then
-  # The generator is the one manifest of what it reads; the list is for the message only.
-  MAP_SOURCES="$( { node scripts/product-map.mjs --sources 2>/dev/null; echo "$PRODUCT_MAP"; } || true )"
-  TOUCHED="$(grep -Fxf <(printf '%s\n' "$MAP_SOURCES") <<<"$CHANGED" | sort -u | tr '\n' ' ' || true)"
-  TOUCHED="${TOUCHED% }"
-  if [[ -n "$TOUCHED" ]]; then
-    FAILURES+=("Rule D: ${TOUCHED} changed but ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
-  else
-    FAILURES+=("Rule D: ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
+  # The generator rebuilds only the half below the marker; it cannot invent the hand-written
+  # header, so "run npm run product-map" would be an instruction that cannot succeed.
+  FAILURES+=("Rule D: ${PRODUCT_MAP} is missing and the generator cannot rebuild its hand-written header. Fix: restore the file (git checkout origin/develop -- ${PRODUCT_MAP}), or write the header back with its Reviewed: line and the ${MARKER_LINE} marker, then run npm run product-map")
+else
+  MAP_ERROR="$(node scripts/product-map.mjs --out "$MAP_TMP" 2>&1 >/dev/null)"
+  MAP_STATUS=$?
+  if (( MAP_STATUS != 0 )); then
+    REASON="$(printf '%s' "$MAP_ERROR" | tail -n 1)"
+    FAILURES+=("Rule D: node scripts/product-map.mjs exited ${MAP_STATUS}: ${REASON:-no output on stderr}. Fix: run npm run product-map and fix what it reports")
+  elif ! cmp -s "$MAP_TMP" "$PRODUCT_MAP"; then
+    # The generator is the one manifest of what it reads; the list is for the message only.
+    MAP_SOURCES="$( { node scripts/product-map.mjs --sources 2>/dev/null; echo "$PRODUCT_MAP"; } || true )"
+    TOUCHED="$(grep -Fxf <(printf '%s\n' "$MAP_SOURCES") <<<"$CHANGED" | sort -u | tr '\n' ' ' || true)"
+    TOUCHED="${TOUCHED% }"
+    if [[ -n "$TOUCHED" ]]; then
+      FAILURES+=("Rule D: ${TOUCHED} changed but ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
+    else
+      FAILURES+=("Rule D: ${PRODUCT_MAP} is not regenerated. ${MAP_FIX}")
+    fi
   fi
 fi
 rm -f "$MAP_TMP"
