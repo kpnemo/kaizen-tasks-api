@@ -239,6 +239,9 @@
           "displayName": {
             "type": "string"
           },
+          "theme": {
+            "$ref": "#/components/schemas/ThemePreference"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -248,7 +251,16 @@
           "id",
           "email",
           "displayName",
+          "theme",
           "createdAt"
+        ]
+      },
+      "ThemePreference": {
+        "type": "string",
+        "enum": [
+          "light",
+          "dark",
+          "system"
         ]
       },
       "RegisterBody": {
@@ -315,6 +327,17 @@
         },
         "required": [
           "user"
+        ]
+      },
+      "UpdateMeBody": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "$ref": "#/components/schemas/ThemePreference"
+          }
+        },
+        "required": [
+          "theme"
         ]
       },
       "Tag": {
@@ -1351,6 +1374,71 @@
                     "data",
                     "meta"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update the current user's preferences",
+        "description": "Saves the theme preference on the account, so it follows the user to another device or browser.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MeResponse"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

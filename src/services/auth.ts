@@ -11,8 +11,13 @@ import {
   verifyPassword,
 } from "../lib/auth.js";
 import { conflict, unauthorized } from "../lib/errors.js";
-import { findUserByEmail, findUserById, insertUser } from "../repositories/users.js";
-import type { LoginInput, RegisterInput, User } from "../schemas/auth.js";
+import {
+  findUserByEmail,
+  findUserById,
+  insertUser,
+  updateUserTheme,
+} from "../repositories/users.js";
+import type { LoginInput, RegisterInput, UpdateMeInput, User } from "../schemas/auth.js";
 
 export interface AuthSession {
   user: User;
@@ -26,6 +31,7 @@ export interface AuthService {
   refresh(token: string | undefined): Promise<{ accessToken: string; refreshToken: string }>;
   logout(token: string | undefined): Promise<void>;
   me(userId: string): Promise<User>;
+  updateMe(userId: string, input: UpdateMeInput): Promise<User>;
 }
 
 export function toUser(row: UserRow): User {
@@ -33,6 +39,7 @@ export function toUser(row: UserRow): User {
     id: row.id,
     email: row.email,
     displayName: row.displayName,
+    theme: row.theme,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -94,6 +101,14 @@ export function createAuthService(deps: { db: Db; redis: Redis; config: Config }
 
     async me(userId) {
       const row = await findUserById(db, userId);
+      if (!row) throw unauthorized("Unknown user");
+      return toUser(row);
+    },
+
+    // The token is the ownership rule: only the row behind the presented access token is ever read
+    // or written, so there is no id to check and no way to reach another account's preferences.
+    async updateMe(userId, input) {
+      const row = await updateUserTheme(db, userId, input.theme);
       if (!row) throw unauthorized("Unknown user");
       return toUser(row);
     },
