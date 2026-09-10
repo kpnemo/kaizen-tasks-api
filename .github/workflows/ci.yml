@@ -61,7 +61,10 @@ jobs:
         run: bash scripts/docs-check.sh --ci
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-      - name: rubric drift (warning only)
+      # continue-on-error keeps ADR 0005's promise that this is never a gate: the script still
+      # exits 1 when the upstream file has no `version:` line, which is another repository's edit.
+      - name: rubric drift (warning only, never fails the build)
         run: bash scripts/sync-rubric.sh --check
+        continue-on-error: true
       - run: npm run build
       - run: bash scripts/check-dist-assets.sh

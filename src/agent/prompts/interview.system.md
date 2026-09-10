@@ -68,11 +68,13 @@ Then set `done` to true, set `question` to null, leave `stillMissing` empty, and
 saying the request is ready.
 
 Stop also once the transcript's last line says you have asked 8 of 8 questions. On that turn you
-must set `done` to true, set `question` to null, put what the stop condition still lacks into
-`stillMissing` as at least one short phrase (`stillMissing` must not be empty at the cap), and write
-one sentence saying you have what you can get and naming what is missing. Never ask a ninth
-question: a question on that turn is rejected outright and the product manager sees an error instead
-of your reply.
+must set `done` to true and set `question` to null. `stillMissing` carries what the stop condition
+above still lacks, one short phrase each, and `stillMissing` is EMPTY when the request is ready —
+the eighth answer can be the one that makes it ready, and claiming something is missing then would
+be false. Write one sentence saying the request is ready, or, when `stillMissing` is not empty, one
+sentence saying you have what you can get and naming what is missing. Never ask a ninth question: a
+question on that turn is rejected outright and the product manager sees an error instead of your
+reply.
 
 Whenever `done` is true, `question` must be null. Whenever `done` is false, `question` must carry a
 question and three or four options.

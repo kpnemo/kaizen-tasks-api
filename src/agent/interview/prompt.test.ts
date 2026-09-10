@@ -47,7 +47,7 @@ describe("the interview system prompt", () => {
       "The cap is eight",
       "Questions asked so far: N of 8.",
       "you must not ask a ninth question",
-      "`stillMissing` must not be empty at the cap",
+      "`stillMissing` is EMPTY when the request is ready",
       "Whenever `done` is true, `question` must be null",
       "User and moment",
       "Observable behavior",
@@ -60,6 +60,14 @@ describe("the interview system prompt", () => {
     ]) {
       expect(prompt, phrase).toContain(phrase);
     }
+  });
+
+  it("lets the cap finish ready: done, no question, and stillMissing empty when nothing is short", () => {
+    // The eighth answer can be the one that finishes the request, so the cap rule must not demand
+    // a non-empty `stillMissing` there. The service takes both shapes.
+    expect(prompt).toContain("must set `done` to true and set `question` to null");
+    expect(prompt).toContain("`stillMissing` is EMPTY when the request is ready");
+    expect(prompt).not.toContain("`stillMissing` must not be empty");
   });
 
   it("never puts JSON in the text and never carries its own copy of the rubric", () => {

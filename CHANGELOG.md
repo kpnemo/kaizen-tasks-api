@@ -25,6 +25,13 @@ All notable changes to this project are documented here. The format follows
 - `INTERVIEW_HOURLY_LIMIT` documented in `.env.example`, declared in `.railway/railway.ts` and described under the README's operator switches, with a unit test that fails if a tunable AI variable is missing from either file or a secret ever stops being `preserve()`.
 - Documentation for the interview: ADR 0005 "Interview agent for feature requests" (the conversation table, the prompt and vendored rubric, streaming over SSE and the tool-call state pattern), a `docs/ARCHITECTURE.md` section with the turn flow, and a README route table covering every path in the contract, guarded by a test.
 
+### Fixed
+
+- A client that disconnects before the SSE headers open is noticed: the messages route registers the close listener and its `AbortController` before the service's ownership, status and rate-limit round trips (`openSse` could only start listening after them), and a turn whose client is already gone opens no stream, calls no model and persists nothing.
+- The eight-question cap no longer contradicts itself: the prompt finishes the eighth turn with `done: true` and `question: null`, with `stillMissing` listing what the stop condition still lacks and empty when that answer made the request ready. The service accepts both shapes at the cap and still refuses a ninth question.
+- `readiness` is recomputed server-side from the model's three sub-scores with the rubric's own formula (`clarity * 2 + (6 - complexity) + (6 - risk)`) before the turn is stored, so the readiness chip and the `| Self-score |` row of the filed issue never carry the model's arithmetic slip. The sub-scores and `reasons` are kept as the model wrote them.
+- `FakeInterviewModel` scores the interview as it goes — readiness 12, then 14, then 16 from the third turn on, with reasons that follow the numbers — instead of reporting a ready request before the first answer, and its final draft carries the three acceptance criteria its closing reply claims: the criterion the product manager gave plus two checks derived from their earlier answers and labelled as derived. `outOfScope` stays empty.
+
 ## [1.0.0] - 2026-09-09
 
 ### Added

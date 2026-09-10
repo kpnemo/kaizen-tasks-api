@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { ModelRetryableError } from "../../src/agent/errors.js";
 import { FakeInterviewModel } from "../../src/agent/interview/fake-interview-model.js";
 import type { InterviewModel } from "../../src/agent/interview/model.js";
 import { createDb, type Db } from "../../src/db/client.js";
@@ -14,6 +15,7 @@ import {
   findOwnedConversation,
   updateConversationTurn,
 } from "../../src/repositories/feature-request-conversations.js";
+import type { Conversation, RubricScore } from "../../src/schemas/feature-request-conversations.js";
 import {
   createFeatureRequestConversationsService,
   GREETING,
@@ -58,8 +60,15 @@ let db: Db;
 let end: () => Promise<void>;
 const logger = createLogger("silent");
 
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+// Three connections: the create race holds one transaction open while a second create waits on the
+// partial unique index.
 beforeAll(() => {
-  const created = createDb(process.env.DATABASE_URL ?? "", { max: 2 });
+  const created = createDb(process.env.DATABASE_URL ?? "", { max: 3 });
   db = created.db;
   end = () => created.sql.end();
 });
@@ -79,6 +88,16 @@ const lowScore = {
   risk: 2,
   archChange: false,
   readiness: 14,
+  reasons: { clarity: "c", complexity: "x", risk: "r" },
+};
+
+/** clarity 4 with the same complexity and risk: 4 * 2 + 4 + 4, the rubric's ready score. */
+const readyScore = {
+  clarity: 4,
+  complexity: 2,
+  risk: 2,
+  archChange: false,
+  readiness: 16,
   reasons: { clarity: "c", complexity: "x", risk: "r" },
 };
 
@@ -122,10 +141,15 @@ async function seedQuestionCount(userId: string, id: string, questionCount: numb
 }
 
 function build(
-  overrides: { model?: InterviewModel; rateLimiter?: RateLimiter; turnTimeoutMs?: number } = {},
+  overrides: {
+    db?: Db;
+    model?: InterviewModel;
+    rateLimiter?: RateLimiter;
+    turnTimeoutMs?: number;
+  } = {},
 ) {
   return createFeatureRequestConversationsService({
-    db,
+    db: overrides.db ?? db,
     model: overrides.model ?? model,
     rateLimiter: overrides.rateLimiter ?? limiterReturning(allow),
     logger,
@@ -254,7 +278,7 @@ describe("turn", () => {
     expect(sink.names.at(-2)).toBe("state");
   });
 
-  it("finishes at the cap with a non-empty stillMissing and no question", async () => {
+  it("finishes at the cap with a non-empty stillMissing when the request is still short", async () => {
     const u = await user();
     const created = await service.create(u.id);
     await seedQuestionCount(u.id, created.id, 8);
@@ -289,6 +313,86 @@ describe("turn", () => {
     expect(row.questionCount).toBe(8);
     expect(row.stillMissing.length).toBeGreaterThan(0);
     expect(row.messages.at(-1)?.options).toBeUndefined();
+  });
+
+  it("finishes at the cap with an empty stillMissing when the last answer made it ready", async () => {
+    const u = await user();
+    const created = await service.create(u.id);
+    await seedQuestionCount(u.id, created.id, 8);
+
+    // The eighth answer can be the one that makes the request ready. The prompt then finishes with
+    // an empty `stillMissing`, and the service takes that turn exactly like the short one above.
+    const readyAtCap: InterviewModel = {
+      respond: (_input, onDelta) => {
+        onDelta("That is enough to file it.");
+        return Promise.resolve({
+          kind: "ok",
+          turn: {
+            reply: "That is enough to file it.",
+            question: null,
+            draft: EMPTY_DRAFT,
+            score: readyScore,
+            done: true,
+            stillMissing: [],
+          },
+        });
+      },
+    };
+    const sink = new RecordingSink();
+    await build({ model: readyAtCap }).turn(
+      u.id,
+      created.id,
+      { content: "an answer" },
+      () => sink,
+      new AbortController().signal,
+    );
+
+    expect(sink.names.at(-2)).toBe("state");
+    const row = (await findOwnedConversation(db, created.id, u.id))!;
+    expect(row.status).toBe("ready");
+    expect(row.questionCount).toBe(8);
+    expect(row.stillMissing).toEqual([]);
+    expect(row.score?.readiness).toBe(16);
+    expect(row.messages.at(-1)?.options).toBeUndefined();
+  });
+
+  it("recomputes readiness with the rubric's formula and ignores the model's arithmetic", async () => {
+    const u = await user();
+    const created = await service.create(u.id);
+    const miscounting: InterviewModel = {
+      respond: (_input, onDelta) => {
+        onDelta("Noted.");
+        return Promise.resolve({
+          kind: "ok",
+          turn: {
+            reply: "Noted.",
+            question: { text: "Anything else?", options: ["a", "b", "c"] },
+            draft: EMPTY_DRAFT,
+            // clarity 3, complexity 2, risk 2 is 3 * 2 + 4 + 4 = 14. The model claims 20.
+            score: { ...lowScore, readiness: 20 },
+            done: false,
+            stillMissing: [],
+          },
+        });
+      },
+    };
+
+    const sink = new RecordingSink();
+    await build({ model: miscounting }).turn(
+      u.id,
+      created.id,
+      { content: "an answer" },
+      () => sink,
+      new AbortController().signal,
+    );
+
+    const state = sink.events.at(-2)!;
+    expect(state.name).toBe("state");
+    const streamed = (state.data as { conversation: { score: RubricScore | null } }).conversation;
+    // The three sub-scores are the model's judgement and are kept; the arithmetic is ours.
+    expect(streamed.score).toMatchObject({ clarity: 3, complexity: 2, risk: 2, readiness: 14 });
+    const row = (await findOwnedConversation(db, created.id, u.id))!;
+    expect(row.score?.readiness).toBe(14);
   });
 
   it("rejects a ninth question and persists nothing", async () => {
@@ -408,20 +512,55 @@ describe("two turns racing", () => {
   });
 });
 
+/**
+ * `db` with one seam: a transaction started through it stays open until `released` resolves. That
+ * is the repository test's technique (`tests/db/feature-request-conversations-repo.test.ts`) one
+ * layer up, so the two racing calls are real `service.create` calls and the second really blocks on
+ * the partial unique index instead of serialising behind a committed row.
+ */
+function dbHoldingTransactionsUntil(released: Promise<void>): Db {
+  const holding = Object.create(db) as Db;
+  Object.defineProperty(holding, "transaction", {
+    value: (fn: Parameters<Db["transaction"]>[0]) =>
+      db.transaction(async (tx) => {
+        const result = await fn(tx);
+        await released;
+        return result;
+      }),
+  });
+  return holding;
+}
+
 describe("two creates racing", () => {
-  it("never leaves two live conversations and never leaks a raw database error", async () => {
+  it("collides on the partial unique index: one create wins, the other is CONFLICT", async () => {
     const u = await user();
-    const results = await Promise.allSettled([service.create(u.id), service.create(u.id)]);
-    for (const result of results) {
-      if (result.status === "rejected") {
-        expect(result.reason).toBeInstanceOf(AppError);
-        expect((result.reason as AppError).code).toBe("CONFLICT");
-      }
-    }
-    expect(results.some((r) => r.status === "fulfilled")).toBe(true);
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    // A inserts and holds the index; B abandons nothing (A is uncommitted) and then blocks on the
+    // insert until A commits, which is the 23505 the service has to turn into CONFLICT.
+    const a = build({ db: dbHoldingTransactionsUntil(held) }).create(u.id);
+    await sleep(100);
+    const b = service.create(u.id);
+    await sleep(100);
+    release();
+
+    const results = await Promise.allSettled([a, b]);
+    const rejections = results.filter((r) => r.status === "rejected");
+    const wins = results.filter((r) => r.status === "fulfilled");
+    // Exactly one collided: this test is worthless if both creates simply serialise.
+    expect(rejections).toHaveLength(1);
+    expect(wins).toHaveLength(1);
+    const reason = (rejections[0] as PromiseRejectedResult).reason;
+    expect(reason).toBeInstanceOf(AppError);
+    expect((reason as AppError).code).toBe("CONFLICT");
+
     const live = await findLiveConversation(db, u.id);
-    expect(live).toBeDefined();
-    expect(live!.status).toBe("open");
+    expect(live?.status).toBe("open");
+    // The loser rolled back whole: the winner's conversation is the live one, untouched.
+    expect(live?.id).toBe((wins[0] as PromiseFulfilledResult<Conversation>).value.id);
   });
 });
 
@@ -519,7 +658,27 @@ describe("turn fails after the stream started", () => {
     expect(row.questionCount).toBe(0);
   });
 
-  it("emits UPSTREAM_ERROR when the model throws", async () => {
+  it("emits UPSTREAM_ERROR when the model throws the adapter's transport error", async () => {
+    const u = await user();
+    const created = await service.create(u.id);
+    const throwing: InterviewModel = {
+      respond: () => Promise.reject(new ModelRetryableError(new Error("429 Too Many Requests"))),
+    };
+    const sink = new RecordingSink();
+    await build({ model: throwing }).turn(
+      u.id,
+      created.id,
+      { content: "hi" },
+      () => sink,
+      new AbortController().signal,
+    );
+    expect(sink.names).toEqual(["error", "done"]);
+    expect(sink.events[0]?.data).toMatchObject({ code: "UPSTREAM_ERROR" });
+    const row = (await findOwnedConversation(db, created.id, u.id))!;
+    expect(row.messages).toHaveLength(1);
+  });
+
+  it("emits INTERNAL when the model throws a bare Error", async () => {
     const u = await user();
     const created = await service.create(u.id);
     const throwing: InterviewModel = {
@@ -533,7 +692,8 @@ describe("turn fails after the stream started", () => {
       () => sink,
       new AbortController().signal,
     );
-    expect(sink.events.map((e) => e.name)).toEqual(["error", "done"]);
+    expect(sink.names).toEqual(["error", "done"]);
+    expect(sink.events[0]?.data).toMatchObject({ code: "INTERNAL" });
     const row = (await findOwnedConversation(db, created.id, u.id))!;
     expect(row.messages).toHaveLength(1);
   });

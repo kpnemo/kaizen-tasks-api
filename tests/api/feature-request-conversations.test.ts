@@ -75,6 +75,43 @@ function disconnectAfterFirstChunk(
   });
 }
 
+/**
+ * A real socket destroyed as soon as the request has been written, before a single response byte
+ * comes back. That is the window `openSse` cannot see: its `close` listener goes on only once the
+ * service's ownership, status and rate-limit round trips are done, so a tab closed during them was
+ * invisible until the route started listening first.
+ */
+function disconnectBeforeResponse(
+  server: Server,
+  token: string,
+  id: string,
+  body: object,
+): Promise<void> {
+  const { port } = server.address() as AddressInfo;
+  const payload = JSON.stringify(body);
+  return new Promise((resolve) => {
+    const req = httpRequest(
+      {
+        host: "127.0.0.1",
+        port,
+        method: "POST",
+        path: `${CONVERSATION}/${id}/messages`,
+        headers: {
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(payload),
+          authorization: `Bearer ${token}`,
+        },
+      },
+      (res) => res.resume(),
+    );
+    req.on("error", () => resolve());
+    req.end(payload, () => {
+      req.destroy();
+      resolve();
+    });
+  });
+}
+
 interface SseEvent {
   event: string;
   data: Record<string, unknown>;
@@ -331,6 +368,29 @@ describe("cancellation", () => {
       expect(row.version).toBe(0);
     } finally {
       impatient.interviewModel.delayMs = 0;
+    }
+  });
+
+  it("opens no stream and calls no model when the client is gone before the first byte", async () => {
+    const user = await registerUser(ctx.server);
+    const id = await startConversation(ctx, user.token);
+    const before = (await findOwnedConversation(ctx.db, id, user.userId))!;
+    const callsBefore = ctx.interviewModel.calls.length;
+    ctx.interviewModel.delayMs = 120;
+    try {
+      await disconnectBeforeResponse(ctx.server, user.token, id, { content: "an answer" });
+      // Long enough for a turn that had started to have finished streaming and persisted.
+      await sleep(400);
+
+      const row = (await findOwnedConversation(ctx.db, id, user.userId))!;
+      expect(row.questionCount).toBe(before.questionCount);
+      expect(row.version).toBe(before.version);
+      expect(row.messages).toHaveLength(before.messages.length);
+      expect(row.status).toBe("open");
+      // The turn never reached the model, so nothing was spent on it either.
+      expect(ctx.interviewModel.calls).toHaveLength(callsBefore);
+    } finally {
+      ctx.interviewModel.delayMs = 0;
     }
   });
 

@@ -30,6 +30,7 @@ import type {
   Conversation,
   ConversationMessage,
   ConversationTurnInput,
+  RubricScore,
 } from "../schemas/feature-request-conversations.js";
 
 /** The first assistant message of every conversation. Fixed text: no model call (spec 2). */
@@ -87,6 +88,16 @@ export function renderRefinementSection(conversation: Conversation, version: str
     "</details>",
     "",
   ].join("\n");
+}
+
+/**
+ * The rubric's own arithmetic (`src/agent/prompts/readiness.md`, "## 3. Readiness"). The three
+ * sub-scores are the model's judgement and are kept as they came; the number derived from them is
+ * recomputed here, because triage sorts on it and the filed issue carries it forever. The result is
+ * always within the contract's 4..20, since each sub-score is 1..5.
+ */
+export function withRubricReadiness(score: RubricScore): RubricScore {
+  return { ...score, readiness: score.clarity * 2 + (6 - score.complexity) + (6 - score.risk) };
 }
 
 function toStreamFailure(err: unknown, timedOut: boolean): { code: ErrorCode; message: string } {
@@ -193,6 +204,10 @@ export function createFeatureRequestConversationsService(deps: {
       // The optimistic token, read before the model call and required by the update after it.
       const expectedVersion = row.version;
 
+      // The PM closed the tab while ownership, status and the rate limit were being checked. The
+      // route has been listening since before those round trips, so this is where that shows up:
+      // no headers, no model call, nothing persisted, and no writes to a destroyed response.
+      if (clientSignal.aborted) return;
       // Headers out before the model call, so the browser has a 200 while it waits (spec 3.3).
       const sink = openSink();
       const timeout = AbortSignal.timeout(turnTimeoutMs);
@@ -251,7 +266,7 @@ export function createFeatureRequestConversationsService(deps: {
           {
             messages: [...messages, assistantMessage],
             draft: turn.draft,
-            score: turn.score,
+            score: withRubricReadiness(turn.score),
             questionCount,
             stillMissing: turn.stillMissing,
             status: turn.done ? "ready" : "open",

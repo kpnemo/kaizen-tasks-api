@@ -29,8 +29,16 @@ export function featureRequestsRouter(
   router.post("/conversation/:id/messages", validate(turnSchemas), async (req, res) => {
     const { params, body } = validated<typeof turnSchemas>(res);
     // The response object is the disconnect signal: aborting stops the model stream, and the
-    // service writes nothing once its sink reports closed.
+    // service writes nothing once its sink reports closed. The listener goes on here, before the
+    // service's ownership, status and rate-limit round trips, because `openSse` starts listening
+    // only after them: a tab closed during that window fires `close` while no sink exists yet.
     const controller = new AbortController();
+    const abort = (): void => controller.abort();
+    // Already gone: `close` has fired and will not fire again, so read the state instead. Only
+    // the response answers this — `req.destroyed` is true on every normal request too, because the
+    // body parser destroys the request stream once it has read the body.
+    if (res.destroyed) abort();
+    res.on("close", abort);
     let sink: SseSink | undefined;
     try {
       await conversations.turn(
@@ -38,12 +46,13 @@ export function featureRequestsRouter(
         params.id,
         body,
         () => {
-          sink = openSse(res, { onAbort: () => controller.abort() });
+          sink = openSse(res, { onAbort: abort });
           return sink;
         },
         controller.signal,
       );
     } finally {
+      res.removeListener("close", abort);
       sink?.close();
     }
   });

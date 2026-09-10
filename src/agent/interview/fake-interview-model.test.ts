@@ -59,6 +59,8 @@ describe("FakeInterviewModel", () => {
     expect(outcome.kind).toBe("ok");
     if (outcome.kind !== "ok") return;
     expect(outcome.turn.done).toBe(false);
+    // One sentence of context is not a ready request: the chip must not read 16 of 20 yet.
+    expect(outcome.turn.score).toMatchObject({ clarity: 2, readiness: 12 });
     expect(outcome.turn.question?.text).toBe(
       "Who is the user, and at what moment does this happen?",
     );
@@ -71,9 +73,9 @@ describe("FakeInterviewModel", () => {
 
   it("asks observable behavior on turn 1 and a done criterion on turn 2, three options each", async () => {
     const model = new FakeInterviewModel();
-    for (const [questionCount, upTo] of [
-      [1, 4],
-      [2, 6],
+    for (const [questionCount, upTo, readiness] of [
+      [1, 4, 14],
+      [2, 6, 16],
     ] as const) {
       const outcome = await model.respond(
         inputAt(questionCount, upTo),
@@ -84,7 +86,39 @@ describe("FakeInterviewModel", () => {
       if (outcome.kind !== "ok") return;
       expect(outcome.turn.done).toBe(false);
       expect(outcome.turn.question?.options).toHaveLength(3);
+      expect(outcome.turn.score.readiness).toBe(readiness);
     }
+  });
+
+  it("raises the score turn by turn, keeps the rubric's arithmetic and rewrites its reasons", async () => {
+    const model = new FakeInterviewModel();
+    const scores = [];
+    for (const [questionCount, upTo] of [
+      [0, 2],
+      [1, 4],
+      [2, 6],
+      [3, 8],
+    ] as const) {
+      const outcome = await model.respond(
+        inputAt(questionCount, upTo),
+        vi.fn(),
+        new AbortController().signal,
+      );
+      expect(outcome.kind).toBe("ok");
+      if (outcome.kind !== "ok") return;
+      scores.push(outcome.turn.score);
+    }
+
+    expect(scores.map((s) => s.readiness)).toEqual([12, 14, 16, 16]);
+    expect(scores.map((s) => s.clarity)).toEqual([2, 3, 4, 4]);
+    for (const score of scores) {
+      // The rubric's own formula: a fake that broke it would hide a real bug in the service.
+      expect(score.readiness).toBe(score.clarity * 2 + (6 - score.complexity) + (6 - score.risk));
+    }
+    // The reasons follow the numbers instead of claiming three criteria from the first answer on.
+    expect(new Set(scores.map((s) => s.reasons.clarity)).size).toBe(scores.length);
+    expect(scores[0]?.reasons.clarity).not.toMatch(/three/i);
+    expect(scores.at(-1)?.reasons.clarity).toMatch(/three/i);
   });
 
   it("finishes on turn 3 with the spec's score and a draft mapped by scripted turn", async () => {
@@ -103,10 +137,16 @@ describe("FakeInterviewModel", () => {
         "Supervisors cannot see which contact reasons drag a team's score down. A team supervisor before a coaching session.",
       proposedBehavior:
         "A list of agents with the contact reasons where they score below the team.",
-      acceptanceCriteria:
+      // Three bullets, as the closing reply says: the PM's own criterion, then two checks derived
+      // from their earlier answers and labelled as derived.
+      acceptanceCriteria: [
         "- Opening the page for a team of 12 shows all 12 agents within 2 seconds.",
+        "- (derived from the answers) A tester can do it as: A team supervisor before a coaching session.",
+        "- (derived from the answers) A tester can see: A list of agents with the contact reasons where they score below the team.",
+      ].join("\n"),
       outOfScope: "",
     });
+    expect(outcome.turn.draft.acceptanceCriteria.split("\n")).toHaveLength(3);
   });
 
   it("leaves the field a skipped answer would have filled empty, and invents nothing", async () => {
@@ -135,8 +175,12 @@ describe("FakeInterviewModel", () => {
     expect(outcome.kind).toBe("ok");
     if (outcome.kind !== "ok") return;
     expect(outcome.turn.draft.proposedBehavior).toBe("");
+    // The skipped answer takes its derived bullet with it; nothing is made up to replace it.
     expect(outcome.turn.draft.acceptanceCriteria).toBe(
-      "- Opening the page for a team of 12 shows all 12 agents within 2 seconds.",
+      [
+        "- Opening the page for a team of 12 shows all 12 agents within 2 seconds.",
+        "- (derived from the answers) A tester can do it as: A team supervisor before a coaching session.",
+      ].join("\n"),
     );
     expect(outcome.turn.draft.outOfScope).toBe("");
     for (const value of Object.values(outcome.turn.draft)) {

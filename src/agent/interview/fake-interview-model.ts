@@ -12,18 +12,71 @@ export type FakeInterviewMode = "ok" | "invalid";
 /** Pacing for `AI_MODEL_PROVIDER=fake` in development and the demo; tests use the default 0. */
 export const FAKE_INTERVIEW_DELAY_MS = 150;
 
-export const FAKE_INTERVIEW_SCORE: RubricScore = {
-  clarity: 4,
-  complexity: 2,
-  risk: 2,
-  archChange: false,
-  readiness: 16,
-  reasons: {
-    clarity: "Three checkable criteria and a stated scope.",
-    complexity: "One feature folder in the web app and one endpoint.",
-    risk: "A new control that cannot affect other features or stored data.",
+/**
+ * One score per scripted turn, keyed on `questionCount`, with the last entry standing for the final
+ * turn and every turn after it. Clarity rises as the PM answers and `readiness` follows the
+ * rubric's formula (`clarity * 2 + (6 - complexity) + (6 - risk)`), so the readiness chip climbs
+ * 12, 14, 16 through the demo instead of reading 16 before a single question is answered.
+ */
+export const FAKE_INTERVIEW_SCORES: readonly RubricScore[] = [
+  {
+    clarity: 2,
+    complexity: 2,
+    risk: 2,
+    archChange: false,
+    readiness: 12,
+    reasons: {
+      clarity: "One sentence of context and no criteria a tester could check yet.",
+      complexity: "Nothing said so far asks for more than one screen and one list.",
+      risk: "Nothing said so far changes what is stored or who can sign in.",
+    },
   },
-};
+  {
+    clarity: 3,
+    complexity: 2,
+    risk: 2,
+    archChange: false,
+    readiness: 14,
+    reasons: {
+      clarity: "The user and the moment are named; still no criterion a tester could check.",
+      complexity: "One screen in the web app and one list to fetch.",
+      risk: "A new read-only screen that changes nothing already stored.",
+    },
+  },
+  {
+    clarity: 4,
+    complexity: 2,
+    risk: 2,
+    archChange: false,
+    readiness: 16,
+    reasons: {
+      clarity: "The user, the moment and what the screen shows are named; criteria come next.",
+      complexity: "One feature folder in the web app and one endpoint.",
+      risk: "A new read-only screen that changes nothing already stored.",
+    },
+  },
+  {
+    clarity: 4,
+    complexity: 2,
+    risk: 2,
+    archChange: false,
+    readiness: 16,
+    reasons: {
+      clarity: "Three checkable criteria, with the user and the moment named.",
+      complexity: "One feature folder in the web app and one endpoint.",
+      risk: "A new control that cannot affect other features or stored data.",
+    },
+  },
+];
+
+/** The score of the final turn, the one the filed issue carries. */
+export const FAKE_INTERVIEW_SCORE: RubricScore = FAKE_INTERVIEW_SCORES.at(-1)!;
+
+/** The score for a turn, clamped so every turn past the script keeps the final one. */
+export function fakeInterviewScore(questionCount: number): RubricScore {
+  const index = Math.min(Math.max(questionCount, 0), FAKE_INTERVIEW_SCORES.length - 1);
+  return structuredClone(FAKE_INTERVIEW_SCORES[index]!);
+}
 
 interface ScriptedTurn {
   reply: string;
@@ -93,6 +146,27 @@ function answersByTurn(messages: ConversationMessage[]): string[] {
     .map((m) => (m.skipped === true ? "" : m.content.trim()));
 }
 
+/** Marks a bullet the fake worked out, so nothing reads as a criterion the PM stated. */
+const DERIVED = "(derived from the answers)";
+
+/**
+ * The three acceptance criteria the closing reply claims: the criterion the PM gave, then two
+ * checks turned from their earlier answers, each labelled as derived and carrying their own words.
+ * Nothing is written until the PM has given a criterion, and an answer they skipped drops its
+ * bullet rather than being invented.
+ */
+function criteriaFrom(criterion: string, userAndMoment: string, behavior: string): string {
+  if (criterion.length === 0) return "";
+  return [
+    criterion,
+    userAndMoment.length > 0 ? `${DERIVED} A tester can do it as: ${userAndMoment}` : "",
+    behavior.length > 0 ? `${DERIVED} A tester can see: ${behavior}` : "",
+  ]
+    .filter((line) => line.length > 0)
+    .map((line) => `- ${line}`)
+    .join("\n");
+}
+
 /**
  * The draft the scripted interview would have built from what the PM actually said, mapped by
  * scripted turn index. Unknown fields are empty strings; the fake never invents placeholder prose.
@@ -108,7 +182,7 @@ function draftFrom(input: InterviewInput): FeatureRequestDraft {
     title: idea,
     problem: [idea, userAndMoment].filter((part) => part.length > 0).join(" "),
     proposedBehavior: behavior,
-    acceptanceCriteria: criterion.length > 0 ? `- ${criterion}` : "",
+    acceptanceCriteria: criteriaFrom(criterion, userAndMoment, behavior),
     // The fake never reaches the out-of-scope rung of the ladder.
     outOfScope: "",
   };
@@ -169,7 +243,7 @@ export class FakeInterviewModel implements InterviewModel {
         reply,
         question: scripted?.question ?? null,
         draft: draftFrom(input),
-        score: structuredClone(FAKE_INTERVIEW_SCORE),
+        score: fakeInterviewScore(input.questionCount),
         done: scripted === undefined,
         stillMissing: [],
       },
