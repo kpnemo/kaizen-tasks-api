@@ -1,0 +1,148 @@
+name: staging-label
+
+# Every push to develop is deployed to Railway staging. Once staging actually serves this commit,
+# tell the harness issue behind the merged pull request about it: always a comment, and the
+# `staging` label once every pull request for that issue -- here and in kaizen-tasks-web -- is in.
+on:
+  push:
+    branches: [develop]
+
+# One group per commit, never cancelled in flight: each push carries its own commit to announce.
+# Grouping per ref would not do -- GitHub keeps only one *pending* run per group, so three rapid
+# pushes would lose the middle one's comment.
+concurrency:
+  group: staging-label-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  staging-label:
+    name: staging-label
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      STAGING_URL: ${{ vars.STAGING_WEB_URL }}
+      # The harness is a different repository, which GITHUB_TOKEN cannot write to. The token is read
+      # at job level so the steps below can ask `env.ASSEMBLY_LINE_TOKEN != ''` in their `if:`;
+      # a `secrets.` lookup is not allowed in a step condition.
+      ASSEMBLY_LINE_TOKEN: ${{ secrets.ASSEMBLY_LINE_TOKEN }}
+    steps:
+      - name: Find the harness issues this push implements
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The pull requests this commit landed. A release or a promotion pull request implements
+          # no issue, so only feat/ and fix/ branches are read.
+          bodies="$(gh api "repos/$REPO/commits/$SHA/pulls" \
+            --jq '.[] | select(.head.ref | test("^(feat|fix)/")) | .body // ""')"
+          issues="$(grep -oE 'kaizen-tasks-assembly-line#[0-9]+' <<<"$bodies" \
+            | cut -d'#' -f2 | sort -un | tr '\n' ' ')" || true
+          issues="${issues% }"
+          echo "issues=$issues" >> "$GITHUB_OUTPUT"
+          if [[ -z "$issues" ]]; then
+            echo "no issue referenced"
+          else
+            echo "harness issues: $issues"
+          fi
+
+      # A repository without the secret is not broken, it just cannot label: say so once and let the
+      # run pass. Failing here would paint every push to develop red for a missing optional secret.
+      - name: Report a missing cross-repo token and stop
+        if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN == ''
+        env:
+          ISSUES: ${{ steps.issues.outputs.issues }}
+        run: |
+          echo "::notice::ASSEMBLY_LINE_TOKEN is not set, so the staging label was skipped for harness issue(s) $ISSUES. Add the secret (a fine-grained PAT with Issues read and write on kpnemo/kaizen-tasks-assembly-line) to turn this on."
+
+      # Same loop as promote.yml: the label must mean "staging really is serving this", not "the
+      # merge happened". A timeout here is worth seeing, so it fails the job.
+      - name: Wait until staging serves this commit (15 minute timeout)
+        if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN != ''
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          if [[ -z "$STAGING_URL" ]]; then
+            echo "Repository variable STAGING_WEB_URL is not set" >&2
+            exit 1
+          fi
+          deadline=$(( $(date +%s) + 900 ))
+          while :; do
+            served="$(curl -fsS --max-time 10 "$STAGING_URL/api/v1/health" | jq -r '.data.commit // empty' 2>/dev/null || true)"
+            if [[ "$served" == "$SHA" ]]; then
+              echo "staging serves $served"
+              break
+            fi
+            if (( $(date +%s) > deadline )); then
+              echo "timeout: staging serves '${served:-nothing}', wanted $SHA (deploy skipped or still failing?)" >&2
+              exit 1
+            fi
+            echo "staging serves '${served:-nothing}', waiting for $SHA"
+            sleep 15
+          done
+
+      - name: Comment on each harness issue, and label it once the whole feature is on staging
+        if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ env.ASSEMBLY_LINE_TOKEN }}
+          ISSUES: ${{ steps.issues.outputs.issues }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          HARNESS=kpnemo/kaizen-tasks-assembly-line
+
+          # One listing per app repository, flattened to "<repo>#<number> <body>" lines. `gh pr list`
+          # reads the repository directly on purpose: the search API's index lags a merge by minutes
+          # and would still report a just-merged pull request as open.
+          PR_LIMIT=100
+          open_prs=""
+          for repo in kpnemo/kaizen-tasks-api kpnemo/kaizen-tasks-web; do
+            raw="$(gh pr list --repo "$repo" --state open --limit "$PR_LIMIT" \
+              --json number,headRefName,body)"
+            # A full page means the listing may be truncated, and one missed open pull request would
+            # label a half-finished feature. Stop here, before anything is commented on or labelled.
+            count="$(jq 'length' <<<"$raw")"
+            if [[ "$count" -eq "$PR_LIMIT" ]]; then
+              echo "::error::$repo returned $count open pull requests, a full --limit page: the listing may be truncated. Raise PR_LIMIT." >&2
+              exit 1
+            fi
+            # The same feat/ and fix/ filter step 1 uses. A release or promotion pull request quotes
+            # the issue number in its body too, so without this an open release would block the label.
+            listing="$(jq -r '.[] | select(.headRefName | test("^(feat|fix)/"))
+              | "\(.number) \((.body // "") | gsub("\\s+"; " "))"' <<<"$raw")"
+            while IFS= read -r line; do
+              if [[ -n "$line" ]]; then
+                open_prs+="$repo#$line"$'\n'
+              fi
+            done <<<"$listing"
+          done
+
+          for n in $ISSUES; do
+            gh issue comment "$n" --repo "$HARNESS" \
+              --body "Deployed to staging: $REPO ${SHA:0:7} is live at $STAGING_URL."
+
+            # A feature is on staging only when no pull request anywhere still points at the issue.
+            # The ([^0-9]|$) tail keeps issue #1 from matching a reference to #12.
+            still_open="$(grep -E "kaizen-tasks-assembly-line#${n}([^0-9]|\$)" <<<"$open_prs" \
+              | cut -d' ' -f1 | tr '\n' ' ')" || true
+            if [[ -n "$still_open" ]]; then
+              echo "issue #$n: no label yet, still open: $still_open"
+              continue
+            fi
+
+            gh issue edit "$n" --repo "$HARNESS" --add-label staging
+            # Drop `implementing` only when the issue still carries it: --remove-label on a label
+            # that is not there is an error, and a lifecycle that already moved on is not a failure.
+            labels="$(gh issue view "$n" --repo "$HARNESS" --json labels --jq '.labels[].name')"
+            if grep -qx implementing <<<"$labels"; then
+              gh issue edit "$n" --repo "$HARNESS" --remove-label implementing
+            fi
+            echo "issue #$n: labelled staging"
+          done
