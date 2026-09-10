@@ -84,6 +84,16 @@ its fixtures at startup if absent. `POST /api/v1/admin/seed-reset` with header `
 When `GITHUB_TOKEN` and `GITHUB_REPO` (`owner/name`) are set, `POST /api/v1/feature-requests`
 files a `feature-request` issue in that repository with the submitter's display name in the body.
 
+## The readiness rubric
+
+`src/agent/prompts/readiness.md` is a byte-identical copy of `rubric/readiness.md` in
+`kaizen-tasks-assembly-line`, sent as the second system block of the interview prompt so the in-app
+assistant, the product manager's local `refine-request` skill and engineering's triage all score
+from the same text. Refresh it with `npm run rubric:sync` (add `-- --local ../rubric/readiness.md`
+to copy from a local checkout); `npm run rubric:check` compares the two `version:` lines and warns.
+CI runs the check as a warning step. Never edit the copy by hand: it lives under
+`src/agent/prompts/**`, so a change to it is a prompt change and needs an ADR.
+
 ## Operator switches
 
 `AI_ENABLED=false` pauses the assistant (creates still succeed, skipped with reason

@@ -48,6 +48,25 @@ in ('open','ready')`, enforces at most one live conversation per user. The servi
 The migration is additive only (ADR 0004): one new enum type, one new table, one new index. Nothing
 existing is dropped, renamed or retyped, so a rollback to the previous deployment still starts.
 
+## Decision: the prompt and the rubric copy
+
+The interview's instructions are `src/agent/prompts/interview.system.md`, which ports the
+`refine-request` skill's Step 4 (the one-question-per-turn rules, the five-item question ladder, the
+eight-question cap and the stop condition) so a product manager gets the same interview in the app
+and in their local skill. It carries the turn contract — plain-text reply, then exactly one
+`report_turn` call, never JSON in the text — and the five draft-field rules.
+
+The readiness rubric is not restated in that prompt. `src/agent/prompts/readiness.md` is a
+byte-identical copy of `rubric/readiness.md` in `kaizen-tasks-assembly-line`, sent as a second
+system block. Copying rather than restating is what keeps the three consumers — the assembly line's
+`triage-requests`, the product-skills `refine-request` skill and this API — scoring from one text.
+`scripts/sync-rubric.sh` (ported from the product-skills repo) downloads or copies it and, with
+`--check`, compares the two `version:` lines; CI runs `--check` as a warning step, never a gate,
+because a rubric version bump is the assembly line's release, not this repo's.
+
+Both files are system blocks with `cache_control: { type: "ephemeral" }` and are frozen for the life
+of a deploy, so every turn of every conversation reads the same cached prefix.
+
 ## Consequences
 
 - Rolling back to the release before this one leaves the table in place and unread; no data loss,
@@ -59,3 +78,5 @@ existing is dropped, renamed or retyped, so a rollback to the previous deploymen
   conversations; `create` abandons first, inside the same request, so the window is small and the
   failure is a plain 409-shaped conflict rather than corrupt state.
 - Reviewers check any later migration touching this table against ADR 0004's allowed list.
+- A rubric change in the assembly line does not reach the API until someone runs `npm run rubric:sync`; CI warns, and the version line in every issue's refinement section says which text produced the score.
+- Editing either prompt file needs an ADR update (`docs/architectural-files.txt` matches `src/agent/prompts/**`), and the build copies both into `dist/`, where `scripts/check-dist-assets.sh` and the startup asset assertion both check for them.

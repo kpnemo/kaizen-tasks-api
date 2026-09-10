@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { interviewPromptPath, rubricPath } from "./agent/interview/prompt.js";
 import { createBreakdownModel } from "./agent/model.js";
 import { promptPath } from "./agent/prompt.js";
 import { createApp } from "./app.js";
@@ -40,6 +41,8 @@ async function main(): Promise<void> {
   // 2. Runtime assets, with resolved paths in the failure message.
   assertRuntimeAssets([
     { name: "system prompt", path: promptPath() },
+    { name: "interview system prompt", path: interviewPromptPath() },
+    { name: "readiness rubric", path: rubricPath() },
     { name: "migrations folder", path: MIGRATIONS_FOLDER },
     { name: "openapi.json", path: OPENAPI_PATH },
   ]);
