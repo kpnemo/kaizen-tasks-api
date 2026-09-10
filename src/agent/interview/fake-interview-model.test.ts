@@ -228,6 +228,17 @@ describe("FakeInterviewModel", () => {
     expect(model.calls[0]?.questionCount).toBe(0);
   });
 
+  it("takes one mode per call from the scripted queue, then falls back to mode", async () => {
+    // How a test scripts "invalid once, then fine": the service's one automatic retry needs the
+    // first call to fail and the second to succeed.
+    const model = new FakeInterviewModel({ modes: ["invalid"] });
+    const first = await model.respond(inputAt(0, 2), vi.fn(), new AbortController().signal);
+    const second = await model.respond(inputAt(0, 2), vi.fn(), new AbortController().signal);
+    expect(first.kind).toBe("invalid");
+    expect(second.kind).toBe("ok");
+    expect(model.calls).toHaveLength(2);
+  });
+
   it("rejects when the signal aborts during the inter-chunk delay", async () => {
     const model = new FakeInterviewModel({ delayMs: 50 });
     const controller = new AbortController();

@@ -6,7 +6,9 @@ import type { ConversationMessage } from "../../schemas/feature-request-conversa
 import { ModelNonRetryableError, ModelRetryableError } from "../errors.js";
 import {
   AnthropicInterviewModel,
+  CAP_REPLY,
   INTERVIEW_MAX_OUTPUT_TOKENS,
+  READY_REPLY,
   REPORT_TURN_TOOL_NAME,
   reportTurnJsonSchema,
   reportTurnTool,
@@ -264,11 +266,92 @@ describe("AnthropicInterviewModel.respond via an injected fake client", () => {
     expect(outcome.reason).toContain("exactly one");
   });
 
-  it("returns invalid when the turn is a tool call with no reply text", async () => {
+  // The real provider often answers a turn with the tool call alone. The state is complete, so the
+  // turn is kept and the reply is synthesized from it and streamed once, exactly like a real one.
+  it("accepts a tool-only turn that asks a question and streams the question text as the reply", async () => {
     const { client } = clientWith(
       () =>
         new FakeStream([], async () =>
           assistantMessage([toolUse(REPORT_TURN_TOOL_NAME, turnPayload)]),
+        ),
+    );
+    const chunks: string[] = [];
+    const outcome = await modelWith(client).respond(
+      input,
+      (text) => chunks.push(text),
+      new AbortController().signal,
+    );
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(chunks).toEqual(["Who is the user, and at what moment does this happen?"]);
+    expect(outcome.turn.reply).toBe("Who is the user, and at what moment does this happen?");
+    expect(outcome.turn.question?.text).toBe(outcome.turn.reply);
+  });
+
+  it("accepts a tool-only turn that is done with nothing missing, and says the request is ready", async () => {
+    const { client } = clientWith(
+      () =>
+        new FakeStream([], async () =>
+          assistantMessage([
+            toolUse(REPORT_TURN_TOOL_NAME, {
+              ...turnPayload,
+              question: null,
+              done: true,
+              stillMissing: [],
+            }),
+          ]),
+        ),
+    );
+    const chunks: string[] = [];
+    const outcome = await modelWith(client).respond(
+      input,
+      (text) => chunks.push(text),
+      new AbortController().signal,
+    );
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(chunks).toEqual(["The request is ready to review and file."]);
+    expect(outcome.turn.reply).toBe(READY_REPLY);
+    expect(READY_REPLY).toBe("The request is ready to review and file.");
+  });
+
+  it("accepts a tool-only turn that is done at the cap, and says what is still missing", async () => {
+    const { client } = clientWith(
+      () =>
+        new FakeStream([], async () =>
+          assistantMessage([
+            toolUse(REPORT_TURN_TOOL_NAME, {
+              ...turnPayload,
+              question: null,
+              done: true,
+              stillMissing: ["a third checkable criterion"],
+            }),
+          ]),
+        ),
+    );
+    const chunks: string[] = [];
+    const outcome = await modelWith(client).respond(
+      input,
+      (text) => chunks.push(text),
+      new AbortController().signal,
+    );
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(chunks).toEqual(["We have reached the question limit. Review and file what we have."]);
+    expect(outcome.turn.reply).toBe(CAP_REPLY);
+    expect(CAP_REPLY).toBe("We have reached the question limit. Review and file what we have.");
+  });
+
+  it("still returns invalid when a tool-only turn leaves nothing to synthesize a reply from", async () => {
+    const { client } = clientWith(
+      () =>
+        new FakeStream([], async () =>
+          assistantMessage([
+            toolUse(REPORT_TURN_TOOL_NAME, {
+              ...turnPayload,
+              question: { ...turnPayload.question, text: "   " },
+            }),
+          ]),
         ),
     );
     const chunks: string[] = [];

@@ -62,6 +62,15 @@ describe("the interview system prompt", () => {
     }
   });
 
+  it("says the reply text comes first and that a tool-only turn is a mistake", () => {
+    // The provider frequently answers with the tool call alone; the adapter now rescues that turn,
+    // and this sentence is the other half of the fix.
+    // Normalized, because the prompt is hand-wrapped at 100 columns and the sentence spans lines.
+    expect(prompt.replace(/\s+/g, " ")).toContain(
+      "Write the reply text first, as plain text, then call `report_turn` once; a turn that only calls the tool is a mistake.",
+    );
+  });
+
   it("lets the cap finish ready: done, no question, and stillMissing empty when nothing is short", () => {
     // The eighth answer can be the one that finishes the request, so the cap rule must not demand
     // a non-empty `stillMissing` there. The service takes both shapes.
