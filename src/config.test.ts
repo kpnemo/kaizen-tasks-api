@@ -40,6 +40,7 @@ describe("loadConfig", () => {
     expect(config.AI_GLOBAL_LIMIT_PER_HOUR).toBe(300);
     expect(config.AI_ENABLED).toBe(true);
     expect(config.AI_STALE_MINUTES).toBe(10);
+    expect(config.INTERVIEW_HOURLY_LIMIT).toBe(60);
     expect(config.AI_MODEL).toBe("claude-sonnet-5");
     expect(config.APP_ENV).toBe("development");
     expect(config.WORKER_ENABLED).toBe(true);
@@ -62,6 +63,12 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...valid, ADMIN_TOKEN: "" }).ADMIN_TOKEN).toBeUndefined();
     expect(() => loadConfig({ ...valid, ADMIN_TOKEN: "short" })).toThrow(ConfigError);
     expect(() => loadConfig({ ...valid, JWT_SECRET: "short" })).toThrow(ConfigError);
+  });
+
+  it("takes INTERVIEW_HOURLY_LIMIT as a positive integer", () => {
+    expect(loadConfig({ ...valid, INTERVIEW_HOURLY_LIMIT: "5" }).INTERVIEW_HOURLY_LIMIT).toBe(5);
+    expect(() => loadConfig({ ...valid, INTERVIEW_HOURLY_LIMIT: "0" })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, INTERVIEW_HOURLY_LIMIT: "x" })).toThrow(ConfigError);
   });
 
   it("marks cookies secure outside development and test", () => {
