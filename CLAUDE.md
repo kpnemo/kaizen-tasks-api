@@ -32,7 +32,7 @@ import Express types.
 
 - Every endpoint change follows the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`): test first, schema and OpenAPI registration, service with ownership check, repository, route, `npm run openapi`, changelog, ADR if architectural, `npm run docs:check`.
 - Migrations are additive only: add tables, add columns with defaults, add indexes; never drop, rename, or change types in the same release. See `docs/adr/0004-additive-migrations-only.md`. Generate with `npm run db:generate -- --name <what>` and commit `drizzle/`.
-- Docs are part of every change and the Stop hook enforces them (`scripts/docs-check.sh --hook`, same script as CI): a bullet under `[Unreleased]` in `CHANGELOG.md` when code changes; `npm run openapi` when `src/routes/` or `src/schemas/` change; an ADR under `docs/adr/` (use the `write-adr` skill) when a file matching `docs/architectural-files.txt` changes.
+- Docs are part of every change and the Stop hook enforces them (`scripts/docs-check.sh --hook`, same script as CI): a bullet under `[Unreleased]` in `CHANGELOG.md` when code changes; `npm run openapi` when `src/routes/` or `src/schemas/` change; an ADR under `docs/adr/` (use the `write-adr` skill) when a file matching `docs/architectural-files.txt` changes; and `npm run product-map` on every change, because Rule D regenerates `docs/product-map.md` on every run and a stale map fails the check.
 - Architectural files: `src/db/schema.ts`, `drizzle/**`, `src/jobs/**`, `src/lib/auth.ts`, `src/agent/prompts/**`, `.railway/**`.
 - Tests: unit tests live next to the code as `src/**/*.test.ts`; integration tests under `tests/` run against real Postgres (`kaizen_test`) and Redis db 1, truncated before each test. `tests/helpers/app.ts` builds the app with a fake queue and a fake model. Use `superpowers:test-driven-development`.
 - The `reviewer` agent checks a diff against these rules; the `test-writer` agent drafts failing tests from acceptance criteria.
@@ -47,6 +47,7 @@ import Express types.
 | `npm run lint` / `npm run typecheck`                          | eslint and prettier / tsc                                  |
 | `npm run db:generate` / `db:migrate` / `db:seed [-- --reset]` | drizzle-kit generate / apply migrations / demo fixtures    |
 | `npm run openapi [-- --check]`                                | regenerate `openapi.json` and `docs/API.md` / detect drift |
+| `npm run product-map`                                         | regenerate `docs/product-map.md` below its marker          |
 | `npm run docs:check`                                          | the Stop hook check, by hand                               |
 
 Local setup: `README.md`, "Run locally".

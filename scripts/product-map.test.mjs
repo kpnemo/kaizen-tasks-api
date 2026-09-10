@@ -7,11 +7,13 @@ import prettier from "prettier";
 import { describe, expect, it } from "vitest";
 import {
   MAP_FILE,
+  MARKER,
   listSources,
   parseAdrs,
   parseChangelog,
   parseEndpoints,
   parseSchemaTables,
+  splitHeader,
 } from "./product-map.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -116,6 +118,26 @@ describe("parseSchemaTables", () => {
   it("fails with the file and line on a column property it does not understand", () => {
     const source = `const a = 1;\nconst t = pgTable("t", { ...base, id: uuid("id") });\n`;
     expect(() => parseSchemaTables(source, "fixture.ts")).toThrow(/fixture\.ts:2:/);
+  });
+});
+
+describe("splitHeader", () => {
+  it("keeps everything up to the marker line", () => {
+    const text = `# Title\n\nReviewed: 2026-09-10 against x\n\n${MARKER}\n\n## Endpoints\n`;
+    expect(splitHeader(text, MAP_FILE)).toBe(
+      `# Title\n\nReviewed: 2026-09-10 against x\n\n${MARKER}\n`,
+    );
+  });
+
+  it("ignores the marker quoted inside prose and splits on the marker line", () => {
+    const text = `# Title\n\nA changelog bullet may quote the ${MARKER} marker.\n\n${MARKER}\n\n## Endpoints\n`;
+    expect(splitHeader(text, MAP_FILE)).toContain("A changelog bullet may quote");
+    expect(splitHeader(text, MAP_FILE).split("\n").filter(Boolean)).toHaveLength(3);
+    expect(splitHeader(text, MAP_FILE)).not.toContain("## Endpoints");
+  });
+
+  it("fails with the file when there is no marker line", () => {
+    expect(() => splitHeader("# Title\n", MAP_FILE)).toThrow(new RegExp(MAP_FILE));
   });
 });
 

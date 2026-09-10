@@ -258,7 +258,18 @@ function readSources(root) {
   };
 }
 
-/** The hand-written header, up to and including the marker line. */
+/**
+ * The hand-written header, up to and including the marker line. The marker is matched as a whole
+ * line: a changelog bullet that quotes it lands in the generated half and must not move the
+ * boundary.
+ */
+export function splitHeader(text, file) {
+  const lines = text.split("\n");
+  const at = lines.findIndex((line) => line.trim() === MARKER);
+  if (at === -1) throw new Error(`${file} has no line reading ${MARKER}`);
+  return `${lines.slice(0, at).join("\n").trimEnd()}\n\n${MARKER}\n`;
+}
+
 function readHeader(root) {
   const mapPath = path.join(root, MAP_FILE);
   let text;
@@ -267,9 +278,7 @@ function readHeader(root) {
   } catch {
     throw new Error(`${MAP_FILE} is missing; its hand-written header cannot be regenerated`);
   }
-  const at = text.indexOf(MARKER);
-  if (at === -1) throw new Error(`${MAP_FILE} has no ${MARKER} marker line`);
-  return `${text.slice(0, at).trimEnd()}\n\n${MARKER}\n`;
+  return splitHeader(text, MAP_FILE);
 }
 
 export async function buildMap(root) {
