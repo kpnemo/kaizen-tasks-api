@@ -645,7 +645,7 @@ describe("turn refuses before the stream starts", () => {
 });
 
 describe("turn fails after the stream started", () => {
-  it("emits error then done and persists nothing when the model returns invalid", async () => {
+  it("emits error then done and persists nothing when both attempts return invalid", async () => {
     const u = await user();
     const created = await service.create(u.id);
     model.mode = "invalid";
@@ -653,9 +653,40 @@ describe("turn fails after the stream started", () => {
     expect(sink.names.at(-2)).toBe("error");
     expect(sink.names.at(-1)).toBe("done");
     expect(sink.events.at(-2)?.data).toMatchObject({ code: "UPSTREAM_ERROR" });
+    // One retry, then the error: the second bad answer is the last one this turn asks for.
+    expect(model.calls).toHaveLength(2);
     const row = (await findOwnedConversation(db, created.id, u.id))!;
     expect(row.messages).toHaveLength(1);
     expect(row.questionCount).toBe(0);
+  });
+
+  it("retries an invalid turn once and persists the second attempt", async () => {
+    const u = await user();
+    const created = await service.create(u.id);
+    // Invalid on the first call only; the fake falls back to its scripted turn on the second.
+    model.modes = ["invalid"];
+    const sink = await answer(u.id, created.id, "Supervisors cannot see the drag.");
+
+    expect(model.calls).toHaveLength(2);
+    expect(sink.names.filter((name) => name === "state")).toHaveLength(1);
+    expect(sink.names.filter((name) => name === "error")).toHaveLength(0);
+    expect(sink.names.at(-2)).toBe("state");
+    expect(sink.names.at(-1)).toBe("done");
+
+    // The first attempt already streamed a reply that is now void. One newline between the two
+    // keeps the browser from gluing the second reply onto the first.
+    const deltas = sink.events
+      .filter((event) => event.name === "delta")
+      .map((event) => (event.data as { text: string }).text);
+    expect(deltas).toHaveLength(7);
+    expect(deltas[3]).toBe("\n");
+
+    const row = (await findOwnedConversation(db, created.id, u.id))!;
+    expect(row.messages).toHaveLength(3);
+    expect(row.questionCount).toBe(1);
+    expect(row.status).toBe("open");
+    // What was persisted is the second attempt's reply, not the two glued together.
+    expect(row.messages[2]?.content).toBe(deltas.slice(4).join(""));
   });
 
   it("emits UPSTREAM_ERROR when the model throws the adapter's transport error", async () => {

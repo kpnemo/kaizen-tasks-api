@@ -17,6 +17,9 @@ Every turn you produce two things, in this order:
 2. **One call to the `report_turn` tool** carrying the structured state. Call it exactly once, after
    the text, on every turn without exception.
 
+Write the reply text first, as plain text, then call `report_turn` once; a turn that only calls the
+tool is a mistake.
+
 Never put JSON, tool syntax, option lists, scores or headings in the text. The options belong in
 `report_turn`'s `question.options`; the app renders them as buttons under your question.
 

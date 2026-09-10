@@ -105,4 +105,12 @@ contract uses, and makes a malformed turn a final `invalid` rather than somethin
 - A rubric change in the assembly line does not reach the API until someone runs `npm run rubric:sync`; CI warns, and the version line in every issue's refinement section says which text produced the score.
 - Editing either prompt file needs an ADR update (`docs/architectural-files.txt` matches `src/agent/prompts/**`), and the build copies both into `dist/`, where `scripts/check-dist-assets.sh` and the startup asset assertion both check for them.
 - The prompt's cap rule was corrected after the branch review: at 8 of 8 the assistant finishes with `done: true` and `question: null`, and `stillMissing` is empty when that eighth answer made the request ready rather than being required to name something missing; the service takes both shapes, still rejects a ninth question, and now recomputes `readiness` from the model's three sub-scores with the rubric's formula before storing it. The CI rubric-drift step carries `continue-on-error: true`, so "warning, never a gate" above holds even when the upstream file has no `version:` line.
+- A tool call with no prose is a complete turn, not a malformed one. `claude-sonnet-5` frequently
+  answers by calling `report_turn` alone, so once the call is present, passes the schema and agrees
+  with `done`, the adapter accepts the turn and synthesizes the reply from the state — the
+  question's own text, or the ready sentence, or the cap sentence when `stillMissing` is not empty —
+  and streams it through `onDelta` once so the client cannot tell it from a real one; the prompt's
+  turn contract gained one sentence saying the text comes first, and the service retries an invalid
+  turn once before it gives up. Every other rejection is unchanged, and a synthesized reply is
+  stored in the transcript like any other, so the filed issue reads the same.
 - The interview has its own hourly budget, `INTERVIEW_HOURLY_LIMIT` (default 60), on the key `ratelimit:interview:<userId>:<hour>`. It is declared in `.railway/railway.ts` as a plain value because it carries no secret and the code default matches, so an environment that never sets it behaves identically; `AI_ENABLED=false` still pauses interviews along with everything else.

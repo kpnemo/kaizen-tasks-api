@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The interview system prompt states in one sentence that the reply text comes first, as plain text, and that a turn which only calls `report_turn` is a mistake. Nothing else in the prompt changed.
+
+### Fixed
+
+- A turn the model answers with the `report_turn` call and no prose is no longer thrown away. Against the real provider that happened often enough to cost product managers good turns: the strict acceptance rejected them and the app said "The assistant could not finish that turn." When the tool call is present, passes the schema and agrees with `done`, the adapter now accepts the turn and synthesizes the reply from the state it already carries — the question's own text, `The request is ready to review and file.` when the interview finished with nothing missing, or `We have reached the question limit. Review and file what we have; the missing points are listed below.` at the eight-question cap — and streams it through `onDelta` once, so the client shows it exactly like any other streamed reply. Every other rejection stands: no tool call, a `stop_reason` other than `tool_use`, two `report_turn` calls, a tool input that fails the schema and a `done`/`question` disagreement are all still `invalid`.
+- An invalid model turn is retried once before the interview gives up. The reason is logged at info, `model.respond` is called a second time with the same input, signal and delta callback, and only a second invalid answer emits the `error` event and persists nothing, as before. When the first attempt had already streamed prose, the retry is preceded by a single newline delta so the browser cannot glue the two replies together. Transport failures are still not retried.
+
 ## [1.1.0] - 2026-09-10
 
 ### Added

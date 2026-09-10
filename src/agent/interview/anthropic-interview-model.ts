@@ -11,6 +11,9 @@ import type {
 } from "./model.js";
 import { systemBlocks, transcriptMessages, type CachedSystemBlock } from "./prompt.js";
 
+/** What `report_turn` carries: an `InterviewTurn` minus the prose the adapter streams. */
+type ReportTurnState = Omit<InterviewTurn, "reply">;
+
 /** One short reply plus one tool call. The 45s client timeout still bounds the turn (spec 3.3). */
 export const INTERVIEW_MAX_OUTPUT_TOKENS = 4000;
 
@@ -74,14 +77,35 @@ function issuesOf(error: z.ZodError): string {
  * unfinished one always has something to answer. `options` are already bounded to one to four by
  * `ReportTurnSchema`.
  */
-function disagreementIn(turn: InterviewTurn): string | undefined {
-  if (turn.done && turn.question !== null) {
+function disagreementIn(state: ReportTurnState): string | undefined {
+  if (state.done && state.question !== null) {
     return "done was true but the turn still asked a question";
   }
-  if (!turn.done && turn.question === null) {
+  if (!state.done && state.question === null) {
     return "done was false but the turn asked no question";
   }
   return undefined;
+}
+
+/**
+ * The reply for a tool-only turn whose `report_turn` state says the interview is over with nothing
+ * left to gather. Fixed wording: it is what the product manager reads, so it cannot vary per turn.
+ */
+export const READY_REPLY = "The request is ready to review and file.";
+
+/** The same, for a turn that stops at the eight-question cap with points still missing. */
+export const CAP_REPLY =
+  "We have reached the question limit. Review and file what we have; the missing points are listed below.";
+
+/**
+ * claude-sonnet-5 frequently answers a turn with the `report_turn` call and no prose, which used to
+ * cost the product manager a perfectly good turn. The state already carries everything the reply
+ * would have said, so the reply is rebuilt from it: the question it just asked, or the sentence the
+ * prompt's stop rules prescribe for the two ways an interview ends.
+ */
+function synthesizedReply(state: ReportTurnState): string {
+  if (state.question !== null) return state.question.text.trim();
+  return state.stillMissing.length === 0 ? READY_REPLY : CAP_REPLY;
 }
 
 export class AnthropicInterviewModel implements InterviewModel {
@@ -149,18 +173,24 @@ export class AnthropicInterviewModel implements InterviewModel {
           reason: `expected exactly one report_turn call, got ${calls.length}`,
         };
       }
-      const text = reply.trim();
-      if (text.length === 0) {
-        return { kind: "invalid", reason: "the assistant turn carried no reply text" };
-      }
       const parsed = ReportTurnSchema.safeParse(calls[0]!.input);
       if (!parsed.success) {
         return { kind: "invalid", reason: `report_turn input rejected: ${issuesOf(parsed.error)}` };
       }
-      const turn: InterviewTurn = { reply: text, ...parsed.data };
-      const disagreement = disagreementIn(turn);
+      const state = parsed.data;
+      const disagreement = disagreementIn(state);
       if (disagreement) return { kind: "invalid", reason: disagreement };
-      return { kind: "ok", turn };
+      let text = reply.trim();
+      if (text.length === 0) {
+        // The tool call is present, valid and consistent: the turn is good, only its prose is
+        // missing. Synthesize it and stream it once, so the client shows a reply like any other.
+        text = synthesizedReply(state);
+        if (text.length === 0) {
+          return { kind: "invalid", reason: "the assistant turn carried no reply text" };
+        }
+        onDelta(text);
+      }
+      return { kind: "ok", turn: { reply: text, ...state } };
     } catch (err) {
       // A bare AnthropicError that is not an APIError is a bad answer, not a transport failure —
       // the same classification guard the breakdown adapter makes, for the same reason: retrying

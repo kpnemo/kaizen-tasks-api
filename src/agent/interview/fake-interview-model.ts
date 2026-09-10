@@ -214,12 +214,21 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 /** A scripted four-turn interview. Used for AI_MODEL_PROVIDER=fake and in every test. */
 export class FakeInterviewModel implements InterviewModel {
   mode: FakeInterviewMode;
+  /**
+   * A queue of modes, one taken per call, for a test that needs consecutive calls to differ — the
+   * service's one automatic retry, where the first answer is invalid and the second is not. Empty
+   * (the default) means every call uses `mode`.
+   */
+  modes: FakeInterviewMode[];
   /** Mutable: an integration test raises it to overlap two requests or to outlive a timeout. */
   delayMs: number;
   readonly calls: InterviewInput[] = [];
 
-  constructor(options: { mode?: FakeInterviewMode; delayMs?: number } = {}) {
+  constructor(
+    options: { mode?: FakeInterviewMode; modes?: FakeInterviewMode[]; delayMs?: number } = {},
+  ) {
     this.mode = options.mode ?? "ok";
+    this.modes = [...(options.modes ?? [])];
     this.delayMs = options.delayMs ?? 0;
   }
 
@@ -229,6 +238,7 @@ export class FakeInterviewModel implements InterviewModel {
     signal: AbortSignal,
   ): Promise<InterviewOutcome> {
     this.calls.push(input);
+    const mode = this.modes.shift() ?? this.mode;
     const scripted = SCRIPT[input.questionCount];
     const reply = scripted?.reply ?? DONE_REPLY;
     for (const chunk of splitIntoThree(reply)) {
@@ -236,7 +246,7 @@ export class FakeInterviewModel implements InterviewModel {
       if (signal.aborted) throw abortError(signal);
       onDelta(chunk);
     }
-    if (this.mode === "invalid") return { kind: "invalid", reason: "Fake invalid turn" };
+    if (mode === "invalid") return { kind: "invalid", reason: "Fake invalid turn" };
     return {
       kind: "ok",
       turn: {

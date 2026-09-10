@@ -212,20 +212,37 @@ export function createFeatureRequestConversationsService(deps: {
       const sink = openSink();
       const timeout = AbortSignal.timeout(turnTimeoutMs);
       const signal = AbortSignal.any([clientSignal, timeout]);
+      const modelInput = {
+        messages,
+        draft: before.draft,
+        score: before.score,
+        questionCount: row.questionCount,
+        skippedLast: skipped,
+      };
+      let streamed = false;
+      const onDelta = (text: string): void => {
+        streamed = true;
+        sink.event("delta", { text });
+      };
       try {
-        const outcome = await deps.model.respond(
-          {
-            messages,
-            draft: before.draft,
-            score: before.score,
-            questionCount: row.questionCount,
-            skippedLast: skipped,
-          },
-          (text) => sink.event("delta", { text }),
-          signal,
-        );
+        let outcome = await deps.model.respond(modelInput, onDelta, signal);
         // The PM went away mid-turn: the model stream is aborted and nothing is persisted.
         if (sink.closed) return;
+        // One automatic retry. A bad answer is usually a one-off — the model dropped the tool call
+        // or contradicted itself — and asking again costs one call, where failing costs the PM the
+        // answer they just typed. Transport failures are not retried: they throw, and the catch
+        // below reports them, exactly as before.
+        if (outcome.kind === "invalid") {
+          deps.logger.info(
+            { conversationId: row.id, reason: outcome.reason },
+            "interview turn invalid, retrying once",
+          );
+          // The first attempt may have streamed prose that this turn will not use. One newline
+          // keeps the browser from gluing the retry's reply onto the abandoned one.
+          if (streamed) sink.event("delta", { text: "\n" });
+          outcome = await deps.model.respond(modelInput, onDelta, signal);
+          if (sink.closed) return;
+        }
         if (outcome.kind === "invalid") {
           deps.logger.warn(
             { conversationId: row.id, reason: outcome.reason },
