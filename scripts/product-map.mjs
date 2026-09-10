@@ -43,6 +43,48 @@ export function listSources(root) {
 
 // ---------------------------------------------------------------- src/db/schema.ts
 
+const PG_CORE = "drizzle-orm/pg-core";
+const TABLE_FACTORY = "pgTable";
+
+/**
+ * The local names `pgTable` answers to in this file: every named import of it (aliased or not) and
+ * every namespace import of pg-core. A table declared through an alias is still a table, and the
+ * scanner must not miss it.
+ */
+function tableBindings(sourceFile) {
+  const direct = new Set();
+  const namespaces = new Set();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement)) continue;
+    if (!ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (statement.moduleSpecifier.text !== PG_CORE) continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings) continue;
+    if (ts.isNamespaceImport(bindings)) {
+      namespaces.add(bindings.name.text);
+    } else if (ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if ((element.propertyName ?? element.name).text === TABLE_FACTORY) {
+          direct.add(element.name.text);
+        }
+      }
+    }
+  }
+  return { direct, namespaces };
+}
+
+/** The `pgTable` a call expression is calling, or null when it is calling something else. */
+function calleeTableFactory(callee) {
+  if (ts.isIdentifier(callee)) return { name: callee.text, qualifier: null };
+  if (ts.isPropertyAccessExpression(callee)) {
+    return { name: callee.name.text, qualifier: callee.expression };
+  }
+  if (ts.isElementAccessExpression(callee) && ts.isStringLiteral(callee.argumentExpression)) {
+    return { name: callee.argumentExpression.text, qualifier: callee.expression };
+  }
+  return null;
+}
+
 /**
  * Every `pgTable("<name>", { ... })` call with the TypeScript property keys of its column object.
  * Parsed with the TypeScript compiler API, not a regex: anything this does not understand throws
@@ -61,13 +103,31 @@ export function parseSchemaTables(source, file) {
     throw new Error(`${file}:${line + 1}: ${message}`);
   };
 
+  const { direct, namespaces } = tableBindings(sourceFile);
+
+  /**
+   * True for a call this scanner must read as a table definition. A call that looks like one but
+   * does not resolve to the pg-core import is a construct it cannot vouch for, so it throws
+   * rather than leave the table out of a map the docs gate then certifies.
+   */
+  const isTableCall = (node) => {
+    const factory = calleeTableFactory(node.expression);
+    if (!factory) return false;
+    if (factory.qualifier === null) {
+      if (direct.has(factory.name)) return true;
+      if (factory.name === TABLE_FACTORY) {
+        fail(node, `${TABLE_FACTORY}() is not the one imported from "${PG_CORE}"`);
+      }
+      return false;
+    }
+    if (factory.name !== TABLE_FACTORY) return false;
+    if (ts.isIdentifier(factory.qualifier) && namespaces.has(factory.qualifier.text)) return true;
+    fail(node, `a ${TABLE_FACTORY}() call that does not resolve to the "${PG_CORE}" import`);
+  };
+
   const tables = [];
   const visit = (node) => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "pgTable"
-    ) {
+    if (ts.isCallExpression(node) && isTableCall(node)) {
       const [nameArg, columnsArg] = node.arguments;
       if (!nameArg || !ts.isStringLiteral(nameArg)) {
         fail(node, "pgTable() without a string-literal table name");

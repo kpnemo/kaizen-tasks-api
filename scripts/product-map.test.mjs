@@ -52,6 +52,36 @@ export const crates = pgTable(
 );
 `;
 
+const ALIAS_FIXTURE = `
+import { pgTable as table, text, uuid } from "drizzle-orm/pg-core";
+
+export const widgets = table("widgets", {
+  id: uuid("id").primaryKey(),
+  displayName: text("display_name").notNull(),
+});
+`;
+
+const NAMESPACE_FIXTURE = `
+import * as pg from "drizzle-orm/pg-core";
+
+export const widgets = pg.pgTable("widgets", {
+  id: pg.uuid("id").primaryKey(),
+  displayName: pg.text("display_name").notNull(),
+});
+`;
+
+const FOREIGN_FIXTURE = `
+import { pgTable } from "./our-own-helpers.js";
+
+export const widgets = pgTable("widgets", { id: uuid("id") });
+`;
+
+const FOREIGN_NAMESPACE_FIXTURE = `
+import * as helpers from "./our-own-helpers.js";
+
+export const widgets = helpers.pgTable("widgets", { id: uuid("id") });
+`;
+
 const OPENAPI_FIXTURE = {
   paths: {
     "/widgets": {
@@ -110,14 +140,33 @@ describe("parseSchemaTables", () => {
     ]);
   });
 
+  it("follows an aliased named import of pgTable", () => {
+    expect(parseSchemaTables(ALIAS_FIXTURE, "fixture.ts")).toEqual([
+      { name: "widgets", columns: ["id", "displayName"] },
+    ]);
+  });
+
+  it("follows a namespace import of pg-core", () => {
+    expect(parseSchemaTables(NAMESPACE_FIXTURE, "fixture.ts")).toEqual([
+      { name: "widgets", columns: ["id", "displayName"] },
+    ]);
+  });
+
+  it("fails with the file and line on a pgTable that is not the one from pg-core", () => {
+    expect(() => parseSchemaTables(FOREIGN_FIXTURE, "fixture.ts")).toThrow(/fixture\.ts:4:/);
+    expect(() => parseSchemaTables(FOREIGN_NAMESPACE_FIXTURE, "fixture.ts")).toThrow(
+      /fixture\.ts:4:/,
+    );
+  });
+
   it("fails with the file and line when the table name is not a string literal", () => {
-    const source = `const t = pgTable(NAME, { id: uuid("id") });\n`;
-    expect(() => parseSchemaTables(source, "fixture.ts")).toThrow(/fixture\.ts:1:/);
+    const source = `import { pgTable } from "drizzle-orm/pg-core";\nconst t = pgTable(NAME, { id: uuid("id") });\n`;
+    expect(() => parseSchemaTables(source, "fixture.ts")).toThrow(/fixture\.ts:2:/);
   });
 
   it("fails with the file and line on a column property it does not understand", () => {
-    const source = `const a = 1;\nconst t = pgTable("t", { ...base, id: uuid("id") });\n`;
-    expect(() => parseSchemaTables(source, "fixture.ts")).toThrow(/fixture\.ts:2:/);
+    const source = `import { pgTable } from "drizzle-orm/pg-core";\nconst a = 1;\nconst t = pgTable("t", { ...base, id: uuid("id") });\n`;
+    expect(() => parseSchemaTables(source, "fixture.ts")).toThrow(/fixture\.ts:3:/);
   });
 });
 
