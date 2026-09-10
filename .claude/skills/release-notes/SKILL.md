@@ -17,7 +17,8 @@ description: Use when cutting a version. Moves the CHANGELOG [Unreleased] sectio
    `### Removed`) under it. Leave `## [Unreleased]` in place with no bullets.
 4. Bump the version without tagging: `npm version --no-git-tag-version X.Y.Z`.
 5. Regenerate the product map: `npm run product-map`. The sections just moved, so its unreleased
-   and recent-release parts changed and Rule D fails until it is regenerated.
+   and recent-release parts changed; this comes before the checks below, because both a test and
+   the docs gate's Rule D fail while the committed map is stale.
 6. Run `npm run lint` (prettier checks the changelog) and `npm run docs:check`.
 7. Commit: `chore: release X.Y.Z` with the `Co-Authored-By` trailer line. Tagging and publishing happen through
    the `develop` to `main` pull request, not here.

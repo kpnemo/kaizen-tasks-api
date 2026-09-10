@@ -30,7 +30,7 @@ import Express types.
 
 ## Rules
 
-- Every endpoint change follows the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`): test first, schema and OpenAPI registration, service with ownership check, repository, route, `npm run openapi`, changelog, ADR if architectural, `npm run docs:check`.
+- Every endpoint change follows the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`): test first, schema and OpenAPI registration, service with ownership check, repository, route, `npm run openapi`, changelog, ADR if architectural, `npm run product-map`, then the test run and `npm run docs:check`.
 - Migrations are additive only: add tables, add columns with defaults, add indexes; never drop, rename, or change types in the same release. See `docs/adr/0004-additive-migrations-only.md`. Generate with `npm run db:generate -- --name <what>` and commit `drizzle/`.
 - Docs are part of every change and the Stop hook enforces them (`scripts/docs-check.sh --hook`, same script as CI): a bullet under `[Unreleased]` in `CHANGELOG.md` when code changes; `npm run openapi` when `src/routes/` or `src/schemas/` change; an ADR under `docs/adr/` (use the `write-adr` skill) when a file matching `docs/architectural-files.txt` changes; and `npm run product-map` on every change, because Rule D regenerates `docs/product-map.md` on every run and a stale map fails the check.
 - Architectural files: `src/db/schema.ts`, `drizzle/**`, `src/jobs/**`, `src/lib/auth.ts`, `src/agent/prompts/**`, `.railway/**`.
