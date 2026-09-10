@@ -13,6 +13,7 @@ import {
   parseChangelog,
   parseEndpoints,
   parseSchemaTables,
+  renderGenerated,
   splitHeader,
 } from "./product-map.mjs";
 
@@ -115,7 +116,7 @@ const CHANGELOG_FIXTURE = `# Changelog
 
 ### Fixed
 
-- Only bullet.
+- ${"x".repeat(110)} \`POST /api/v1/some/long/path\`
 
 ## [1.0.0] - 2026-09-08
 
@@ -241,6 +242,30 @@ describe("parseChangelog", () => {
     expect(parsed.releases[0].bullets[0].endsWith("…")).toBe(true);
     expect(parsed.releases[0].bullets[1]).toBe("Second bullet.");
   });
+
+  it("drops a partial code span rather than closing one the source never closed", () => {
+    const [bullet] = parsed.releases[1].bullets;
+    expect(bullet.length).toBeLessThanOrEqual(120);
+    expect(bullet).not.toContain("`");
+    expect(bullet).toBe(`${"x".repeat(110)}…`);
+  });
+});
+
+describe("renderGenerated", () => {
+  const rendered = renderGenerated({
+    endpoints: [{ tag: "a|b", method: "GET", path: "/x|y", summary: "List | things" }],
+    tables: [{ name: "widgets", columns: ["id", "displayName"] }],
+    adrs: [],
+    changelog: { unreleased: [], releases: [] },
+  });
+
+  it("escapes a pipe in a table cell so the row cannot be truncated silently", () => {
+    expect(rendered).toContain("| a\\|b | GET | `/x\\|y` | List \\| things |");
+  });
+
+  it("renders one line per table with its keys", () => {
+    expect(rendered).toContain("- `widgets`: id, displayName");
+  });
 });
 
 // ---------------------------------------------------------------- the real files
@@ -274,10 +299,12 @@ describe("the real sources", () => {
       "updatedAt",
     ]);
 
-    const map = committedMap();
+    const lines = committedMap().split("\n");
     for (const table of parsed) {
-      expect(map).toContain(`\`${table.name}\``);
-      for (const column of table.columns) expect(map).toContain(column);
+      const line = lines.find((candidate) => candidate.startsWith(`- \`${table.name}\`:`));
+      expect(line, `no line in the map for table ${table.name}`).toBe(
+        `- \`${table.name}\`: ${table.columns.join(", ")}`,
+      );
     }
   });
 
