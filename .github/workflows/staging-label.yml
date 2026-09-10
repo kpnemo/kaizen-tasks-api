@@ -10,7 +10,9 @@ name: staging-label
 # deploy until every check suite on the commit has finished, and a push-triggered run that waits
 # for staging to serve that same commit is itself one of those suites: Railway waited for the run,
 # the run waited for Railway, and the deploy was skipped when the run timed out (2026-09-10,
-# kaizen-tasks-web 181077b). A deployment_status run starts after the deploy, so it is never in the way.
+# kaizen-tasks-web 181077b). Railway also posts `in_progress` the moment it creates a deployment, so a
+# run does start on the gated commit; the job condition below ends it in seconds, and the run that
+# does the work starts on `success`, after the deploy, so nothing here ever waits on Railway.
 on:
   deployment_status:
   # By hand, for a range a superseded deploy skipped or a run that was missed: every feat/ or fix/
@@ -76,12 +78,17 @@ jobs:
             done < <(gh api "repos/$REPO/deployments?environment=$env_q&per_page=30" \
               --jq '.[] | "\(.id) \(.sha)"')
           fi
-          if [[ -n "$FROM" && "$FROM" != "$SHA" ]]; then
-            commits="$(gh api "repos/$REPO/compare/$FROM...$SHA" --jq '.commits[].sha')"
-            echo "range ${FROM:0:7}..${SHA:0:7}: $(wc -w <<<"$commits") commit(s)"
-          else
+          if [[ -z "$FROM" ]]; then
             commits="$SHA"
             echo "no earlier successful staging deploy found; reading ${SHA:0:7} alone"
+          elif [[ "$FROM" == "$SHA" ]]; then
+            # A redeploy of the commit staging already served: nothing new reached staging, so no
+            # issue gets a second "Deployed to staging" comment.
+            commits=""
+            echo "staging already served ${SHA:0:7}; nothing new to announce"
+          else
+            commits="$(gh api "repos/$REPO/compare/$FROM...$SHA" --jq '.commits[].sha')"
+            echo "range ${FROM:0:7}..${SHA:0:7}: $(wc -w <<<"$commits") commit(s)"
           fi
           # The pull requests those commits landed. A release or a promotion pull request implements
           # no issue, so only feat/ and fix/ branches are read.
