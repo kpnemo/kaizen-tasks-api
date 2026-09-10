@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `docs/product-map.md` and `npm run product-map` (`scripts/product-map.mjs`): a product map for agents that interview a product owner about a request. A hand-written header above the `<!-- product-map:generated -->` marker says who uses the app, the core loop, the AI features and the conventions that shape requests; everything below it is generated from `openapi.json` (endpoint table), `src/db/schema.ts` (tables with their TypeScript column keys, read with the TypeScript compiler API so an unparsed construct fails with a file and line instead of dropping a table), `CHANGELOG.md` (`[Unreleased]` in full, the last three releases trimmed) and `docs/adr/` (number and title). The output is sorted, timestamp-free and Prettier-formatted, so regenerating an unchanged tree is byte-identical; `--sources` prints the files it reads and `--out FILE` writes elsewhere.
+
 ## [1.2.0] - 2026-09-10
 
 ### Added
