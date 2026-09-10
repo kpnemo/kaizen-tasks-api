@@ -38,6 +38,8 @@ export const suggestionStateEnum = pgEnum("suggestion_state", [
   "accepted",
   "dismissed",
 ]);
+/** The account-level theme choice. `system` means "follow the browser's prefers-color-scheme". */
+export const themePreferenceEnum = pgEnum("theme_preference", ["light", "dark", "system"]);
 
 // Millisecond precision keeps keyset cursors (ISO strings) exact.
 const stamp = (name: string) =>
@@ -48,6 +50,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
+  theme: themePreferenceEnum("theme").notNull().default("system"),
   createdAt: stamp("created_at"),
   updatedAt: stamp("updated_at"),
 });

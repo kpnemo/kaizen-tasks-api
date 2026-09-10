@@ -23,7 +23,7 @@ async function user(email = `${randomUUID()}@test.local`) {
 }
 
 describe("schema", () => {
-  it("has the four tables and six enums", async () => {
+  it("has the four tables and seven enums", async () => {
     const tables = await db.execute<{ table_name: string }>(
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
     );
@@ -40,8 +40,14 @@ describe("schema", () => {
         "suggestion_state",
         "task_origin",
         "task_status",
+        "theme_preference",
       ].sort(),
     );
+  });
+
+  it("defaults the user theme to system", async () => {
+    const u = await user();
+    expect(u.theme).toBe("system");
   });
 
   it("applies the documented defaults on tasks", async () => {

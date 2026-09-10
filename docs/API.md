@@ -75,6 +75,28 @@ Auth: bearer access token
 | 200 | The authenticated user | object |
 | 401 | UNAUTHORIZED | ErrorEnvelope |
 
+## PATCH /auth/me
+
+Update the current user's preferences
+
+Saves the theme preference on the account, so it follows the user to another device or browser.
+
+Auth: bearer access token
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| theme | ThemePreference | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | The updated user | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+
 ## POST /auth/refresh
 
 Rotate the refresh cookie and issue a new access token

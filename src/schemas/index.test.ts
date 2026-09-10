@@ -9,6 +9,7 @@ const EXPECTED_ENDPOINTS: Array<[string, string]> = [
   ["post", "/auth/refresh"],
   ["post", "/auth/logout"],
   ["get", "/auth/me"],
+  ["patch", "/auth/me"],
   ["get", "/tasks"],
   ["post", "/tasks"],
   ["get", "/tasks/{id}"],

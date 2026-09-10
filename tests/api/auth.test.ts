@@ -25,6 +25,7 @@ describe("register", () => {
       id: expect.any(String),
       email: "ada@example.com",
       displayName: "Ada",
+      theme: "system",
       createdAt: expect.any(String),
     });
     expect(res.body.data.accessToken.split(".")).toHaveLength(3);
@@ -148,5 +149,47 @@ describe("me", () => {
     expect(ok.body.data.user.email).toBe("me@example.com");
     expect((await request(ctx.server).get(ME)).status).toBe(401);
     expect((await request(ctx.server).get(ME).set(auth("garbage.token.here"))).status).toBe(401);
+  });
+});
+
+describe("theme preference", () => {
+  it("defaults the theme to system", async () => {
+    const user = await registerUser(ctx.server);
+    const res = await request(ctx.server).get(ME).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.user.theme).toBe("system");
+  });
+
+  it("saves the theme preference and returns it to a new session", async () => {
+    const email = "theme@example.com";
+    const user = await registerUser(ctx.server, { email, password: "password123" });
+    const saved = await request(ctx.server).patch(ME).set(auth(user.token)).send({ theme: "dark" });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.user.theme).toBe("dark");
+
+    // A second device: a fresh login gets its own token, and the preference is already there.
+    const other = await request(ctx.server).post(LOGIN).send({ email, password: "password123" });
+    expect(other.status).toBe(200);
+    expect(other.body.data.user.theme).toBe("dark");
+    const me = await request(ctx.server)
+      .get(ME)
+      .set(auth(other.body.data.accessToken as string));
+    expect(me.body.data.user.theme).toBe("dark");
+  });
+
+  it("rejects an unknown theme", async () => {
+    const user = await registerUser(ctx.server);
+    const res = await request(ctx.server)
+      .patch(ME)
+      .set(auth(user.token))
+      .send({ theme: "midnight" });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details[0].path).toBe("body.theme");
+  });
+
+  it("rejects an unauthenticated theme update", async () => {
+    const res = await request(ctx.server).patch(ME).send({ theme: "light" });
+    expect(res.status).toBe(401);
   });
 });

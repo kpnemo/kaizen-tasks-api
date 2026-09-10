@@ -20,3 +20,16 @@ export async function findUserById(db: DbOrTx, id: string): Promise<UserRow | un
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row;
 }
+
+export async function updateUserTheme(
+  db: DbOrTx,
+  id: string,
+  theme: UserRow["theme"],
+): Promise<UserRow | undefined> {
+  const [row] = await db
+    .update(users)
+    .set({ theme, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning();
+  return row;
+}
