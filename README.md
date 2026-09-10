@@ -96,7 +96,9 @@ CI runs the check as a warning step. Never edit the copy by hand: it lives under
 
 ## Operator switches
 
-`AI_ENABLED=false` pauses the assistant (creates still succeed, skipped with reason
-`ai_disabled`; the breakdown action returns 503 `UNAVAILABLE`). `AI_RATE_LIMIT_PER_HOUR` and
-`AI_GLOBAL_LIMIT_PER_HOUR` bound breakdowns per user and per environment per hour. All three are
-Railway variables and take effect on restart without a deploy.
+`AI_ENABLED=false` pauses the assistant everywhere: task creates still succeed, skipped with reason
+`ai_disabled`; the breakdown action returns 503 `UNAVAILABLE`; and an interview turn returns 503
+`UNAVAILABLE` before the stream starts. `AI_RATE_LIMIT_PER_HOUR` and `AI_GLOBAL_LIMIT_PER_HOUR`
+bound breakdowns per user and per environment per hour. `INTERVIEW_HOURLY_LIMIT` (default 60) bounds
+interview turns per user per hour on its own Redis counter, so an interview never spends the
+breakdown budget. All four are Railway variables and take effect on restart without a deploy.
