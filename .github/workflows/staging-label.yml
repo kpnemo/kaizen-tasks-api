@@ -1,50 +1,100 @@
 name: staging-label
 
-# Every push to develop is deployed to Railway staging. Once staging actually serves this commit,
-# tell the harness issue behind the merged pull request about it: always a comment, and the
+# Railway deploys every push to develop to staging and reports each deploy back to GitHub as a
+# deployment in the environment `kaizen-tasks / staging`, with a status that turns `success` once
+# the new build is serving. This workflow runs on that success. It finds every pull request that
+# has just reached staging and tells the harness issue behind each one: always a comment, and the
 # `staging` label once every pull request for that issue -- here and in kaizen-tasks-web -- is in.
+#
+# It must never run on `push`. Railway's wait-for-CI (`source.checkSuites`) holds the staging
+# deploy until every check suite on the commit has finished, and a push-triggered run that waits
+# for staging to serve that same commit is itself one of those suites: Railway waited for the run,
+# the run waited for Railway, and the deploy was skipped when the run timed out (2026-09-10,
+# kaizen-tasks-web 181077b). A deployment_status run starts after the deploy, so it is never in the way.
 on:
-  push:
-    branches: [develop]
+  deployment_status:
+  # By hand, for a range a superseded deploy skipped or a run that was missed: every feat/ or fix/
+  # pull request merged after `from` and up to `to` gets its comment and, when complete, its label.
+  workflow_dispatch:
+    inputs:
+      from:
+        description: commit SHA staging served before (exclusive)
+        required: true
+      to:
+        description: commit SHA staging serves now (inclusive)
+        required: true
 
-# One group per commit, never cancelled in flight: each push carries its own commit to announce.
-# Grouping per ref would not do -- GitHub keeps only one *pending* run per group, so three rapid
-# pushes would lose the middle one's comment.
+# One group per served commit, never cancelled in flight.
 concurrency:
-  group: staging-label-${{ github.sha }}
+  group: staging-label-${{ github.event.deployment.sha || inputs.to }}
   cancel-in-progress: false
 
 permissions:
   contents: read
+  deployments: read
   pull-requests: read
 
 jobs:
   staging-label:
     name: staging-label
+    # Only a staging deploy that finished successfully. Production deploys are the facilitator's
+    # Ship step; in-progress and failed statuses are Railway's business.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'kaizen-tasks / staging')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
-      STAGING_URL: ${{ vars.STAGING_WEB_URL }}
+      STAGING_WEB_URL: ${{ vars.STAGING_WEB_URL }}
       # The harness is a different repository, which GITHUB_TOKEN cannot write to. The token is read
       # at job level so the steps below can ask `env.ASSEMBLY_LINE_TOKEN != ''` in their `if:`;
       # a `secrets.` lookup is not allowed in a step condition.
       ASSEMBLY_LINE_TOKEN: ${{ secrets.ASSEMBLY_LINE_TOKEN }}
     steps:
-      - name: Find the harness issues this push implements
+      - name: Find the pull requests that just reached staging, and their harness issues
         id: issues
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
+          ENVIRONMENT: ${{ github.event.deployment.environment }}
+          DEPLOYMENT_ID: ${{ github.event.deployment.id }}
+          SHA: ${{ github.event.deployment.sha || inputs.to }}
+          FROM: ${{ inputs.from }}
         run: |
           set -euo pipefail
-          # The pull requests this commit landed. A release or a promotion pull request implements
+          # The range is (previous successful staging deploy, this one]. Railway supersedes a deploy
+          # when a newer push arrives before it has built, so one success can carry several merges;
+          # reading the whole range keeps every issue's comment rather than only the last merge's.
+          if [[ -z "$FROM" ]]; then
+            env_q="$(jq -rn --arg e "$ENVIRONMENT" '$e | @uri')"
+            while read -r id sha; do
+              [[ "$id" == "$DEPLOYMENT_ID" ]] && continue
+              ok="$(gh api "repos/$REPO/deployments/$id/statuses" \
+                --jq '[.[] | select(.state == "success")] | length')"
+              if [[ "$ok" -gt 0 ]]; then FROM="$sha"; break; fi
+            done < <(gh api "repos/$REPO/deployments?environment=$env_q&per_page=30" \
+              --jq '.[] | "\(.id) \(.sha)"')
+          fi
+          if [[ -n "$FROM" && "$FROM" != "$SHA" ]]; then
+            commits="$(gh api "repos/$REPO/compare/$FROM...$SHA" --jq '.commits[].sha')"
+            echo "range ${FROM:0:7}..${SHA:0:7}: $(wc -w <<<"$commits") commit(s)"
+          else
+            commits="$SHA"
+            echo "no earlier successful staging deploy found; reading ${SHA:0:7} alone"
+          fi
+          # The pull requests those commits landed. A release or a promotion pull request implements
           # no issue, so only feat/ and fix/ branches are read.
-          bodies="$(gh api "repos/$REPO/commits/$SHA/pulls" \
-            --jq '.[] | select(.head.ref | test("^(feat|fix)/")) | .body // ""')"
-          issues="$(grep -oE 'kaizen-tasks-assembly-line#[0-9]+' <<<"$bodies" \
-            | cut -d'#' -f2 | sort -un | tr '\n' ' ')" || true
+          issues=""
+          for c in $commits; do
+            bodies="$(gh api "repos/$REPO/commits/$c/pulls" \
+              --jq '.[] | select(.head.ref | test("^(feat|fix)/")) | .body // ""')"
+            found="$(grep -oE 'kaizen-tasks-assembly-line#[0-9]+' <<<"$bodies" | cut -d'#' -f2)" || true
+            issues+=" $found"
+          done
+          issues="$(tr ' ' '\n' <<<"$issues" | grep -v '^$' | sort -un | tr '\n' ' ')" || true
           issues="${issues% }"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "issues=$issues" >> "$GITHUB_OUTPUT"
           if [[ -z "$issues" ]]; then
             echo "no issue referenced"
@@ -53,7 +103,7 @@ jobs:
           fi
 
       # A repository without the secret is not broken, it just cannot label: say so once and let the
-      # run pass. Failing here would paint every push to develop red for a missing optional secret.
+      # run pass. Failing here would paint every staging deploy red for a missing optional secret.
       - name: Report a missing cross-repo token and stop
         if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN == ''
         env:
@@ -61,39 +111,13 @@ jobs:
         run: |
           echo "::notice::ASSEMBLY_LINE_TOKEN is not set, so the staging label was skipped for harness issue(s) $ISSUES. Add the secret (a fine-grained PAT with Issues read and write on kpnemo/kaizen-tasks-assembly-line) to turn this on."
 
-      # Same loop as promote.yml: the label must mean "staging really is serving this", not "the
-      # merge happened". A timeout here is worth seeing, so it fails the job.
-      - name: Wait until staging serves this commit (15 minute timeout)
-        if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN != ''
-        env:
-          SHA: ${{ github.sha }}
-        run: |
-          if [[ -z "$STAGING_URL" ]]; then
-            echo "Repository variable STAGING_WEB_URL is not set" >&2
-            exit 1
-          fi
-          deadline=$(( $(date +%s) + 900 ))
-          while :; do
-            served="$(curl -fsS --max-time 10 "$STAGING_URL/api/v1/health" | jq -r '.data.commit // empty' 2>/dev/null || true)"
-            if [[ "$served" == "$SHA" ]]; then
-              echo "staging serves $served"
-              break
-            fi
-            if (( $(date +%s) > deadline )); then
-              echo "timeout: staging serves '${served:-nothing}', wanted $SHA (deploy skipped or still failing?)" >&2
-              exit 1
-            fi
-            echo "staging serves '${served:-nothing}', waiting for $SHA"
-            sleep 15
-          done
-
       - name: Comment on each harness issue, and label it once the whole feature is on staging
         if: steps.issues.outputs.issues != '' && env.ASSEMBLY_LINE_TOKEN != ''
         env:
           GH_TOKEN: ${{ env.ASSEMBLY_LINE_TOKEN }}
           ISSUES: ${{ steps.issues.outputs.issues }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ steps.issues.outputs.sha }}
         run: |
           set -euo pipefail
           HARNESS=kpnemo/kaizen-tasks-assembly-line
@@ -126,7 +150,7 @@ jobs:
 
           for n in $ISSUES; do
             gh issue comment "$n" --repo "$HARNESS" \
-              --body "Deployed to staging: $REPO ${SHA:0:7} is live at $STAGING_URL."
+              --body "Deployed to staging: $REPO ${SHA:0:7} is live at $STAGING_WEB_URL."
 
             # A feature is on staging only when no pull request anywhere still points at the issue.
             # The ([^0-9]|$) tail keeps issue #1 from matching a reference to #12.
