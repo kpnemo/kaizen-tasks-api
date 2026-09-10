@@ -36,7 +36,10 @@ CHANGELOG entry. The Stop hook checks the docs; this checklist gets you there in
 9. Add a bullet under `[Unreleased]` in `CHANGELOG.md`.
 10. If a file matching `docs/architectural-files.txt` changed, add or update an ADR with the
     `write-adr` skill.
-11. Run `npm run docs:check`. Fix anything it reports. Commit with the `Co-Authored-By` trailer line.
+11. Regenerate the product map: `npm run product-map`. Steps 8, 9 and 10 each touched one of its
+    sources, and the docs gate's Rule D regenerates it on every run, so a map left stale fails the
+    check and the build.
+12. Run `npm run docs:check`. Fix anything it reports. Commit with the `Co-Authored-By` trailer line.
 
 ## Templates
 
