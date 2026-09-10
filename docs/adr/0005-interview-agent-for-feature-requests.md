@@ -1,6 +1,6 @@
 # 0005: Interview agent for feature requests
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-10
 
 ## Context
@@ -66,6 +66,30 @@ because a rubric version bump is the assembly line's release, not this repo's.
 
 Both files are system blocks with `cache_control: { type: "ephemeral" }` and are frozen for the life
 of a deploy, so every turn of every conversation reads the same cached prefix.
+
+## Decision: streaming and the tool-call state pattern
+
+One turn is one HTTP request whose response is `text/event-stream`, written by `src/lib/sse.ts`:
+`delta` frames as the reply arrives, then exactly one `state` or one `error`, then `done`, after
+which the server calls `res.end()` — the body ending, not the `done` event alone, is what marks the
+turn complete. A `: ping` comment goes out every 15 seconds while the model is thinking. No
+streaming library and no WebSocket: the events are already described by the contract's
+`ConversationEvent` union, and one direction is enough. No proxy change either: Caddy's
+`reverse_proxy` flushes `text/event-stream` immediately, and `flush_interval -1` is deliberately not
+set because it would stop Caddy cancelling the upstream request when the client disconnects, which
+is the signal the abort path relies on. Headers are flushed before the model call, so every failure
+that must still be a JSON error envelope —
+ownership (`NOT_FOUND`), status (`CONFLICT`), the interview rate limit (`RATE_LIMITED`), the kill
+switch (`UNAVAILABLE`) — is checked before the stream opens. After that point a failure is an
+`error` event, and the service persists nothing: the PM's message is written only as part of the
+single success update, so a resend is a clean retry.
+
+The assistant's prose and its structured state travel on separate channels in the same turn: the
+text is streamed to the PM, and the state — next question with its options, the five draft fields,
+the score, `done`, `stillMissing` — arrives as one call to the `report_turn` tool, whose
+`input_schema` is generated from the zod schema of an interview turn (`z.toJSONSchema`). That keeps
+the visible reply free of JSON, keeps the state schema-checked by the same zod object the HTTP
+contract uses, and makes a malformed turn a final `invalid` rather than something to retry.
 
 ## Consequences
 

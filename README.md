@@ -54,6 +54,42 @@ the web app's origin. There is no CORS configuration by design (ADR 0002).
 The API service has no public domain of its own; the web service proxies `/api/*` to
 `http://api.railway.internal:3000`.
 
+## Routes
+
+Every path below is relative to the base `/api/v1`. The generated reference with request and
+response shapes is `docs/API.md`; the contract itself is `openapi.json`.
+
+| Route                                               | Auth   | What it does                                                        |
+| --------------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| `GET /health`                                       | none   | Status, commit, version, database and Redis checks, feature flags   |
+| `GET /openapi.json`                                 | none   | The committed contract                                              |
+| `POST /auth/register`                               | none   | Create an account, return an access token and a refresh cookie      |
+| `POST /auth/login`                                  | none   | Sign in                                                             |
+| `POST /auth/refresh`                                | cookie | Rotate the refresh token                                            |
+| `POST /auth/logout`                                 | cookie | Revoke the refresh token                                            |
+| `GET /auth/me`                                      | bearer | The signed-in user                                                  |
+| `GET /tasks`                                        | bearer | Keyset page of tasks                                                |
+| `POST /tasks`                                       | bearer | Create a task and enqueue its breakdown                             |
+| `GET /tasks/{id}`                                   | bearer | One task with its children                                          |
+| `PATCH /tasks/{id}`                                 | bearer | Edit, reorder, or move a suggestion through its states              |
+| `DELETE /tasks/{id}`                                | bearer | Delete a task and its children                                      |
+| `POST /tasks/{id}/breakdown`                        | bearer | Ask the assistant for steps                                         |
+| `POST /tasks/{id}/suggestions/accept-all`           | bearer | Accept every suggested child                                        |
+| `POST /tasks/{id}/suggestions/dismiss-all`          | bearer | Dismiss every suggested child                                       |
+| `PUT /tasks/{id}/tags`                              | bearer | Replace a task's tag set                                            |
+| `GET /tags`                                         | bearer | The user's tags                                                     |
+| `POST /tags`                                        | bearer | Create a tag                                                        |
+| `PATCH /tags/{id}`                                  | bearer | Rename or recolor a tag                                             |
+| `DELETE /tags/{id}`                                 | bearer | Delete a tag                                                        |
+| `POST /feature-requests`                            | bearer | File a GitHub issue, optionally attaching an interview              |
+| `GET /feature-requests/conversation`                | bearer | The caller's open interview, or `NOT_FOUND`                         |
+| `POST /feature-requests/conversation`               | bearer | Start a new interview, abandoning any live one                      |
+| `POST /feature-requests/conversation/{id}/messages` | bearer | One turn, streamed as `text/event-stream`                           |
+| `POST /admin/seed-reset`                            | token  | Recreate the demo fixtures (mounted only when `ADMIN_TOKEN` is set) |
+
+The four `feature-requests` routes are mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set,
+which is exactly when `GET /health` reports `features.featureRequests: true`.
+
 ## Documentation
 
 - `docs/API.md`: generated reference (do not edit by hand; run `npm run openapi`).
@@ -83,6 +119,16 @@ its fixtures at startup if absent. `POST /api/v1/admin/seed-reset` with header `
 
 When `GITHUB_TOKEN` and `GITHUB_REPO` (`owner/name`) are set, `POST /api/v1/feature-requests`
 files a `feature-request` issue in that repository with the submitter's display name in the body.
+
+The same condition mounts the interview: `POST /api/v1/feature-requests/conversation` starts an
+assistant-led interview, `GET` resumes the caller's open one, and
+`POST /api/v1/feature-requests/conversation/{id}/messages` sends one answer and streams the reply as
+Server-Sent Events (`delta` chunks, then one `state` or one `error`, then `done`; a `: ping` comment
+every 15 seconds while the model is thinking). A conversation holds the transcript, the five draft
+fields, the readiness score and a question count; at most one is `open` or `ready` per user. Filing
+with that conversation's `conversationId` appends the self-score and the transcript to the issue and
+marks the conversation `filed`. Interview turns have their own hourly budget,
+`INTERVIEW_HOURLY_LIMIT`.
 
 ## The readiness rubric
 

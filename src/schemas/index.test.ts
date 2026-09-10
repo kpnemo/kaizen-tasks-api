@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { generateOpenApiDocument } from "./index.js";
 import { renderApiDocs } from "../../scripts/render-api-docs.js";
@@ -115,5 +116,15 @@ describe("renderApiDocs", () => {
     expect(md.startsWith("# Kaizen Tasks API reference\n\nGenerated from `openapi.json`")).toBe(
       true,
     );
+  });
+});
+
+describe("the README route table", () => {
+  const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
+
+  it("lists every path the contract declares", () => {
+    for (const [method, path] of EXPECTED_ENDPOINTS) {
+      expect(readme, `${method} ${path}`).toContain(`\`${method.toUpperCase()} ${path}\``);
+    }
   });
 });

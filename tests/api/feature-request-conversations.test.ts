@@ -238,6 +238,7 @@ describe("POST /feature-requests/conversation/{id}/messages", () => {
     await request(ctx.server).post(CONVERSATION).set(auth(user.token));
     const afterAbandon = await sendTurn(ctx, user.token, id, { content: "six" });
     expect(afterAbandon.status).toBe(409);
+    expect(afterAbandon.body.error.code).toBe("CONFLICT");
   });
 
   it("is 429 before the stream starts once the hourly limit is spent", async () => {
