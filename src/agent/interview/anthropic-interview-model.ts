@@ -94,8 +94,7 @@ function disagreementIn(state: ReportTurnState): string | undefined {
 export const READY_REPLY = "The request is ready to review and file.";
 
 /** The same, for a turn that stops at the eight-question cap with points still missing. */
-export const CAP_REPLY =
-  "We have reached the question limit. Review and file what we have.";
+export const CAP_REPLY = "We have reached the question limit. Review and file what we have.";
 
 /**
  * claude-sonnet-5 frequently answers a turn with the `report_turn` call and no prose, which used to

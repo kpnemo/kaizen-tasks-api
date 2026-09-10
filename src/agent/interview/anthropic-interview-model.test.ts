@@ -337,13 +337,9 @@ describe("AnthropicInterviewModel.respond via an injected fake client", () => {
     );
     expect(outcome.kind).toBe("ok");
     if (outcome.kind !== "ok") return;
-    expect(chunks).toEqual([
-      "We have reached the question limit. Review and file what we have.",
-    ]);
+    expect(chunks).toEqual(["We have reached the question limit. Review and file what we have."]);
     expect(outcome.turn.reply).toBe(CAP_REPLY);
-    expect(CAP_REPLY).toBe(
-      "We have reached the question limit. Review and file what we have.",
-    );
+    expect(CAP_REPLY).toBe("We have reached the question limit. Review and file what we have.");
   });
 
   it("still returns invalid when a tool-only turn leaves nothing to synthesize a reply from", async () => {
