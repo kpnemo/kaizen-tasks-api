@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestApp, type TestContext } from "../helpers/app.js";
+import { FakePipelineGitHub, PIPELINE_ENV, fakeFetch } from "../helpers/pipeline.js";
 
 let ctx: TestContext;
 beforeAll(async () => {
@@ -19,7 +20,7 @@ describe("GET /api/v1/health", () => {
         commit: "abc123",
         env: "test",
         checks: { db: "ok", redis: "ok" },
-        features: { featureRequests: false },
+        features: { featureRequests: false, pipeline: false },
         version: expect.stringMatching(/^\d+\.\d+\.\d+$/),
       },
       meta: { requestId: expect.any(String) },
@@ -40,9 +41,30 @@ describe("GET /api/v1/health", () => {
     try {
       const res = await request(configured.server).get("/api/v1/health");
       expect(res.status).toBe(200);
-      expect(res.body.data.features).toEqual({ featureRequests: true });
+      expect(res.body.data.features).toEqual({ featureRequests: true, pipeline: false });
     } finally {
       await configured.close();
+    }
+  });
+
+  it("reports features.pipeline true only when the five pipeline settings are set", async () => {
+    const configured = await createTestApp(PIPELINE_ENV, {
+      pipelineGithub: new FakePipelineGitHub(),
+      fetchImpl: fakeFetch({}),
+    });
+    const partial = await createTestApp(
+      { ...PIPELINE_ENV, FACILITATOR_EMAILS: undefined },
+      { pipelineGithub: new FakePipelineGitHub(), fetchImpl: fakeFetch({}) },
+    );
+    try {
+      const res = await request(configured.server).get("/api/v1/health");
+      expect(res.status).toBe(200);
+      expect(res.body.data.features).toEqual({ featureRequests: false, pipeline: true });
+      const off = await request(partial.server).get("/api/v1/health");
+      expect(off.body.data.features).toEqual({ featureRequests: false, pipeline: false });
+    } finally {
+      await configured.close();
+      await partial.close();
     }
   });
 

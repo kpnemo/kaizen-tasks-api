@@ -271,6 +271,113 @@ Auth: none
 |---|---|---|
 | 200 | The committed openapi.json | object |
 
+## GET /pipeline
+
+One snapshot of the delivery pipeline
+
+Mounted only when PIPELINE_GITHUB_TOKEN, FACILITATOR_EMAILS, DEPLOY_PASSPHRASE, STAGING_WEB_URL and PRODUCTION_WEB_URL are all set (`features.pipeline` in /health). Environments, branch heads, the open feature-request and bug issues plus those shipped in the last 14 days with their pull requests across the api, web and harness repositories, `onStaging` by comparing merge commits with what staging serves, the next release version from both changelogs, and the ship workflow's state. The shared part is cached for 30 seconds and rebuilt by one request at a time; while a refresh runs for someone else a last-good copy younger than 60 seconds is served as fresh. A failed refresh starts a cooldown (60 seconds, or until GitHub's rate-limit reset) during which the last-good snapshot (up to an hour old) is served with `stale: true` and `staleReason` and nothing reaches GitHub. `canDeploy` is computed per caller.
+
+Auth: bearer access token
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | The snapshot | object |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
+## POST /pipeline/issues/{number}/deploy-staging
+
+Merge an issue's green pull requests into develop
+
+Facilitators only. Guards in order: the session email is on FACILITATOR_EMAILS (else FORBIDDEN), the caller is not locked out (five wrong passphrases in ten minutes: RATE_LIMITED with `details.resetAt`, checked before the comparison), the passphrase matches in constant time (else FORBIDDEN with `details.reason: "passphrase"`); Redis down is UNAVAILABLE. Then the action lock (CONFLICT while another action or a ship run is in progress), a fresh read of the issue's open pull requests across the api, web and harness repositories, and CONFLICT naming the first that is not green (open, not draft, base develop, no conflicts, `ci` completed successfully on the current head). Merges in order api, web, harness, squash, passing the inspected head SHA. A failure mid-list stops the list and answers 200 with `remaining` filled, so the next press finishes it; a moved head on the first merge is CONFLICT. Labels are the staging-label workflow's job.
+
+Auth: bearer access token
+
+**Parameters**
+
+| Name | In | Type | Required | Description |
+|---|---|---|---|---|
+| number | path | integer | yes | Harness issue number |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | What merged and what did not | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
+## POST /pipeline/ship
+
+Dispatch the ship workflow for everything that is production-ready
+
+Facilitators only; the same guards and action lock as deploy-staging. Recomputes the production-ready issues and the next version fresh from GitHub: CONFLICT "the release changed, reload" when either differs from the body, CONFLICT "retry the earlier ship first" when an issue carries an unfinished ship marker for another version, CONFLICT while a ship run is queued or running. Then a UUID request id is recorded in Redis (`pipeline:ship:<requestId>`, 10 minutes), `ship.yml` in the harness repository is dispatched on `develop` with `{ request_id, version, issues }`, and the runs list is polled for up to 20 seconds for the run named `ship <requestId> <version>`. A second press for the same version and issue set while that record exists and its run has not concluded answers the same request id without dispatching again.
+
+Auth: bearer access token
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+| version | string | yes |
+| issues | integer[] | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | Dispatched | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
+## POST /pipeline/ship/retry
+
+Re-dispatch a failed or cancelled ship with its recorded version and issue set
+
+Facilitators only; the same guards and action lock. Reads the issue's newest ship marker: CONFLICT when there is none, when it is done, or when its run (or any ship run) is still queued or running. Dispatches `ship.yml` again with `request_id = <marker request id>-r<attempt>`, the marker's version and the marker's issue set, unchanged; the workflow's steps are idempotent, so the rerun resumes. Each attempt is recorded once (`SET NX`), so a second press before the new run or marker is visible answers the same request id without dispatching.
+
+Auth: bearer access token
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+| issue | integer | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | Dispatched | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
 ## GET /tags
 
 List the user's tags

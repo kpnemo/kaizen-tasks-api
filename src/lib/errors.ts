@@ -66,6 +66,14 @@ export const unauthorized = (message = "Unauthorized"): AppError =>
 
 export const notFound = (message = "Not found"): AppError => new AppError("NOT_FOUND", message);
 
+export interface ForbiddenDetails {
+  /** `passphrase`: the caller is allowlisted but the deploy passphrase was wrong. */
+  reason: "passphrase";
+}
+
+export const forbidden = (message = "Forbidden", details?: ForbiddenDetails): AppError =>
+  new AppError("FORBIDDEN", message, details);
+
 export const conflict = (message: string): AppError => new AppError("CONFLICT", message);
 
 export const rateLimited = (details: RateLimitDetails): AppError =>

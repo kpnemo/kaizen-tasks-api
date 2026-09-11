@@ -22,35 +22,39 @@ Reviewed: 2026-09-10 against ../docs/PRD.md sections 5.1-5.4, 6.1-6.4, 7 and doc
 
 Paths are relative to the `/api/v1` server prefix that the contract declares.
 
-| Tag              | Method | Path                                           | Summary                                                    |
-| ---------------- | ------ | ---------------------------------------------- | ---------------------------------------------------------- |
-| admin            | POST   | `/admin/seed-reset`                            | Delete and recreate the demo user's fixtures               |
-| auth             | POST   | `/auth/login`                                  | Log in with email and password                             |
-| auth             | POST   | `/auth/logout`                                 | Revoke the refresh token and clear the cookie              |
-| auth             | GET    | `/auth/me`                                     | Current user                                               |
-| auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                      |
-| auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token     |
-| auth             | POST   | `/auth/register`                               | Register a new user                                        |
-| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                  |
-| feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                   |
-| feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation               |
-| feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                         |
-| feature-requests | POST   | `/feature-requests/conversation/{id}/messages` | Send one answer and stream the assistant's reply           |
-| system           | GET    | `/health`                                      | Health check with the running commit SHA                   |
-| system           | GET    | `/openapi.json`                                | This OpenAPI document                                      |
-| tags             | GET    | `/tags`                                        | List the user's tags                                       |
-| tags             | POST   | `/tags`                                        | Create a tag                                               |
-| tags             | DELETE | `/tags/{id}`                                   | Delete a tag and its links                                 |
-| tags             | PATCH  | `/tags/{id}`                                   | Rename or recolor a tag                                    |
-| tasks            | GET    | `/tasks`                                       | List tasks                                                 |
-| tasks            | POST   | `/tasks`                                       | Create a task or a step                                    |
-| tasks            | DELETE | `/tasks/{id}`                                  | Delete a task and its children                             |
-| tasks            | GET    | `/tasks/{id}`                                  | Get a task with its children, tags, progress and AI fields |
-| tasks            | PATCH  | `/tasks/{id}`                                  | Update a task                                              |
-| tasks            | POST   | `/tasks/{id}/breakdown`                        | Request an AI breakdown                                    |
-| tasks            | POST   | `/tasks/{id}/suggestions/accept-all`           | Accept every suggested step                                |
-| tasks            | POST   | `/tasks/{id}/suggestions/dismiss-all`          | Dismiss every suggested step                               |
-| tasks            | PUT    | `/tasks/{id}/tags`                             | Replace the task's tag set                                 |
+| Tag              | Method | Path                                           | Summary                                                                        |
+| ---------------- | ------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| admin            | POST   | `/admin/seed-reset`                            | Delete and recreate the demo user's fixtures                                   |
+| auth             | POST   | `/auth/login`                                  | Log in with email and password                                                 |
+| auth             | POST   | `/auth/logout`                                 | Revoke the refresh token and clear the cookie                                  |
+| auth             | GET    | `/auth/me`                                     | Current user                                                                   |
+| auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                                          |
+| auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token                         |
+| auth             | POST   | `/auth/register`                               | Register a new user                                                            |
+| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                                      |
+| feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                                       |
+| feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation                                   |
+| feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                                             |
+| feature-requests | POST   | `/feature-requests/conversation/{id}/messages` | Send one answer and stream the assistant's reply                               |
+| pipeline         | GET    | `/pipeline`                                    | One snapshot of the delivery pipeline                                          |
+| pipeline         | POST   | `/pipeline/issues/{number}/deploy-staging`     | Merge an issue's green pull requests into develop                              |
+| pipeline         | POST   | `/pipeline/ship`                               | Dispatch the ship workflow for everything that is production-ready             |
+| pipeline         | POST   | `/pipeline/ship/retry`                         | Re-dispatch a failed or cancelled ship with its recorded version and issue set |
+| system           | GET    | `/health`                                      | Health check with the running commit SHA                                       |
+| system           | GET    | `/openapi.json`                                | This OpenAPI document                                                          |
+| tags             | GET    | `/tags`                                        | List the user's tags                                                           |
+| tags             | POST   | `/tags`                                        | Create a tag                                                                   |
+| tags             | DELETE | `/tags/{id}`                                   | Delete a tag and its links                                                     |
+| tags             | PATCH  | `/tags/{id}`                                   | Rename or recolor a tag                                                        |
+| tasks            | GET    | `/tasks`                                       | List tasks                                                                     |
+| tasks            | POST   | `/tasks`                                       | Create a task or a step                                                        |
+| tasks            | DELETE | `/tasks/{id}`                                  | Delete a task and its children                                                 |
+| tasks            | GET    | `/tasks/{id}`                                  | Get a task with its children, tags, progress and AI fields                     |
+| tasks            | PATCH  | `/tasks/{id}`                                  | Update a task                                                                  |
+| tasks            | POST   | `/tasks/{id}/breakdown`                        | Request an AI breakdown                                                        |
+| tasks            | POST   | `/tasks/{id}/suggestions/accept-all`           | Accept every suggested step                                                    |
+| tasks            | POST   | `/tasks/{id}/suggestions/dismiss-all`          | Dismiss every suggested step                                                   |
+| tasks            | PUT    | `/tasks/{id}/tags`                             | Replace the task's tag set                                                     |
 
 ## Tables (`src/db/schema.ts`)
 
@@ -73,7 +77,12 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-_Nothing unreleased._
+- A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the parser's message quoted the offending input, which could be a passphrase typed into the wrong place.
+- Pipeline control room, API half (spec `2026-09-11-pipeline-control-room-design.md` in the harness repo). Five settings: `PIPELINE_GITHUB_TOKEN` (a second GitHub port, 10-second deadline per call, never falls back to `GITHUB_TOKEN`), `FACILITATOR_EMAILS`, `DEPLOY_PASSPHRASE`, `STAGING_WEB_URL`, `PRODUCTION_WEB_URL`. `features.pipeline` in `GET /health` is true exactly when all five are set, which is when the `/pipeline` routes are mounted.
+- `GET /pipeline`: one snapshot. Both environments read server-side (5-second timeout, an unreachable half is reported), branch heads, open `feature-request` and `bug` issues plus those shipped in 14 days, each with its pull requests across the three repositories (listed once per repo, matched by `feat/<n>-`, `fix/<n>-` or a `docs/` head naming the issue), `checks` per open head, `onStaging` by comparing merge commits with what staging serves, `productionReady`, the newest ship marker joined with the ship workflow's runs, the next version from both changelogs, and the active ship run with its current step. Cached 30 s in Redis behind a refresh lock; a failed refresh starts a cooldown (60 s, or until GitHub's rate-limit reset, which the client never waits for itself) that serves the last-good copy as `stale` without touching GitHub, or `UPSTREAM_ERROR` when none exists; a last-good younger than 60 s is served as fresh while someone else refreshes. Compare answers are cached per pair for an hour; markers are read only for open staging issues; probe and dry runs are ignored. `canDeploy` is per caller, outside the cache.
+- `POST /pipeline/issues/{number}/deploy-staging` `{ passphrase }`: allowlist (`FORBIDDEN`), lockout read before the constant-time comparison (five failures in ten minutes, `RATE_LIMITED` with `resetAt`), wrong passphrase `FORBIDDEN` with `details.reason: "passphrase"` (`ForbiddenDetails` joins the `ErrorEnvelope` contract), Redis down `UNAVAILABLE`. Then the 60-second action lock, `CONFLICT` while a ship runs, a fresh read of the issue's open pull requests, `CONFLICT` naming the first that is not green, and squash merges api, web, harness with the inspected head SHA. Answers `{ merged, remaining }`; a failure mid-list stops and still answers 200.
+- `POST /pipeline/ship` `{ passphrase, version, issues }` and `POST /pipeline/ship/retry` `{ passphrase, issue }`: same guards and lock. `ship` recomputes the ready set and the next version fresh (`CONFLICT` on a stale click, an unfinished marker for another version, nothing to release, or a running ship), records `pipeline:ship:<requestId>` for 10 minutes, dispatches `ship.yml` on the harness `develop` with `{ request_id, version, issues }`, polls up to 20 s for the run named `ship <requestId> <version>`, and answers `{ requestId, version, issues, run | null }`; a second press for the same release while the record lives never dispatches twice, and a dispatch call that fails keeps the record as `unknown` for the next snapshot to reconcile (mutations are sent with `retries: 0`). `retry` re-dispatches `<requestId>-r<attempt>` with the marker's version and issue set, one record per attempt.
+- `scripts/pipeline-probe.mjs`: with `PIPELINE_GITHUB_TOKEN` set, exercises every read the pipeline snapshot makes plus the token's permission summary per repository, printing `ok`, `denied` or `error` per call; `--dispatch` adds one dry-run dispatch of `ship.yml`. Architecture doc: the pipeline slice and why the API dispatches rather than orchestrates.
 
 ## Recent releases (history, not current behavior)
 
