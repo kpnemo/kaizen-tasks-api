@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-ready, the way the ship workflow's preflight already judges it; work tracked by an issue after the fact can be shipped from its row.
+
 - A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the parser's message quoted the offending input, which could be a passphrase typed into the wrong place.
 
 ### Added

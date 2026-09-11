@@ -609,12 +609,19 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
         toPullRequest(repo, pull, checksByHead.get(`${repo}@${pull.headSha}`) ?? "pending"),
       );
       const allMerged = pulls.length > 0 && pulls.every(({ pull }) => pull.merged);
+      // An issue with no pull requests at all has nothing to compare: the staging label decides,
+      // as the ship workflow's preflight decides. Work that landed without pull requests naming
+      // the issue (a rework tracked after the fact) is shippable from its row that way.
+      const labelDecides = pulls.length === 0 && stage === "staging";
       const onStaging =
         issue.state === "open"
-          ? allMerged &&
-            pulls
-              .filter(({ repo, pull }) => APP_REPOS.includes(repo) && pull.merged)
-              .every(({ repo, pull }) => onStagingByMerge.get(`${repo}@${pull.mergeSha}`) === true)
+          ? labelDecides ||
+            (allMerged &&
+              pulls
+                .filter(({ repo, pull }) => APP_REPOS.includes(repo) && pull.merged)
+                .every(
+                  ({ repo, pull }) => onStagingByMerge.get(`${repo}@${pull.mergeSha}`) === true,
+                ))
           : allMerged;
       const marker = markers.get(issue.number) ?? null;
       const unfinishedOther = marker !== null && !marker.done && marker.version !== next.version;
