@@ -1,6 +1,8 @@
 import type { Redis } from "ioredis";
+import type { DestinationStream } from "pino";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createLogger } from "../../src/lib/logger.js";
 import { createTestApp, type TestContext } from "../helpers/app.js";
 import { auth, registerUser } from "../helpers/auth.js";
 import {
@@ -62,8 +64,33 @@ beforeEach(() => {
   gh.jobs = {};
   gh.failure = null;
   gh.mergeFailure = () => undefined;
+  gh.dispatchFailure = null;
   gh.onListRuns = null;
   resetEnvironments();
+});
+
+/** Captures pino output so a test can assert on what was (not) logged. */
+class CapturingDestination implements DestinationStream {
+  private lines: string[] = [];
+  write(msg: string): void {
+    this.lines.push(msg);
+  }
+  get text(): string {
+    return this.lines.join("");
+  }
+}
+
+const runAt = (over: {
+  id: number;
+  name: string;
+  status: string;
+  conclusion?: string | null;
+  createdAt?: string;
+}) => ({
+  conclusion: null,
+  createdAt: "2026-09-11T08:00:00Z",
+  url: `https://github.com/${HARNESS}/actions/runs/${over.id}`,
+  ...over,
 });
 
 const facilitator = () => registerUser(configured.server, { email: FACILITATOR_EMAIL });
@@ -359,6 +386,204 @@ describe("GET /pipeline", () => {
         step: "Cut release in api",
       },
     });
+  });
+
+  it("enters a cooldown after a failed refresh: the next call serves last-good with zero port calls", async () => {
+    const user = await viewer();
+    const ok = await request(configured.server).get(URL).set(auth(user.token));
+    expect(ok.status).toBe(200);
+    await configured.redis.del("pipeline:snapshot");
+    gh.failure = Object.assign(new Error("boom"), { status: 503 });
+    const failed = await request(configured.server).get(URL).set(auth(user.token));
+    expect(failed.status).toBe(200);
+    expect(failed.body.data).toMatchObject({ stale: true, staleReason: "GitHub answered 503" });
+    const ttl = await configured.redis.ttl("pipeline:cooldown");
+    expect(ttl).toBeGreaterThan(50);
+    expect(ttl).toBeLessThanOrEqual(60);
+
+    gh.failure = null;
+    gh.calls = [];
+    const cooled = await request(configured.server).get(URL).set(auth(user.token));
+    expect(cooled.status).toBe(200);
+    expect(cooled.body.data).toMatchObject({
+      stale: true,
+      staleReason: "GitHub answered 503",
+      generatedAt: ok.body.data.generatedAt,
+    });
+    expect(gh.calls).toEqual([]);
+    expect(await configured.redis.get("pipeline:refreshing")).toBeNull();
+  });
+
+  it("uses the rate-limit reset for the cooldown when GitHub answers 403 with x-ratelimit-remaining 0", async () => {
+    const user = await viewer();
+    await request(configured.server).get(URL).set(auth(user.token));
+    await configured.redis.del("pipeline:snapshot");
+    const reset = Math.floor(Date.now() / 1000) + 300;
+    gh.failure = Object.assign(new Error("API rate limit exceeded for installation"), {
+      status: 403,
+      response: {
+        headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+        data: { message: "secret-marker" },
+      },
+    });
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.stale).toBe(true);
+    expect(res.body.data.staleReason).toMatch(/^GitHub rate limit until /);
+    expect(JSON.stringify(res.body)).not.toContain("secret-marker");
+    const ttl = await configured.redis.ttl("pipeline:cooldown");
+    expect(ttl).toBeGreaterThan(280);
+    expect(ttl).toBeLessThanOrEqual(300);
+  });
+
+  it("serves a last-good younger than 60 s at once, not stale, while another caller holds the refresh lock", async () => {
+    const user = await viewer();
+    await request(configured.server).get(URL).set(auth(user.token));
+    const lastGood = JSON.parse((await configured.redis.get("pipeline:last-good")) ?? "{}");
+    lastGood.generatedAt = new Date(Date.now() - 20_000).toISOString();
+    await configured.redis.set("pipeline:last-good", JSON.stringify(lastGood), "EX", 3600);
+    await configured.redis.del("pipeline:snapshot");
+    await configured.redis.set("pipeline:refreshing", "someone-else", "EX", 20);
+    gh.calls = [];
+    const started = Date.now();
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ stale: false, generatedAt: lastGood.generatedAt });
+    expect(res.body.data.staleReason).toBeUndefined();
+    expect(Date.now() - started).toBeLessThan(400);
+    expect(gh.calls).toEqual([]);
+    expect(await configured.redis.get("pipeline:refreshing")).toBe("someone-else");
+  });
+
+  it("waits for the other refresher when nothing younger than 60 s exists", async () => {
+    const user = await viewer();
+    await request(configured.server).get(URL).set(auth(user.token));
+    const lastGood = JSON.parse((await configured.redis.get("pipeline:last-good")) ?? "{}");
+    lastGood.generatedAt = new Date(Date.now() - 90_000).toISOString();
+    await configured.redis.set("pipeline:last-good", JSON.stringify(lastGood), "EX", 3600);
+    await configured.redis.del("pipeline:snapshot");
+    await configured.redis.set("pipeline:refreshing", "someone-else", "EX", 20);
+    gh.calls = [];
+    const freshAt = new Date().toISOString();
+    setTimeout(() => {
+      void configured.redis.set(
+        "pipeline:snapshot",
+        JSON.stringify({ ...lastGood, generatedAt: freshAt }),
+        "EX",
+        30,
+      );
+    }, 300);
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ stale: false, generatedAt: freshAt });
+    expect(gh.calls).toEqual([]);
+  });
+
+  it("bounds the calls per refresh: markers only for open staging issues, compares cached for an hour", async () => {
+    // Eleven issues: three at staging with merged app PRs, three implementing with two open PRs
+    // each, three without pull requests, two shipped.
+    gh.issues.push(
+      issue({ number: 25, labels: ["feature-request", "staging"] }),
+      issue({ number: 26, labels: ["bug", "staging"] }),
+      issue({ number: 27, labels: ["feature-request", "implementing"] }),
+      issue({ number: 28, labels: ["feature-request", "implementing"] }),
+      issue({ number: 29, labels: ["bug", "implementing"] }),
+      issue({ number: 30, labels: ["feature-request", "triaged"] }),
+      issue({ number: 31, labels: ["feature-request"] }),
+      issue({ number: 32, labels: ["bug"] }),
+      issue({
+        number: 20,
+        state: "closed",
+        closedAt: new Date(Date.now() - 86_400_000).toISOString(),
+        labels: ["feature-request", "shipped"],
+      }),
+    );
+    for (const n of [25, 26]) {
+      gh.pulls[API]!.push(pull(API, { number: 60 + n, headRef: `feat/${n}-x`, merged: true }));
+      gh.pulls[WEB]!.push(pull(WEB, { number: 60 + n, headRef: `feat/${n}-x`, merged: true }));
+      gh.compares[
+        `${API}:c4ec3f4c4ec3f4c4ec3f4c4ec3f4c4ec3f4c4ec3f4...merged-kaizen-tasks-api-${60 + n}`
+      ] = "behind";
+      gh.compares[
+        `${WEB}:e9b52c8e9b52c8e9b52c8e9b52c8e9b52c8e9b52c8...merged-kaizen-tasks-web-${60 + n}`
+      ] = "behind";
+    }
+    for (const n of [27, 28, 29]) {
+      gh.pulls[API]!.push(pull(API, { number: 70 + n, headRef: `fix/${n}-y` }));
+      gh.pulls[WEB]!.push(pull(WEB, { number: 70 + n, headRef: `fix/${n}-y` }));
+    }
+    const user = await viewer();
+    const first = await request(configured.server).get(URL).set(auth(user.token));
+    expect(first.status).toBe(200);
+    expect(first.body.data.issues).toHaveLength(11);
+    const counts = () => ({
+      total: gh.calls.length,
+      checks: gh.countOf("checkRuns"),
+      compares: gh.countOf("compare"),
+      markers: gh.countOf("listIssueComments"),
+    });
+    // 14 fixed reads + 6 open heads + 6 compares + 3 markers (the open staging issues only).
+    expect(counts()).toEqual({ total: 29, checks: 6, compares: 6, markers: 3 });
+
+    await configured.redis.del("pipeline:snapshot");
+    gh.calls = [];
+    const second = await request(configured.server).get(URL).set(auth(user.token));
+    expect(second.status).toBe(200);
+    expect(counts()).toEqual({ total: 23, checks: 6, compares: 0, markers: 3 });
+    expect(second.body.data.issues.find((i: { number: number }) => i.number === 25)).toMatchObject({
+      onStaging: true,
+      productionReady: true,
+    });
+  });
+
+  it("ignores probe and dry runs when picking the ship run", async () => {
+    gh.runs = [
+      runAt({
+        id: 1500,
+        name: "ship probe-1757577600000 9.9.9",
+        status: "completed",
+        conclusion: "failure",
+        createdAt: "2026-09-11T09:00:00Z",
+      }),
+      runAt({
+        id: 1501,
+        name: "ship dry-check 9.9.9",
+        status: "in_progress",
+        createdAt: "2026-09-11T08:59:00Z",
+      }),
+      runAt({
+        id: 900,
+        name: "ship 7f2a6d1e-0000-4000-8000-000000000001 1.4.0",
+        status: "in_progress",
+      }),
+    ];
+    gh.jobs[900] = [
+      {
+        name: "ship",
+        status: "in_progress",
+        conclusion: null,
+        steps: [{ name: "Promote api", status: "in_progress", conclusion: null }],
+      },
+    ];
+    gh.comments[22] = [
+      marker({ version: "1.4.0", requestId: "7f2a6d1e-0000-4000-8000-000000000001", issues: [22] }),
+    ];
+    const user = await viewer();
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.ship).toMatchObject({
+      active: true,
+      run: { id: 900, requestId: "7f2a6d1e-0000-4000-8000-000000000001", step: "Promote api" },
+    });
+    expect(res.body.data.issues[0].ship).toMatchObject({
+      status: "in_progress",
+      step: "Promote api",
+    });
+
+    gh.runs = gh.runs.filter((r) => r.id !== 900);
+    await configured.redis.del("pipeline:snapshot");
+    const alone = await request(configured.server).get(URL).set(auth(user.token));
+    expect(alone.body.data.ship).toEqual({ active: false, run: null });
   });
 
   it("reports the version conflict instead of a next version", async () => {
@@ -681,6 +906,7 @@ describe("POST /pipeline/ship", () => {
       requestId,
       version: "1.4.0",
       issues: [22],
+      state: "dispatched",
     });
     expect(await configured.redis.get("pipeline:snapshot")).toBeNull();
     expect(await configured.redis.get("pipeline:action")).toBeNull();
@@ -798,6 +1024,38 @@ describe("POST /pipeline/ship", () => {
     expect(snap.body.data.issues[0].ship).toMatchObject({ requestId, status: "in_progress" });
   });
 
+  it("keeps the ship record when the dispatch throws, and never dispatches the same release twice", async () => {
+    gh.dispatchFailure = Object.assign(new Error("Bad Gateway"), { status: 502 });
+    const user = await facilitator();
+    const body = { passphrase: PASSPHRASE, version: "1.4.0", issues: [22] };
+    const first = await request(configured.server).post(SHIP).set(auth(user.token)).send(body);
+    expect(first.status).toBe(502);
+    expect(first.body.error.code).toBe("UPSTREAM_ERROR");
+    expect(first.body.error.message).toMatch(/reconcile/);
+    expect(gh.dispatches).toHaveLength(1);
+    const requestId = gh.dispatches[0]!.inputs.request_id!;
+    expect(JSON.parse((await configured.redis.get(`pipeline:ship:${requestId}`)) ?? "{}")).toEqual({
+      requestId,
+      version: "1.4.0",
+      issues: [22],
+      state: "unknown",
+    });
+
+    gh.dispatchFailure = null;
+    const second = await request(configured.server).post(SHIP).set(auth(user.token)).send(body);
+    expect(second.status).toBe(200);
+    expect(second.body.data).toEqual({ requestId, version: "1.4.0", issues: [22], run: null });
+    expect(gh.dispatches).toHaveLength(1);
+
+    // GitHub had accepted it after all: the run appears and the snapshot reconciles it by name.
+    gh.runs = [runAt({ id: 1300, name: `ship ${requestId} 1.4.0`, status: "queued" })];
+    const snap = await request(configured.server).get(URL).set(auth(user.token));
+    expect(snap.body.data.ship).toMatchObject({
+      active: true,
+      run: { id: 1300, requestId, issues: [22] },
+    });
+  });
+
   it("refuses with CONFLICT while a ship run is active, and FORBIDDEN for a non-facilitator", async () => {
     gh.runs = [
       {
@@ -884,6 +1142,60 @@ describe("POST /pipeline/ship/retry", () => {
     expect(gh.dispatches.at(-1)!.inputs.request_id).toBe("old-request-r2");
   });
 
+  it("dispatches one retry for two presses before the run is visible, and the next attempt once it concluded", async () => {
+    failedShip("old-request", 901);
+    const user = await facilitator();
+    const press = () =>
+      request(configured.server)
+        .post(RETRY)
+        .set(auth(user.token))
+        .send({ passphrase: PASSPHRASE, issue: 22 });
+    const first = await press();
+    expect(first.status).toBe(200);
+    expect(first.body.data).toEqual({
+      requestId: "old-request-r1",
+      version: "1.3.1",
+      issues: [22, 19],
+      run: null,
+    });
+    const second = await press();
+    expect(second.status).toBe(200);
+    expect(second.body.data).toEqual(first.body.data);
+    expect(gh.dispatches).toHaveLength(1);
+    expect(await configured.redis.get("pipeline:ship:retry:old-request")).toBe("old-request-r1");
+
+    // The run becomes visible and runs: the same answer, now with the run, still one dispatch.
+    gh.runs.unshift(runAt({ id: 1400, name: "ship old-request-r1 1.3.1", status: "in_progress" }));
+    const third = await press();
+    expect(third.status).toBe(200);
+    expect(third.body.data).toEqual({
+      ...first.body.data,
+      run: { id: 1400, url: `https://github.com/${HARNESS}/actions/runs/1400` },
+    });
+    expect(gh.dispatches).toHaveLength(1);
+
+    // It failed too, before writing its marker: the next attempt is -r2, once.
+    gh.runs = gh.runs.filter((r) => r.id !== 1400);
+    gh.runs.unshift(
+      runAt({
+        id: 1401,
+        name: "ship old-request-r1 1.3.1",
+        status: "completed",
+        conclusion: "failure",
+      }),
+    );
+    const fourth = await press();
+    expect(fourth.status).toBe(200);
+    expect(fourth.body.data.requestId).toBe("old-request-r2");
+    const fifth = await press();
+    expect(fifth.body.data.requestId).toBe("old-request-r2");
+    expect(gh.dispatches).toHaveLength(2);
+    expect(gh.dispatches.map((d) => d.inputs.request_id)).toEqual([
+      "old-request-r1",
+      "old-request-r2",
+    ]);
+  });
+
   it("refuses while the marker's run is still queued or running", async () => {
     gh.comments[22] = [marker({ version: "1.3.1", requestId: "old-request", issues: [22] })];
     gh.runs = [
@@ -925,5 +1237,42 @@ describe("POST /pipeline/ship/retry", () => {
       .send({ passphrase: PASSPHRASE, issue: 22 });
     expect(finished.status).toBe(409);
     expect(finished.body.error.message).toBe("the ship of 1.3.1 for #22 completed");
+  });
+});
+
+describe("a malformed JSON body", () => {
+  it("is answered without echoing the body, and nothing of it is logged", async () => {
+    const log = new CapturingDestination();
+    const app = await createTestApp(PIPELINE_ENV, {
+      pipelineGithub: gh,
+      fetchImpl: fakeFetch(envAnswers),
+      logger: createLogger("info", log),
+    });
+    try {
+      const user = await facilitator();
+      const res = await request(app.server)
+        .post(SHIP)
+        .set(auth(user.token))
+        .set("content-type", "application/json")
+        .send('{"passphrase": hunter2-top-secret, "version": "1.4.0", "issues": [22]}');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "Malformed JSON body",
+        requestId: expect.any(String),
+      });
+      expect(res.text).not.toContain("hunter2");
+      // The parser fails before the request logger runs, so nothing of this request is logged at
+      // all; a well-formed request afterwards shows the capture works and still carries nothing.
+      const wellFormed = await request(app.server)
+        .post(SHIP)
+        .set(auth(user.token))
+        .send({ passphrase: "wrong-passphrase-x", version: "1.4.0", issues: [22] });
+      expect(wellFormed.status).toBe(403);
+      expect(log.text).toContain('"statusCode":403');
+      expect(log.text).not.toContain("hunter2");
+    } finally {
+      await app.close();
+    }
   });
 });

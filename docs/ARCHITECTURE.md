@@ -154,12 +154,16 @@ same value `features.pipeline` reports). It reads GitHub through a second port,
 through a server-side `fetch` of `/api/v1/health` and `/version.json` with a 5-second timeout. The
 snapshot is bounded by construction: two issue queries, pull requests listed once per repository and
 matched locally by head branch, check runs only for open heads, compares only for merged app-repo
-pull requests of open issues, ship markers only for issues a ship could have touched, and the
-newest ten ship runs with the jobs of one. Redis (`src/lib/pipeline-locks.ts`) holds the shared
-snapshot for 10 seconds behind a `SET NX` refresh lock, a last-good copy for an hour that is served
-as `stale` when GitHub cannot be read, the 60-second action lock, the per-user passphrase lockout,
-and the record of what was dispatched; `canDeploy` is computed per request from the session, after
-the cache. Every pipeline route fails closed when Redis is down.
+pull requests of open issues (each pair cached for an hour, since the answer never changes), ship
+markers only for open issues labelled staging, and the newest ten ship runs with the jobs of one:
+about 14 fixed reads plus one per open head and one per staging issue. Redis
+(`src/lib/pipeline-locks.ts`) holds the shared snapshot for 30 seconds behind a token `SET NX`
+refresh lock, a last-good copy for an hour, and a cooldown after a failed refresh (60 seconds, or
+until GitHub's rate-limit reset; the client never waits for a reset itself) during which last-good
+is served as `stale` and nothing reaches GitHub; while someone else refreshes, a last-good younger
+than 60 seconds is served as fresh. The 60-second action lock, the per-user passphrase lockout and
+the record of what was dispatched live there too; `canDeploy` is computed per request from the
+session, after the cache. Every pipeline route fails closed when Redis is down.
 
 The API dispatches the ship rather than orchestrating it: `POST /pipeline/ship` writes
 `pipeline:ship:<requestId>`, dispatches `ship.yml` in the harness repository with the request id, the

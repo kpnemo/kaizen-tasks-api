@@ -58,6 +58,8 @@ export class FakePipelineGitHub implements PipelineGitHub {
   failure: Error | null = null;
   /** Decides per merge whether it fails; returns the error to throw. */
   mergeFailure: (p: { repo: string; number: number }) => Error | undefined = () => undefined;
+  /** When set, a dispatch is recorded (GitHub accepted it) and then throws (the answer was lost). */
+  dispatchFailure: Error | null = null;
   /** When set, replaces the run list on the next `listRuns` call (used to simulate a run
    *  appearing after a dispatch). */
   onListRuns: (() => void) | null = null;
@@ -135,6 +137,7 @@ export class FakePipelineGitHub implements PipelineGitHub {
   }): Promise<void> {
     this.record("dispatchWorkflow");
     this.dispatches.push(p);
+    if (this.dispatchFailure) throw this.dispatchFailure;
   }
   async listRuns(): Promise<RunItem[]> {
     this.record("listRuns");

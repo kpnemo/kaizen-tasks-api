@@ -3,7 +3,16 @@ import type { Redis } from "ioredis";
 import { z } from "zod";
 import { conflict, forbidden, rateLimited, upstreamError, unavailable } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
-import { LOCKOUT_LIMIT, createPipelineStore, type PipelineStore } from "../lib/pipeline-locks.js";
+import {
+  COOLDOWN_MAX_SECONDS,
+  COOLDOWN_SECONDS,
+  LOCKOUT_LIMIT,
+  PIPELINE_KEYS,
+  REFRESH_LOCK_SECONDS,
+  createPipelineStore,
+  type PipelineStore,
+  type ShipRecord,
+} from "../lib/pipeline-locks.js";
 import type {
   DeployStagingResult,
   PipelineEnvironmentShape,
@@ -44,7 +53,8 @@ const PULL_PAGE = 100;
 const RUNS_LISTED = 10;
 const ENVIRONMENT_TIMEOUT_MS = 5_000;
 const REFRESH_WAIT_MS = 500;
-const REFRESH_WAITS = 4;
+/** A last-good this young is served as fresh while someone else refreshes. */
+const FRESH_ENOUGH_MS = 60_000;
 const SHIP_POLL_INTERVAL_MS = 2_000;
 const SHIP_POLL_TIMEOUT_MS = 20_000;
 
@@ -217,6 +227,12 @@ export function parseRunName(name: string): { requestId: string; version: string
   return match ? { requestId: match[1]!, version: match[2]! } : null;
 }
 
+/** Runs the probe script or a by-hand dry run started; never a ship the room should see. */
+export function isRehearsalRun(run: RunItem): boolean {
+  const parsed = parseRunName(run.name);
+  return parsed !== null && /^(probe|dry-)/.test(parsed.requestId);
+}
+
 function runStatusOf(status: string): PipelineShipRunShape["status"] {
   if (status === "in_progress") return "in_progress";
   if (status === "completed") return "completed";
@@ -298,6 +314,21 @@ function describeFailure(err: unknown): { status?: number; name: string; message
   const message =
     status === undefined ? (err instanceof Error ? err.message : String(err)) : undefined;
   return { status, name, message };
+}
+
+/** Rate-limit headers of an Octokit RequestError, never its body. */
+function rateLimitHeadersOf(err: unknown): Record<string, string> {
+  const headers =
+    typeof err === "object" && err !== null && "response" in err
+      ? (err as { response?: { headers?: unknown } }).response?.headers
+      : undefined;
+  if (typeof headers !== "object" || headers === null) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers as Record<string, unknown>)) {
+    if (typeof value === "string" || typeof value === "number")
+      out[key.toLowerCase()] = String(value);
+  }
+  return out;
 }
 
 export function createPipelineService(deps: PipelineDeps): PipelineService {
@@ -491,40 +522,62 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
       }),
     );
     const served = { api: staging.api?.commit ?? null, web: staging.web?.commit ?? null };
+    // Compares per (served commit, merge commit) pair: the answer is immutable, so it is cached
+    // for an hour and only new pairs reach GitHub.
+    const pairs = new Map<string, { repo: RepoKey; base: string; head: string }>();
     const onStagingByMerge = new Map<string, boolean>();
-    await Promise.all(
-      matched.flatMap(({ issue, pulls }) =>
-        issue.state !== "open"
-          ? []
-          : pulls
-              .filter(
-                ({ repo, pull }) =>
-                  APP_REPOS.includes(repo) && pull.merged && pull.mergeSha !== null,
-              )
-              .map(async ({ repo, pull }) => {
-                const base = served[repo as "api" | "web"];
-                const key = `${repo}@${pull.mergeSha}`;
-                if (!base) {
-                  onStagingByMerge.set(key, false);
-                  return;
-                }
-                const status = await github.compare({
-                  repo: PIPELINE_REPOS[repo],
-                  base,
-                  head: pull.mergeSha!,
-                });
-                onStagingByMerge.set(key, status === "identical" || status === "behind");
-              }),
-      ),
+    for (const { issue, pulls } of matched) {
+      if (issue.state !== "open") continue;
+      for (const { repo, pull } of pulls) {
+        if (!APP_REPOS.includes(repo) || !pull.merged || pull.mergeSha === null) continue;
+        const base = served[repo as "api" | "web"];
+        if (!base) {
+          onStagingByMerge.set(`${repo}@${pull.mergeSha}`, false);
+          continue;
+        }
+        pairs.set(PIPELINE_KEYS.compare(repo, base, pull.mergeSha), {
+          repo,
+          base,
+          head: pull.mergeSha,
+        });
+      }
+    }
+    const pairKeys = [...pairs.keys()];
+    const cachedCompares = await withRedis(() => store.readCompares(pairKeys));
+    const freshCompares = await Promise.all(
+      pairKeys
+        .filter((_key, i) => cachedCompares[i] === null)
+        .map(async (key) => {
+          const pair = pairs.get(key)!;
+          const status = await github.compare({
+            repo: PIPELINE_REPOS[pair.repo],
+            base: pair.base,
+            head: pair.head,
+          });
+          return { key, status };
+        }),
     );
+    if (freshCompares.length > 0) await withRedis(() => store.writeCompares(freshCompares));
+    const compareByKey = new Map<string, string>();
+    pairKeys.forEach((key, i) => {
+      const cached = cachedCompares[i];
+      if (cached !== null && cached !== undefined) compareByKey.set(key, cached);
+    });
+    for (const { key, status } of freshCompares) compareByKey.set(key, status);
+    for (const [key, pair] of pairs) {
+      const status = compareByKey.get(key);
+      onStagingByMerge.set(
+        `${pair.repo}@${pair.head}`,
+        status === "identical" || status === "behind",
+      );
+    }
 
-    // Ship markers, only where a ship could have touched the issue.
+    // Ship markers only where a ship could have touched the issue: open and labelled staging
+    // (the workflow's preflight requires the label; a shipped or closed issue needs no button).
     const markers = new Map<number, ShipMarker | null>();
     await Promise.all(
-      matched.map(async ({ issue, pulls }) => {
-        const stage = stageOf(issue.labels, issue.state);
-        const allMerged = pulls.length > 0 && pulls.every(({ pull }) => pull.merged);
-        if (stage !== "staging" && stage !== "shipped" && !allMerged) return;
+      matched.map(async ({ issue }) => {
+        if (issue.state !== "open" || !issue.labels.includes("staging")) return;
         const comments = await github.listIssueComments({
           repo: PIPELINE_REPOS.harness,
           number: issue.number,
@@ -534,7 +587,9 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
     );
 
     // The ship workflow: the newest run, its step when it is running or failed.
-    const sortedRuns = [...runs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const sortedRuns = runs
+      .filter((run) => !isRehearsalRun(run))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const newest = sortedRuns[0];
     let step: string | null = null;
     if (newest) {
@@ -576,7 +631,9 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
         closedAt: issue.closedAt,
         pullRequests,
         onStaging,
-        productionReady: issue.state === "open" && onStaging && !unfinishedOther,
+        // The ship workflow's preflight requires the staging label, so readiness does too.
+        productionReady:
+          issue.state === "open" && stage === "staging" && onStaging && !unfinishedOther,
         // Before the workflow writes its marker, the record this API kept names the issue.
         ship: marker
           ? issueShipOf(marker, sortedRuns, newest, step)
@@ -661,42 +718,98 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
     };
   }
 
-  /** Serve the last-good snapshot as stale, or fail with UPSTREAM_ERROR when there is none. */
-  async function lastGoodOr(err: unknown): Promise<SharedSnapshot> {
+  const parseShared = (json: string) => JSON.parse(json) as SharedSnapshot;
+  const ageOf = (shared: SharedSnapshot) => now().getTime() - Date.parse(shared.generatedAt);
+
+  /** The last-good snapshot as stale, or UPSTREAM_ERROR when there is none. No GitHub call. */
+  function staleOr(lastGood: SharedSnapshot | null, reason: string): SharedSnapshot {
+    if (!lastGood) throw upstreamError("Could not read the pipeline from GitHub");
+    return { ...lastGood, stale: true, staleReason: reason };
+  }
+
+  /** How long to stay away from GitHub after a failed refresh, and what to tell the room. A
+   *  rate limit (403/429 with the headers) is honoured until its reset; anything else is 60 s. */
+  function cooldownFor(err: unknown): { reason: string; seconds: number } {
     const failure = describeFailure(err);
-    logger.warn(failure, "pipeline snapshot refresh failed");
-    const json = await withRedis(() => store.readLastGood());
-    if (!json) throw upstreamError("Could not read the pipeline from GitHub");
+    if (failure.status === 403 || failure.status === 429) {
+      const headers = rateLimitHeadersOf(err);
+      const retryAfter = Number(headers["retry-after"]);
+      const reset = Number(headers["x-ratelimit-reset"]);
+      let seconds: number | null = null;
+      if (Number.isFinite(retryAfter) && retryAfter > 0) seconds = retryAfter;
+      else if (headers["x-ratelimit-remaining"] === "0" && Number.isFinite(reset) && reset > 0) {
+        seconds = reset - Math.floor(now().getTime() / 1000);
+      }
+      if (seconds !== null) {
+        seconds = Math.min(Math.max(seconds, 1), COOLDOWN_MAX_SECONDS);
+        const until = new Date(now().getTime() + seconds * 1000).toISOString().slice(11, 16);
+        return { reason: `GitHub rate limit until ${until} UTC`, seconds };
+      }
+    }
     const reason =
       failure.status !== undefined
         ? `GitHub answered ${failure.status}`
         : failure.name === "TimeoutError" || failure.name === "AbortError"
           ? "GitHub timed out"
           : "GitHub unreachable";
-    return { ...(JSON.parse(json) as SharedSnapshot), stale: true, staleReason: reason };
+    return { reason, seconds: COOLDOWN_SECONDS };
   }
 
-  async function refreshOrWait(): Promise<SharedSnapshot> {
-    for (let attempt = 0; attempt <= REFRESH_WAITS; attempt++) {
-      if (await withRedis(() => store.tryRefreshLock())) {
-        try {
-          let shared: SharedSnapshot;
-          try {
-            shared = await buildShared();
-          } catch (err) {
-            return await lastGoodOr(err);
-          }
-          await withRedis(() => store.writeSnapshot(JSON.stringify(shared)));
-          return shared;
-        } finally {
-          await store.releaseRefreshLock().catch(() => undefined);
-        }
-      }
-      await sleep(REFRESH_WAIT_MS);
-      const cached = await withRedis(() => store.readSnapshot());
-      if (cached) return JSON.parse(cached) as SharedSnapshot;
+  /** Build under the lock we hold. A failure starts the cooldown and answers last-good as stale. */
+  async function refresh(): Promise<SharedSnapshot> {
+    let shared: SharedSnapshot;
+    try {
+      shared = await buildShared();
+    } catch (err) {
+      const cooldown = cooldownFor(err);
+      logger.warn(
+        { ...describeFailure(err), cooldownSeconds: cooldown.seconds },
+        "pipeline snapshot refresh failed",
+      );
+      await withRedis(() => store.setCooldown(cooldown.reason, cooldown.seconds));
+      const json = await withRedis(() => store.readLastGood());
+      return staleOr(json ? parseShared(json) : null, cooldown.reason);
     }
-    return lastGoodOr(new Error("another refresh did not finish in time"));
+    await withRedis(() => store.writeSnapshot(JSON.stringify(shared)));
+    return shared;
+  }
+
+  async function refreshUnder(token: string): Promise<SharedSnapshot> {
+    try {
+      return await refresh();
+    } finally {
+      await store.releaseRefreshLock(token).catch(() => undefined);
+    }
+  }
+
+  /** Another caller holds the lock and nothing young enough exists: wait for its result, up to
+   *  the lock's TTL, taking the lock over if it lapses without one. */
+  async function waitForRefresher(lastGood: SharedSnapshot | null): Promise<SharedSnapshot> {
+    const deadline = Date.now() + REFRESH_LOCK_SECONDS * 1000;
+    while (Date.now() < deadline) {
+      await sleep(REFRESH_WAIT_MS);
+      const state = await withRedis(() => store.readState());
+      if (state.snapshot) return parseShared(state.snapshot);
+      if (state.cooldown) {
+        return staleOr(state.lastGood ? parseShared(state.lastGood) : lastGood, state.cooldown);
+      }
+      const token = await withRedis(() => store.tryRefreshLock());
+      if (token) return refreshUnder(token);
+    }
+    return staleOr(lastGood, "another refresh did not finish in time");
+  }
+
+  async function sharedSnapshot(): Promise<SharedSnapshot> {
+    const state = await withRedis(() => store.readState());
+    if (state.snapshot) return parseShared(state.snapshot);
+    const lastGood = state.lastGood ? parseShared(state.lastGood) : null;
+    // After a failed refresh nothing reaches GitHub until the cooldown lapses.
+    if (state.cooldown) return staleOr(lastGood, state.cooldown);
+    const token = await withRedis(() => store.tryRefreshLock());
+    if (token) return refreshUnder(token);
+    // Someone else is refreshing: a young last-good is good enough, not stale.
+    if (lastGood && ageOf(lastGood) < FRESH_ENOUGH_MS) return lastGood;
+    return waitForRefresher(lastGood);
   }
 
   const canDeploy = (email: string) => config.facilitatorEmails.has(email.trim().toLowerCase());
@@ -748,7 +861,7 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
 
   async function refuseWhileShipping(): Promise<void> {
     const runs = await githubRead("the ship runs", listRuns);
-    if (runs.some((run) => runStatusOf(run.status) !== "completed")) {
+    if (runs.some((run) => !isRehearsalRun(run) && runStatusOf(run.status) !== "completed")) {
       throw conflict("a ship is running, wait for it to finish");
     }
   }
@@ -863,15 +976,26 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
     }
   }
 
-  /** Record, dispatch, poll, invalidate. A dispatch that throws forgets the record. */
+  /**
+   * Record (once: SET NX), dispatch, poll, invalidate. A dispatch that throws may still have been
+   * accepted, so the record stays, marked unknown, and the next snapshot reconciles it by run
+   * name; while it lives nothing dispatches the same release again.
+   */
   async function dispatchShip(
     user: PipelineActor,
     action: "ship" | "ship-retry",
-    requestId: string,
-    version: string,
-    issues: number[],
+    record: Omit<ShipRecord, "state">,
+    options: { retryOf?: string } = {},
   ): Promise<ShipResult> {
-    await withRedis(() => store.writeShip({ requestId, version, issues }));
+    const { requestId, version, issues } = record;
+    const created = await withRedis(() =>
+      store.createShip({ requestId, version, issues, state: "dispatched" }, options),
+    );
+    if (!created) {
+      // Recorded by a press that got here first: the same answer, no second dispatch.
+      logger.info({ userId: user.id, action, requestId }, "pipeline ship already recorded");
+      return { requestId, version, issues, run: null };
+    }
     try {
       await github.dispatchWorkflow({
         repo: PIPELINE_REPOS.harness,
@@ -880,9 +1004,11 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
         inputs: { request_id: requestId, version, issues: issues.join(",") },
       });
     } catch (err) {
-      logger.error(describeFailure(err), "pipeline ship dispatch failed");
-      await store.clearShip(requestId).catch(() => undefined);
-      throw upstreamError("Could not dispatch the ship workflow");
+      logger.error({ ...describeFailure(err), requestId }, "pipeline ship dispatch unconfirmed");
+      await store.markShipUnknown(requestId).catch(() => undefined);
+      throw upstreamError(
+        "The ship dispatch did not confirm; the next snapshot reconciles it by run name, do not press again",
+      );
     }
     const run = await pollForRun(requestId, version);
     await withRedis(() => store.invalidate());
@@ -933,7 +1059,11 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
       if (shared.nextVersion !== input.version || !sameSet(ready, requested)) {
         throw conflict("the release changed, reload");
       }
-      return dispatchShip(user, "ship", randomUUID(), input.version, ready);
+      return dispatchShip(user, "ship", {
+        requestId: randomUUID(),
+        version: input.version,
+        issues: ready,
+      });
     });
   }
 
@@ -950,6 +1080,22 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
       if (!marker) throw conflict(`no ship recorded on #${input.issue}`);
       if (marker.done)
         throw conflict(`the ship of ${marker.version} for #${input.issue} completed`);
+      const base = marker.requestId.replace(/-r\d+$/, "");
+      const suffixOf = (id: string) => Number(id.match(/-r(\d+)$/)?.[1] ?? 0);
+      // An attempt this API already recorded for that ship whose run has not concluded (or is not
+      // visible yet): the same answer, and never a second dispatch of it.
+      const prior = await withRedis(() => store.readRetry(base));
+      if (prior) {
+        const priorRun = runs.find((r) => r.name === runNameOf(prior.requestId, prior.version));
+        if (!priorRun || runStatusOf(priorRun.status) !== "completed") {
+          return {
+            requestId: prior.requestId,
+            version: prior.version,
+            issues: prior.issues,
+            run: priorRun ? { id: priorRun.id, url: priorRun.url } : null,
+          };
+        }
+      }
       const runId = marker.runUrl?.match(/\/actions\/runs\/(\d+)/)?.[1];
       const own = runs.find(
         (r) =>
@@ -959,14 +1105,27 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
       if (own && runStatusOf(own.status) !== "completed") {
         throw conflict("the ship is still running");
       }
-      if (runs.some((r) => runStatusOf(r.status) !== "completed")) {
+      if (runs.some((r) => !isRehearsalRun(r) && runStatusOf(r.status) !== "completed")) {
         throw conflict("a ship is running, wait for it to finish");
       }
-      // The workflow records each attempt's request id in a new marker, so the suffix counts up.
-      const attempt = Number(marker.requestId.match(/-r(\d+)$/)?.[1] ?? 0) + 1;
-      const requestId = `${marker.requestId.replace(/-r\d+$/, "")}-r${attempt}`;
+      // The next attempt number: one past the highest the marker, our records or the runs know.
+      const attempts = [
+        suffixOf(marker.requestId),
+        prior ? suffixOf(prior.requestId) : 0,
+        ...runs
+          .map((r) => parseRunName(r.name))
+          .filter((p): p is { requestId: string; version: string } => p !== null)
+          .filter((p) => p.requestId.replace(/-r\d+$/, "") === base)
+          .map((p) => suffixOf(p.requestId)),
+      ];
+      const requestId = `${base}-r${Math.max(...attempts) + 1}`;
       const issues = marker.issues.length > 0 ? marker.issues : [input.issue];
-      return dispatchShip(user, "ship-retry", requestId, marker.version, issues);
+      return dispatchShip(
+        user,
+        "ship-retry",
+        { requestId, version: marker.version, issues },
+        { retryOf: base },
+      );
     });
   }
 
@@ -977,9 +1136,7 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
     ship,
     retryShip,
     async snapshot(callerEmail) {
-      const cached = await withRedis(() => store.readSnapshot());
-      const shared = cached ? (JSON.parse(cached) as SharedSnapshot) : await refreshOrWait();
-      return { ...shared, canDeploy: canDeploy(callerEmail) };
+      return { ...(await sharedSnapshot()), canDeploy: canDeploy(callerEmail) };
     },
   };
 }

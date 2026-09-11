@@ -106,6 +106,37 @@ export interface PipelineGitHub {
  *  call carries its own AbortSignal. */
 const GITHUB_DEADLINE_MS = 10_000;
 const deadline = () => ({ request: { signal: AbortSignal.timeout(GITHUB_DEADLINE_MS) } });
+/** Mutations are never retried by the client: a retried POST after a 5xx could dispatch or merge
+ *  twice. The service reconciles an unconfirmed dispatch from the run name instead. */
+const mutation = () => ({
+  request: { signal: AbortSignal.timeout(GITHUB_DEADLINE_MS), retries: 0 },
+});
+
+/**
+ * The `octokit` package bundles the throttling plugin, whose default `onRateLimit` waits for the
+ * reset (up to an hour) once; that wait is outside the per-call AbortSignal and would hold the
+ * refresh lock past its TTL. Both handlers say no, so a rate-limited call fails at once and the
+ * service's cooldown takes over.
+ */
+export function octokitOptionsFor(token: string) {
+  return {
+    auth: token,
+    throttle: {
+      onRateLimit: (
+        _retryAfter: number,
+        _options: object,
+        _octokit: Octokit,
+        _retryCount: number,
+      ) => false,
+      onSecondaryRateLimit: (
+        _retryAfter: number,
+        _options: object,
+        _octokit: Octokit,
+        _retryCount: number,
+      ) => false,
+    },
+  };
+}
 
 function split(fullName: string): { owner: string; repo: string } {
   const [owner, repo] = fullName.split("/") as [string, string];
@@ -118,8 +149,10 @@ function labelNames(labels: (string | { name?: string })[]): string[] {
     .filter((name) => name.length > 0);
 }
 
-export function createOctokitPipeline(token: string): PipelineGitHub {
-  const octokit = new Octokit({ auth: token });
+export function createOctokitPipeline(
+  token: string,
+  octokit: Octokit = new Octokit(octokitOptionsFor(token)),
+): PipelineGitHub {
   return {
     async listIssues(p) {
       const { data } = await octokit.rest.issues.listForRepo({
@@ -236,7 +269,7 @@ export function createOctokitPipeline(token: string): PipelineGitHub {
         pull_number: p.number,
         sha: p.sha,
         merge_method: p.method,
-        ...deadline(),
+        ...mutation(),
       });
       return { sha: data.sha };
     },
@@ -245,7 +278,7 @@ export function createOctokitPipeline(token: string): PipelineGitHub {
         ...split(p.repo),
         issue_number: p.number,
         body: p.body,
-        ...deadline(),
+        ...mutation(),
       });
     },
     async dispatchWorkflow(p) {
@@ -254,7 +287,7 @@ export function createOctokitPipeline(token: string): PipelineGitHub {
         workflow_id: p.workflow,
         ref: p.ref,
         inputs: p.inputs,
-        ...deadline(),
+        ...mutation(),
       });
     },
     async listRuns(p) {

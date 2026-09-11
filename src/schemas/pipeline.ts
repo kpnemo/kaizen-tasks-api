@@ -113,7 +113,7 @@ registry.registerPath({
   tags: ["pipeline"],
   summary: "One snapshot of the delivery pipeline",
   description:
-    "Mounted only when PIPELINE_GITHUB_TOKEN, FACILITATOR_EMAILS, DEPLOY_PASSPHRASE, STAGING_WEB_URL and PRODUCTION_WEB_URL are all set (`features.pipeline` in /health). Environments, branch heads, the open feature-request and bug issues plus those shipped in the last 14 days with their pull requests across the api, web and harness repositories, `onStaging` by comparing merge commits with what staging serves, the next release version from both changelogs, and the ship workflow's state. The shared part is cached for 10 seconds and rebuilt by one request at a time; when GitHub cannot be read the last-good snapshot (up to an hour old) is served with `stale: true`. `canDeploy` is computed per caller.",
+    "Mounted only when PIPELINE_GITHUB_TOKEN, FACILITATOR_EMAILS, DEPLOY_PASSPHRASE, STAGING_WEB_URL and PRODUCTION_WEB_URL are all set (`features.pipeline` in /health). Environments, branch heads, the open feature-request and bug issues plus those shipped in the last 14 days with their pull requests across the api, web and harness repositories, `onStaging` by comparing merge commits with what staging serves, the next release version from both changelogs, and the ship workflow's state. The shared part is cached for 30 seconds and rebuilt by one request at a time; while a refresh runs for someone else a last-good copy younger than 60 seconds is served as fresh. A failed refresh starts a cooldown (60 seconds, or until GitHub's rate-limit reset) during which the last-good snapshot (up to an hour old) is served with `stale: true` and `staleReason` and nothing reaches GitHub. `canDeploy` is computed per caller.",
   security: bearerAuth,
   responses: {
     200: jsonResponse("The snapshot", envelope(PipelineSnapshot)),
@@ -228,7 +228,7 @@ registry.registerPath({
   tags: ["pipeline"],
   summary: "Re-dispatch a failed or cancelled ship with its recorded version and issue set",
   description:
-    "Facilitators only; the same guards and action lock. Reads the issue's newest ship marker: CONFLICT when there is none, when it is done, or when its run (or any ship run) is still queued or running. Dispatches `ship.yml` again with `request_id = <marker request id>-r<attempt>`, the marker's version and the marker's issue set, unchanged; the workflow's steps are idempotent, so the rerun resumes.",
+    "Facilitators only; the same guards and action lock. Reads the issue's newest ship marker: CONFLICT when there is none, when it is done, or when its run (or any ship run) is still queued or running. Dispatches `ship.yml` again with `request_id = <marker request id>-r<attempt>`, the marker's version and the marker's issue set, unchanged; the workflow's steps are idempotent, so the rerun resumes. Each attempt is recorded once (`SET NX`), so a second press before the new run or marker is visible answers the same request id without dispatching.",
   security: bearerAuth,
   request: { body: { content: { "application/json": { schema: ShipRetryBody } } } },
   responses: {

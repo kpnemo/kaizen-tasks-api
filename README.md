@@ -170,10 +170,13 @@ The feature is on, and `features.pipeline` is true, exactly when all five are pr
 allowlist is non-empty. The three repositories (`kpnemo/kaizen-tasks-assembly-line`,
 `kpnemo/kaizen-tasks-api`, `kpnemo/kaizen-tasks-web`) are constants in `src/services/pipeline.ts`.
 
-Redis keys: `pipeline:snapshot` (10 s), `pipeline:last-good` (1 h), `pipeline:refreshing` (one
-refresh at a time, 20 s), `pipeline:action` (one facilitator action at a time, 60 s),
-`pipeline:lockout:<userId>` (wrong-passphrase counter, 10 min) and `pipeline:ship:<requestId>`
-(what was dispatched, 10 min). Redis down makes every pipeline route answer `UNAVAILABLE`.
+Redis keys: `pipeline:snapshot` (30 s), `pipeline:last-good` (1 h), `pipeline:refreshing` (one
+refresh at a time, 20 s), `pipeline:cooldown` (after a failed refresh: 60 s, or until GitHub's
+rate-limit reset; last-good is served as stale and nothing reaches GitHub meanwhile),
+`pipeline:compare:<repo>:<served>:<merge>` (compare answers, 1 h), `pipeline:action` (one
+facilitator action at a time, 60 s), `pipeline:lockout:<userId>` (wrong-passphrase counter, 10 min),
+`pipeline:ship:<requestId>` and `pipeline:ship:retry:<requestId>` (what was dispatched, 10 min).
+Redis down makes every pipeline route answer `UNAVAILABLE`.
 
 ## The readiness rubric
 
