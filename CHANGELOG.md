@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-11
+
 ### Fixed
 
 - `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-ready, the way the ship workflow's preflight already judges it; work tracked by an issue after the fact can be shipped from its row.
