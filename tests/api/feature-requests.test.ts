@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLogger } from "../../src/lib/logger.js";
 import { findOwnedConversation } from "../../src/repositories/feature-request-conversations.js";
 import { GREETING } from "../../src/services/feature-request-conversations.js";
-import type { GitHubIssues } from "../../src/services/feature-requests.js";
+import type { GitHubIssueListItem, GitHubIssues } from "../../src/services/feature-requests.js";
 import { createTestApp, type TestContext } from "../helpers/app.js";
 import { auth, registerUser } from "../helpers/auth.js";
 
@@ -18,8 +18,23 @@ const body = {
   outOfScope: "Dismissing in bulk.",
 };
 
+function fixture(over: Partial<GitHubIssueListItem> & { number: number }): GitHubIssueListItem {
+  return {
+    title: `Issue ${over.number}`,
+    state: "open",
+    html_url: `https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/${over.number}`,
+    created_at: "2026-09-01T00:00:00Z",
+    closed_at: null,
+    labels: ["feature-request"],
+    ...over,
+  };
+}
+
 class FakeIssues implements GitHubIssues {
   calls: Parameters<GitHubIssues["create"]>[0][] = [];
+  listCalls: Parameters<GitHubIssues["list"]>[0][] = [];
+  open: GitHubIssueListItem[] = [];
+  closed: GitHubIssueListItem[] = [];
   fail = false;
   async create(params: Parameters<GitHubIssues["create"]>[0]) {
     this.calls.push(params);
@@ -28,6 +43,11 @@ class FakeIssues implements GitHubIssues {
       number: 42,
       html_url: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/42",
     };
+  }
+  async list(params: Parameters<GitHubIssues["list"]>[0]) {
+    this.listCalls.push(params);
+    if (this.fail) throw new Error("GitHub is down");
+    return params.state === "open" ? this.open : this.closed;
   }
 }
 
@@ -44,11 +64,17 @@ class CapturingDestination implements DestinationStream {
 
 /** Shaped like an Octokit RequestError: `.status` plus the raw GitHub response on `.response`. */
 class LeakyIssues implements GitHubIssues {
-  async create(): ReturnType<GitHubIssues["create"]> {
+  private boom(): never {
     throw Object.assign(new Error("Validation Failed"), {
       status: 422,
       response: { data: { message: "secret-marker" } },
     });
+  }
+  async create(): ReturnType<GitHubIssues["create"]> {
+    this.boom();
+  }
+  async list(): ReturnType<GitHubIssues["list"]> {
+    this.boom();
   }
 }
 
@@ -144,6 +170,93 @@ describe("POST /feature-requests", () => {
     expect(JSON.stringify(res.body)).not.toContain("secret-marker");
     expect(leakyLog.text).not.toContain("secret-marker");
     expect(leakyLog.text).toContain("422");
+  });
+});
+
+describe("GET /feature-requests", () => {
+  it("requires a session", async () => {
+    expect((await request(configured.server).get(URL)).status).toBe(401);
+  });
+
+  it("lists requests open first then closed, newest first, with the summary fields", async () => {
+    const user = await registerUser(configured.server);
+    issues.listCalls = [];
+    issues.open = [
+      fixture({
+        number: 5,
+        created_at: "2026-09-09T13:09:53Z",
+        labels: ["feature-request", "clarity:5", "complexity:3", "risk:3", "triaged"],
+      }),
+      fixture({
+        number: 22,
+        created_at: "2026-09-11T08:28:47Z",
+        labels: ["feature-request", "implementing"],
+      }),
+    ];
+    issues.closed = [
+      fixture({
+        number: 19,
+        state: "closed",
+        created_at: "2026-09-10T15:12:50Z",
+        closed_at: "2026-09-11T07:24:21Z",
+        labels: ["feature-request", "shipped"],
+      }),
+    ];
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((i: { number: number }) => i.number)).toEqual([22, 5, 19]);
+    expect(res.body.data[1]).toEqual({
+      number: 5,
+      title: "Issue 5",
+      state: "open",
+      stage: "triaged",
+      readiness: 16,
+      labels: ["feature-request", "clarity:5", "complexity:3", "risk:3", "triaged"],
+      url: "https://github.com/kpnemo/kaizen-tasks-assembly-line/issues/5",
+      createdAt: "2026-09-09T13:09:53Z",
+      closedAt: null,
+    });
+    expect(res.body.data[0].readiness).toBeNull();
+    expect(
+      issues.listCalls.map((c) => [c.state, c.per_page, c.sort, c.direction, c.labels]),
+    ).toEqual([
+      ["open", 50, "created", "desc", "feature-request"],
+      ["closed", 50, "created", "desc", "feature-request"],
+    ]);
+  });
+
+  it("derives the stage from labels in priority order", async () => {
+    const user = await registerUser(configured.server);
+    issues.open = [
+      fixture({ number: 1, labels: ["feature-request", "staging", "shipped"] }),
+      fixture({ number: 2, labels: ["feature-request", "implementing", "staging"] }),
+      fixture({ number: 3, labels: ["feature-request", "triaged", "implementing"] }),
+      fixture({ number: 4, labels: ["feature-request", "triaged"] }),
+      fixture({ number: 5, labels: ["feature-request"] }),
+    ];
+    issues.closed = [fixture({ number: 6, state: "closed", labels: ["feature-request"] })];
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    const stages = Object.fromEntries(
+      res.body.data.map((i: { number: number; stage: string }) => [i.number, i.stage]),
+    );
+    expect(stages).toEqual({
+      1: "shipped",
+      2: "staging",
+      3: "implementing",
+      4: "triaged",
+      5: "new",
+      6: "closed",
+    });
+  });
+
+  it("answers 502 UPSTREAM_ERROR when GitHub fails to list", async () => {
+    const user = await registerUser(leaky.server);
+    const res = await request(leaky.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe("UPSTREAM_ERROR");
+    expect(JSON.stringify(res.body)).not.toContain("secret-marker");
+    expect(leakyLog.text).not.toContain("secret-marker");
   });
 });
 
