@@ -167,3 +167,80 @@ registry.registerPath({
     ),
   },
 });
+
+const Semver = z.string().regex(/^\d+\.\d+\.\d+$/, "must look like 1.4.0");
+const IssueNumber = z.number().int().positive();
+
+export const ShipBody = z
+  .object({
+    passphrase: z.string().min(1).max(200),
+    /** The version the button showed; refused with CONFLICT when the fresh computation differs. */
+    version: Semver,
+    /** The issue set the button showed; refused with CONFLICT when it differs. */
+    issues: z.array(IssueNumber).min(1).max(100),
+  })
+  .openapi("ShipBody");
+
+export const ShipRetryBody = z
+  .object({ passphrase: z.string().min(1).max(200), issue: IssueNumber })
+  .openapi("ShipRetryBody");
+
+export const ShipResponse = z
+  .object({
+    requestId: z.string(),
+    version: z.string(),
+    issues: z.array(z.number().int()),
+    /** Null when the run was not visible within 20 seconds; the next snapshot reconciles it by request id. */
+    run: z.object({ id: z.number().int(), url: z.url() }).nullable(),
+  })
+  .openapi("ShipResponse");
+
+export type ShipInput = z.infer<typeof ShipBody>;
+export type ShipRetryInput = z.infer<typeof ShipRetryBody>;
+export type ShipResult = z.infer<typeof ShipResponse>;
+
+registry.registerPath({
+  method: "post",
+  path: `/pipeline/ship`,
+  tags: ["pipeline"],
+  summary: "Dispatch the ship workflow for everything that is production-ready",
+  description:
+    'Facilitators only; the same guards and action lock as deploy-staging. Recomputes the production-ready issues and the next version fresh from GitHub: CONFLICT "the release changed, reload" when either differs from the body, CONFLICT "retry the earlier ship first" when an issue carries an unfinished ship marker for another version, CONFLICT while a ship run is queued or running. Then a UUID request id is recorded in Redis (`pipeline:ship:<requestId>`, 10 minutes), `ship.yml` in the harness repository is dispatched on `develop` with `{ request_id, version, issues }`, and the runs list is polled for up to 20 seconds for the run named `ship <requestId> <version>`. A second press for the same version and issue set while that record exists and its run has not concluded answers the same request id without dispatching again.',
+  security: bearerAuth,
+  request: { body: { content: { "application/json": { schema: ShipBody } } } },
+  responses: {
+    200: jsonResponse("Dispatched", envelope(ShipResponse)),
+    ...errorResponses(
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "RATE_LIMITED",
+      "UPSTREAM_ERROR",
+      "UNAVAILABLE",
+    ),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: `/pipeline/ship/retry`,
+  tags: ["pipeline"],
+  summary: "Re-dispatch a failed or cancelled ship with its recorded version and issue set",
+  description:
+    "Facilitators only; the same guards and action lock. Reads the issue's newest ship marker: CONFLICT when there is none, when it is done, or when its run (or any ship run) is still queued or running. Dispatches `ship.yml` again with `request_id = <marker request id>-r<attempt>`, the marker's version and the marker's issue set, unchanged; the workflow's steps are idempotent, so the rerun resumes.",
+  security: bearerAuth,
+  request: { body: { content: { "application/json": { schema: ShipRetryBody } } } },
+  responses: {
+    200: jsonResponse("Dispatched", envelope(ShipResponse)),
+    ...errorResponses(
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "RATE_LIMITED",
+      "UPSTREAM_ERROR",
+      "UNAVAILABLE",
+    ),
+  },
+});

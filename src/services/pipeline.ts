@@ -12,6 +12,9 @@ import type {
   PipelinePullRequestShape,
   PipelineShipRunShape,
   PipelineSnapshotShape,
+  ShipInput,
+  ShipResult,
+  ShipRetryInput,
 } from "../schemas/pipeline.js";
 import { readinessOf, stageOf } from "./feature-requests.js";
 import type {
@@ -42,6 +45,8 @@ const RUNS_LISTED = 10;
 const ENVIRONMENT_TIMEOUT_MS = 5_000;
 const REFRESH_WAIT_MS = 500;
 const REFRESH_WAITS = 4;
+const SHIP_POLL_INTERVAL_MS = 2_000;
+const SHIP_POLL_TIMEOUT_MS = 20_000;
 
 export interface PipelineConfig {
   token: string;
@@ -266,6 +271,8 @@ export interface PipelineService {
     issueNumber: number,
     passphrase: string,
   ): Promise<DeployStagingResult>;
+  ship(user: PipelineActor, input: ShipInput): Promise<ShipResult>;
+  retryShip(user: PipelineActor, input: ShipRetryInput): Promise<ShipResult>;
 }
 
 export interface PipelineDeps {
@@ -275,6 +282,8 @@ export interface PipelineDeps {
   config: PipelineConfig;
   logger: Logger;
   now?: () => Date;
+  /** How often and how long to look for the dispatched run. Tests shorten both. */
+  shipPoll?: { intervalMs: number; timeoutMs: number };
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -294,6 +303,10 @@ function describeFailure(err: unknown): { status?: number; name: string; message
 export function createPipelineService(deps: PipelineDeps): PipelineService {
   const { github, config, logger } = deps;
   const now = deps.now ?? (() => new Date());
+  const shipPoll = deps.shipPoll ?? {
+    intervalMs: SHIP_POLL_INTERVAL_MS,
+    timeoutMs: SHIP_POLL_TIMEOUT_MS,
+  };
   const store: PipelineStore = createPipelineStore(deps.redis);
 
   /** Redis is the cache and every lock; without it the pipeline fails closed. */
@@ -564,7 +577,20 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
         pullRequests,
         onStaging,
         productionReady: issue.state === "open" && onStaging && !unfinishedOther,
-        ship: marker ? issueShipOf(marker, sortedRuns, newest, step) : null,
+        // Before the workflow writes its marker, the record this API kept names the issue.
+        ship: marker
+          ? issueShipOf(marker, sortedRuns, newest, step)
+          : ship.active && ship.run?.issues.includes(issue.number)
+            ? {
+                requestId: ship.run.requestId,
+                version: ship.run.version,
+                runUrl: ship.run.url,
+                done: false,
+                status: ship.run.status,
+                conclusion: ship.run.conclusion,
+                step: ship.run.step,
+              }
+            : null,
       };
     });
 
@@ -811,10 +837,145 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
     });
   }
 
+  // ---------------------------------------------------------------- ship
+
+  const sameSet = (a: number[], b: number[]) =>
+    a.length === b.length && a.every((n, i) => n === b[i]);
+  const sortedUnique = (issues: number[]) => [...new Set(issues)].sort((a, b) => a - b);
+
+  async function findRun(
+    requestId: string,
+    version: string,
+  ): Promise<{ id: number; url: string; status: string } | null> {
+    const runs = await listRuns();
+    const run = runs.find((r) => r.name === runNameOf(requestId, version));
+    return run ? { id: run.id, url: run.url, status: run.status } : null;
+  }
+
+  /** Polls the runs list for the run named after the request id; null when it is not visible in time. */
+  async function pollForRun(requestId: string, version: string): Promise<ShipResult["run"]> {
+    const deadline = Date.now() + shipPoll.timeoutMs;
+    for (;;) {
+      const run = await findRun(requestId, version).catch(() => null);
+      if (run) return { id: run.id, url: run.url };
+      if (Date.now() >= deadline) return null;
+      await sleep(shipPoll.intervalMs);
+    }
+  }
+
+  /** Record, dispatch, poll, invalidate. A dispatch that throws forgets the record. */
+  async function dispatchShip(
+    user: PipelineActor,
+    action: "ship" | "ship-retry",
+    requestId: string,
+    version: string,
+    issues: number[],
+  ): Promise<ShipResult> {
+    await withRedis(() => store.writeShip({ requestId, version, issues }));
+    try {
+      await github.dispatchWorkflow({
+        repo: PIPELINE_REPOS.harness,
+        workflow: SHIP_WORKFLOW,
+        ref: "develop",
+        inputs: { request_id: requestId, version, issues: issues.join(",") },
+      });
+    } catch (err) {
+      logger.error(describeFailure(err), "pipeline ship dispatch failed");
+      await store.clearShip(requestId).catch(() => undefined);
+      throw upstreamError("Could not dispatch the ship workflow");
+    }
+    const run = await pollForRun(requestId, version);
+    await withRedis(() => store.invalidate());
+    logger.info(
+      { userId: user.id, action, requestId, version, issues, runId: run?.id ?? null },
+      "pipeline ship dispatched",
+    );
+    return { requestId, version, issues, run };
+  }
+
+  async function ship(user: PipelineActor, input: ShipInput): Promise<ShipResult> {
+    await authorize(user, input.passphrase);
+    const requested = sortedUnique(input.issues);
+    return withActionLock(randomUUID(), async () => {
+      // A lost response: the same release was already dispatched and its run has not concluded,
+      // so answer with that request id and never dispatch twice.
+      const latest = await withRedis(() => store.readLatestShip());
+      if (latest && latest.version === input.version && sameSet(latest.issues, requested)) {
+        const run = await githubRead("the ship runs", () =>
+          findRun(latest.requestId, latest.version),
+        );
+        if (!run || runStatusOf(run.status) !== "completed") {
+          return {
+            requestId: latest.requestId,
+            version: latest.version,
+            issues: latest.issues,
+            run: run ? { id: run.id, url: run.url } : null,
+          };
+        }
+      }
+      // Fresh, never the cache: the ready set and the next version as of this press.
+      const shared = await githubRead("the pipeline", buildShared);
+      if (shared.ship.active) throw conflict("a ship is running, wait for it to finish");
+      for (const number of requested) {
+        const issue = shared.issues.find((i) => i.number === number);
+        if (issue?.ship && !issue.ship.done && issue.ship.version !== input.version) {
+          throw conflict(
+            `#${number} carries an unfinished ship for ${issue.ship.version}, retry the earlier ship first`,
+          );
+        }
+      }
+      if (shared.nextVersion === null) {
+        throw conflict(shared.nextVersionError ?? "nothing to release");
+      }
+      const ready = sortedUnique(
+        shared.issues.filter((i) => i.productionReady).map((i) => i.number),
+      );
+      if (shared.nextVersion !== input.version || !sameSet(ready, requested)) {
+        throw conflict("the release changed, reload");
+      }
+      return dispatchShip(user, "ship", randomUUID(), input.version, ready);
+    });
+  }
+
+  async function retryShip(user: PipelineActor, input: ShipRetryInput): Promise<ShipResult> {
+    await authorize(user, input.passphrase);
+    return withActionLock(randomUUID(), async () => {
+      const [comments, runs] = await githubRead("the ship record", () =>
+        Promise.all([
+          github.listIssueComments({ repo: PIPELINE_REPOS.harness, number: input.issue }),
+          listRuns(),
+        ]),
+      );
+      const marker = newestMarker(comments);
+      if (!marker) throw conflict(`no ship recorded on #${input.issue}`);
+      if (marker.done)
+        throw conflict(`the ship of ${marker.version} for #${input.issue} completed`);
+      const runId = marker.runUrl?.match(/\/actions\/runs\/(\d+)/)?.[1];
+      const own = runs.find(
+        (r) =>
+          r.name === runNameOf(marker.requestId, marker.version) ||
+          (runId !== undefined && String(r.id) === runId),
+      );
+      if (own && runStatusOf(own.status) !== "completed") {
+        throw conflict("the ship is still running");
+      }
+      if (runs.some((r) => runStatusOf(r.status) !== "completed")) {
+        throw conflict("a ship is running, wait for it to finish");
+      }
+      // The workflow records each attempt's request id in a new marker, so the suffix counts up.
+      const attempt = Number(marker.requestId.match(/-r(\d+)$/)?.[1] ?? 0) + 1;
+      const requestId = `${marker.requestId.replace(/-r\d+$/, "")}-r${attempt}`;
+      const issues = marker.issues.length > 0 ? marker.issues : [input.issue];
+      return dispatchShip(user, "ship-retry", requestId, marker.version, issues);
+    });
+  }
+
   return {
     canDeploy,
     authorize,
     deployStaging,
+    ship,
+    retryShip,
     async snapshot(callerEmail) {
       const cached = await withRedis(() => store.readSnapshot());
       const shared = cached ? (JSON.parse(cached) as SharedSnapshot) : await refreshOrWait();

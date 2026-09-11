@@ -54,6 +54,8 @@ export interface AppDeps {
   pipelineGithub?: PipelineGitHub;
   /** Test injection for the pipeline's environment reads. Production uses the global fetch. */
   fetchImpl?: typeof fetch;
+  /** Test override for how the ship endpoints wait for the dispatched run (2 s for 20 s). */
+  shipPoll?: { intervalMs: number; timeoutMs: number };
 }
 
 export const JSON_BODY_LIMIT = "64kb";
@@ -166,6 +168,7 @@ export function createApp(deps: AppDeps): Express {
       fetchImpl: deps.fetchImpl ?? globalThis.fetch,
       config: pipelineConfig,
       logger,
+      ...(deps.shipPoll === undefined ? {} : { shipPoll: deps.shipPoll }),
     });
     api.use("/pipeline", requireAuth(config), pipelineRouter(pipeline));
   }

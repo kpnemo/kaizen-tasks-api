@@ -11,6 +11,7 @@ import {
   PASSPHRASE,
   PIPELINE_ENV,
   WEB,
+  changelog,
   fakeFetch,
   green,
   issue,
@@ -45,6 +46,7 @@ beforeAll(async () => {
   configured = await createTestApp(PIPELINE_ENV, {
     pipelineGithub: gh,
     fetchImpl: fakeFetch(envAnswers),
+    shipPoll: { intervalMs: 5, timeoutMs: 40 },
   });
 });
 afterAll(async () => {
@@ -60,6 +62,7 @@ beforeEach(() => {
   gh.jobs = {};
   gh.failure = null;
   gh.mergeFailure = () => undefined;
+  gh.onListRuns = null;
   resetEnvironments();
 });
 
@@ -613,5 +616,314 @@ describe("POST /pipeline/issues/:number/deploy-staging", () => {
     expect(gh.merges).toEqual([]);
     // The lock belongs to the other action and is left in place.
     expect(await configured.redis.get("pipeline:action")).toBe("someone-else");
+  });
+});
+
+const SHIP = `${URL}/ship`;
+const RETRY = `${URL}/ship/retry`;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/** Makes the fake behave like GitHub: the run for the last dispatch appears on the next list. */
+function surfaceDispatchedRuns(status = "queued"): void {
+  gh.onListRuns = () => {
+    const dispatch = gh.dispatches.at(-1);
+    if (!dispatch) return;
+    const name = `ship ${dispatch.inputs.request_id} ${dispatch.inputs.version}`;
+    if (gh.runs.some((r) => r.name === name)) return;
+    const id = 1000 + gh.dispatches.length;
+    gh.runs.unshift({
+      id,
+      name,
+      status,
+      conclusion: null,
+      url: `https://github.com/${HARNESS}/actions/runs/${id}`,
+      createdAt: new Date().toISOString(),
+    });
+  };
+}
+
+describe("POST /pipeline/ship", () => {
+  it("validates the body", async () => {
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "v1", issues: [] });
+    expect(res.status).toBe(400);
+    const paths = res.body.error.details.map((d: { path: string }) => d.path);
+    expect(paths).toContain("body.version");
+    expect(paths).toContain("body.issues");
+  });
+
+  it("dispatches ship.yml with request_id, version and the issue set, and returns the run found by run name", async () => {
+    surfaceDispatchedRuns();
+    const user = await facilitator();
+    await request(configured.server).get(URL).set(auth(user.token));
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(res.status).toBe(200);
+    const { requestId, version, issues, run } = res.body.data;
+    expect(requestId).toMatch(UUID);
+    expect(version).toBe("1.4.0");
+    expect(issues).toEqual([22]);
+    expect(run).toEqual({ id: 1001, url: `https://github.com/${HARNESS}/actions/runs/1001` });
+    expect(gh.dispatches).toEqual([
+      {
+        repo: HARNESS,
+        workflow: "ship.yml",
+        ref: "develop",
+        inputs: { request_id: requestId, version: "1.4.0", issues: "22" },
+      },
+    ]);
+    expect(JSON.parse((await configured.redis.get(`pipeline:ship:${requestId}`)) ?? "{}")).toEqual({
+      requestId,
+      version: "1.4.0",
+      issues: [22],
+    });
+    expect(await configured.redis.get("pipeline:snapshot")).toBeNull();
+    expect(await configured.redis.get("pipeline:action")).toBeNull();
+
+    // The next snapshot shows the run on the issue before the workflow has written its marker.
+    const snap = await request(configured.server).get(URL).set(auth(user.token));
+    expect(snap.body.data.ship).toMatchObject({
+      active: true,
+      run: { id: 1001, requestId, version: "1.4.0", status: "queued", issues: [22] },
+    });
+    expect(snap.body.data.issues[0].ship).toEqual({
+      requestId,
+      version: "1.4.0",
+      runUrl: `https://github.com/${HARNESS}/actions/runs/1001`,
+      done: false,
+      status: "queued",
+      conclusion: null,
+      step: null,
+    });
+  });
+
+  it("refuses with CONFLICT when the body's version or issue set differs from the fresh computation", async () => {
+    const user = await facilitator();
+    const stale = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.3.1", issues: [22] });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.message).toBe("the release changed, reload");
+    const moreIssues = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22, 19] });
+    expect(moreIssues.status).toBe(409);
+    expect(moreIssues.body.error.message).toBe("the release changed, reload");
+    expect(gh.dispatches).toEqual([]);
+  });
+
+  it("refuses with CONFLICT when there is nothing to release", async () => {
+    gh.files[`${API}:develop:CHANGELOG.md`] = changelog({});
+    gh.files[`${WEB}:develop:CHANGELOG.md`] = changelog({});
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("nothing to release");
+  });
+
+  it("refuses with CONFLICT when an issue carries an unfinished marker for another version", async () => {
+    gh.comments[22] = [marker({ version: "1.3.1", requestId: "old-request", issues: [22] })];
+    gh.runs = [
+      {
+        id: 901,
+        name: "ship old-request 1.3.1",
+        status: "completed",
+        conclusion: "failure",
+        url: `https://github.com/${HARNESS}/actions/runs/901`,
+        createdAt: "2026-09-11T07:00:00Z",
+      },
+    ];
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe(
+      "#22 carries an unfinished ship for 1.3.1, retry the earlier ship first",
+    );
+    expect(gh.dispatches).toEqual([]);
+  });
+
+  it("does not dispatch twice for the same requestId when the first response was lost", async () => {
+    surfaceDispatchedRuns("in_progress");
+    const user = await facilitator();
+    const body = { passphrase: PASSPHRASE, version: "1.4.0", issues: [22] };
+    const first = await request(configured.server).post(SHIP).set(auth(user.token)).send(body);
+    expect(first.status).toBe(200);
+    const second = await request(configured.server).post(SHIP).set(auth(user.token)).send(body);
+    expect(second.status).toBe(200);
+    expect(second.body.data).toEqual(first.body.data);
+    expect(gh.dispatches).toHaveLength(1);
+  });
+
+  it("returns run null when the run is not visible within the poll window, and the next snapshot reconciles it", async () => {
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.run).toBeNull();
+    const { requestId } = res.body.data;
+    expect(gh.dispatches).toHaveLength(1);
+    expect(gh.countOf("listRuns")).toBeGreaterThan(2);
+
+    // GitHub catches up: the run appears, named after the request id.
+    gh.runs = [
+      {
+        id: 1200,
+        name: `ship ${requestId} 1.4.0`,
+        status: "in_progress",
+        conclusion: null,
+        url: `https://github.com/${HARNESS}/actions/runs/1200`,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    const snap = await request(configured.server).get(URL).set(auth(user.token));
+    expect(snap.body.data.ship).toMatchObject({
+      active: true,
+      run: { id: 1200, requestId, version: "1.4.0", status: "in_progress", issues: [22] },
+    });
+    expect(snap.body.data.issues[0].ship).toMatchObject({ requestId, status: "in_progress" });
+  });
+
+  it("refuses with CONFLICT while a ship run is active, and FORBIDDEN for a non-facilitator", async () => {
+    gh.runs = [
+      {
+        id: 950,
+        name: "ship abc 1.4.0",
+        status: "in_progress",
+        conclusion: null,
+        url: `https://github.com/${HARNESS}/actions/runs/950`,
+        createdAt: "2026-09-11T08:00:00Z",
+      },
+    ];
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(SHIP)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("a ship is running, wait for it to finish");
+    const other = await viewer();
+    const denied = await request(configured.server)
+      .post(SHIP)
+      .set(auth(other.token))
+      .send({ passphrase: PASSPHRASE, version: "1.4.0", issues: [22] });
+    expect(denied.status).toBe(403);
+    expect(gh.dispatches).toEqual([]);
+  });
+});
+
+describe("POST /pipeline/ship/retry", () => {
+  function failedShip(requestId: string, runId: number): void {
+    gh.comments[22] = [
+      ...(gh.comments[22] ?? []),
+      marker({
+        version: "1.3.1",
+        requestId,
+        issues: [22, 19],
+        runUrl: `https://github.com/${HARNESS}/actions/runs/${runId}`,
+      }),
+    ];
+    gh.runs.unshift({
+      id: runId,
+      name: `ship ${requestId} 1.3.1`,
+      status: "completed",
+      conclusion: "failure",
+      url: `https://github.com/${HARNESS}/actions/runs/${runId}`,
+      createdAt: `2026-09-11T07:0${gh.runs.length}:00Z`,
+    });
+  }
+
+  it("re-dispatches with the marker's version and issue set for a failed or cancelled run", async () => {
+    failedShip("old-request", 901);
+    surfaceDispatchedRuns();
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(RETRY)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, issue: 22 });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      requestId: "old-request-r1",
+      version: "1.3.1",
+      issues: [22, 19],
+      run: { id: 1001, url: `https://github.com/${HARNESS}/actions/runs/1001` },
+    });
+    expect(gh.dispatches).toEqual([
+      {
+        repo: HARNESS,
+        workflow: "ship.yml",
+        ref: "develop",
+        inputs: { request_id: "old-request-r1", version: "1.3.1", issues: "22,19" },
+      },
+    ]);
+    expect(await configured.redis.get("pipeline:snapshot")).toBeNull();
+
+    // The retry failed too and the workflow wrote its marker: the next retry is -r2.
+    gh.runs = gh.runs.filter((r) => r.id !== 1001);
+    failedShip("old-request-r1", 902);
+    const again = await request(configured.server)
+      .post(RETRY)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, issue: 22 });
+    expect(again.status).toBe(200);
+    expect(again.body.data.requestId).toBe("old-request-r2");
+    expect(gh.dispatches.at(-1)!.inputs.request_id).toBe("old-request-r2");
+  });
+
+  it("refuses while the marker's run is still queued or running", async () => {
+    gh.comments[22] = [marker({ version: "1.3.1", requestId: "old-request", issues: [22] })];
+    gh.runs = [
+      {
+        id: 901,
+        name: "ship old-request 1.3.1",
+        status: "in_progress",
+        conclusion: null,
+        url: `https://github.com/${HARNESS}/actions/runs/901`,
+        createdAt: "2026-09-11T07:00:00Z",
+      },
+    ];
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(RETRY)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, issue: 22 });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("the ship is still running");
+    expect(gh.dispatches).toEqual([]);
+  });
+
+  it("refuses when the issue has no ship recorded or the recorded ship completed", async () => {
+    const user = await facilitator();
+    const none = await request(configured.server)
+      .post(RETRY)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, issue: 22 });
+    expect(none.status).toBe(409);
+    expect(none.body.error.message).toBe("no ship recorded on #22");
+
+    gh.comments[22] = [
+      marker({ version: "1.3.1", requestId: "old-request", issues: [22] }),
+      marker({ version: "1.3.1", requestId: "old-request", issues: [22], done: true }),
+    ];
+    const finished = await request(configured.server)
+      .post(RETRY)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE, issue: 22 });
+    expect(finished.status).toBe(409);
+    expect(finished.body.error.message).toBe("the ship of 1.3.1 for #22 completed");
   });
 });

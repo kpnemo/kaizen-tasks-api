@@ -46,6 +46,8 @@ export interface PipelineStore {
   readShip(
     requestId: string,
   ): Promise<{ requestId: string; version: string; issues: number[] } | null>;
+  /** Forgets a record whose dispatch did not happen, so the next press dispatches. */
+  clearShip(requestId: string): Promise<void>;
 }
 
 export function createPipelineStore(redis: Redis): PipelineStore {
@@ -132,6 +134,10 @@ export function createPipelineStore(redis: Redis): PipelineStore {
     },
     async readShip(requestId) {
       return parseShip(await redis.get(PIPELINE_KEYS.ship(requestId)));
+    },
+    async clearShip(requestId) {
+      await redis.del(PIPELINE_KEYS.ship(requestId));
+      await redis.eval(RELEASE_IF_OWNED, 1, PIPELINE_KEYS.latestShip, requestId);
     },
   };
 }

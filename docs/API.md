@@ -321,6 +321,63 @@ Auth: bearer access token
 | 502 | UPSTREAM_ERROR | ErrorEnvelope |
 | 503 | UNAVAILABLE | ErrorEnvelope |
 
+## POST /pipeline/ship
+
+Dispatch the ship workflow for everything that is production-ready
+
+Facilitators only; the same guards and action lock as deploy-staging. Recomputes the production-ready issues and the next version fresh from GitHub: CONFLICT "the release changed, reload" when either differs from the body, CONFLICT "retry the earlier ship first" when an issue carries an unfinished ship marker for another version, CONFLICT while a ship run is queued or running. Then a UUID request id is recorded in Redis (`pipeline:ship:<requestId>`, 10 minutes), `ship.yml` in the harness repository is dispatched on `develop` with `{ request_id, version, issues }`, and the runs list is polled for up to 20 seconds for the run named `ship <requestId> <version>`. A second press for the same version and issue set while that record exists and its run has not concluded answers the same request id without dispatching again.
+
+Auth: bearer access token
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+| version | string | yes |
+| issues | integer[] | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | Dispatched | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
+## POST /pipeline/ship/retry
+
+Re-dispatch a failed or cancelled ship with its recorded version and issue set
+
+Facilitators only; the same guards and action lock. Reads the issue's newest ship marker: CONFLICT when there is none, when it is done, or when its run (or any ship run) is still queued or running. Dispatches `ship.yml` again with `request_id = <marker request id>-r<attempt>`, the marker's version and the marker's issue set, unchanged; the workflow's steps are idempotent, so the rerun resumes.
+
+Auth: bearer access token
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+| issue | integer | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | Dispatched | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
 ## GET /tags
 
 List the user's tags

@@ -90,6 +90,8 @@ response shapes is `docs/API.md`; the contract itself is `openapi.json`.
 | `POST /feature-requests/conversation/{id}/messages` | bearer | One turn, streamed as `text/event-stream`                                     |
 | `GET /pipeline`                                     | bearer | One snapshot of the delivery pipeline: environments, issues, PRs, ship state  |
 | `POST /pipeline/issues/{number}/deploy-staging`     | bearer | Facilitators: merge the issue's green pull requests into develop (passphrase) |
+| `POST /pipeline/ship`                               | bearer | Facilitators: dispatch the ship workflow for the production-ready issues      |
+| `POST /pipeline/ship/retry`                         | bearer | Facilitators: re-dispatch a failed ship with its recorded version and issues  |
 | `POST /admin/seed-reset`                            | token  | Recreate the demo fixtures (mounted only when `ADMIN_TOKEN` is set)           |
 
 The four `feature-requests` routes are mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set,
