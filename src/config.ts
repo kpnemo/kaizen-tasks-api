@@ -32,6 +32,14 @@ export const configSchema = z
       .regex(/^[\w.-]+\/[\w.-]+$/, "must look like owner/name")
       .optional(),
     RAILWAY_GIT_COMMIT_SHA: z.string().min(1).default("local"),
+    /** The pipeline control room (docs/superpowers/specs/2026-09-11-pipeline-control-room-design.md).
+     *  All five must be present for the feature to mount; GITHUB_TOKEN is never a fallback. */
+    PIPELINE_GITHUB_TOKEN: z.string().min(1).optional(),
+    /** Comma-separated; compared case-insensitively against the session's email. */
+    FACILITATOR_EMAILS: z.string().min(1).optional(),
+    DEPLOY_PASSPHRASE: z.string().min(12).optional(),
+    STAGING_WEB_URL: z.url().optional(),
+    PRODUCTION_WEB_URL: z.url().optional(),
   })
   .refine((c) => c.AI_MODEL_PROVIDER === "fake" || Boolean(c.ANTHROPIC_API_KEY), {
     path: ["ANTHROPIC_API_KEY"],

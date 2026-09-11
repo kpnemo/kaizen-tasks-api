@@ -22,35 +22,39 @@ Reviewed: 2026-09-10 against ../docs/PRD.md sections 5.1-5.4, 6.1-6.4, 7 and doc
 
 Paths are relative to the `/api/v1` server prefix that the contract declares.
 
-| Tag              | Method | Path                                           | Summary                                                    |
-| ---------------- | ------ | ---------------------------------------------- | ---------------------------------------------------------- |
-| admin            | POST   | `/admin/seed-reset`                            | Delete and recreate the demo user's fixtures               |
-| auth             | POST   | `/auth/login`                                  | Log in with email and password                             |
-| auth             | POST   | `/auth/logout`                                 | Revoke the refresh token and clear the cookie              |
-| auth             | GET    | `/auth/me`                                     | Current user                                               |
-| auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                      |
-| auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token     |
-| auth             | POST   | `/auth/register`                               | Register a new user                                        |
-| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                  |
-| feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                   |
-| feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation               |
-| feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                         |
-| feature-requests | POST   | `/feature-requests/conversation/{id}/messages` | Send one answer and stream the assistant's reply           |
-| system           | GET    | `/health`                                      | Health check with the running commit SHA                   |
-| system           | GET    | `/openapi.json`                                | This OpenAPI document                                      |
-| tags             | GET    | `/tags`                                        | List the user's tags                                       |
-| tags             | POST   | `/tags`                                        | Create a tag                                               |
-| tags             | DELETE | `/tags/{id}`                                   | Delete a tag and its links                                 |
-| tags             | PATCH  | `/tags/{id}`                                   | Rename or recolor a tag                                    |
-| tasks            | GET    | `/tasks`                                       | List tasks                                                 |
-| tasks            | POST   | `/tasks`                                       | Create a task or a step                                    |
-| tasks            | DELETE | `/tasks/{id}`                                  | Delete a task and its children                             |
-| tasks            | GET    | `/tasks/{id}`                                  | Get a task with its children, tags, progress and AI fields |
-| tasks            | PATCH  | `/tasks/{id}`                                  | Update a task                                              |
-| tasks            | POST   | `/tasks/{id}/breakdown`                        | Request an AI breakdown                                    |
-| tasks            | POST   | `/tasks/{id}/suggestions/accept-all`           | Accept every suggested step                                |
-| tasks            | POST   | `/tasks/{id}/suggestions/dismiss-all`          | Dismiss every suggested step                               |
-| tasks            | PUT    | `/tasks/{id}/tags`                             | Replace the task's tag set                                 |
+| Tag              | Method | Path                                           | Summary                                                                        |
+| ---------------- | ------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| admin            | POST   | `/admin/seed-reset`                            | Delete and recreate the demo user's fixtures                                   |
+| auth             | POST   | `/auth/login`                                  | Log in with email and password                                                 |
+| auth             | POST   | `/auth/logout`                                 | Revoke the refresh token and clear the cookie                                  |
+| auth             | GET    | `/auth/me`                                     | Current user                                                                   |
+| auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                                          |
+| auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token                         |
+| auth             | POST   | `/auth/register`                               | Register a new user                                                            |
+| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                                      |
+| feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                                       |
+| feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation                                   |
+| feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                                             |
+| feature-requests | POST   | `/feature-requests/conversation/{id}/messages` | Send one answer and stream the assistant's reply                               |
+| pipeline         | GET    | `/pipeline`                                    | One snapshot of the delivery pipeline                                          |
+| pipeline         | POST   | `/pipeline/issues/{number}/deploy-staging`     | Merge an issue's green pull requests into develop                              |
+| pipeline         | POST   | `/pipeline/ship`                               | Dispatch the ship workflow for everything that is production-ready             |
+| pipeline         | POST   | `/pipeline/ship/retry`                         | Re-dispatch a failed or cancelled ship with its recorded version and issue set |
+| system           | GET    | `/health`                                      | Health check with the running commit SHA                                       |
+| system           | GET    | `/openapi.json`                                | This OpenAPI document                                                          |
+| tags             | GET    | `/tags`                                        | List the user's tags                                                           |
+| tags             | POST   | `/tags`                                        | Create a tag                                                                   |
+| tags             | DELETE | `/tags/{id}`                                   | Delete a tag and its links                                                     |
+| tags             | PATCH  | `/tags/{id}`                                   | Rename or recolor a tag                                                        |
+| tasks            | GET    | `/tasks`                                       | List tasks                                                                     |
+| tasks            | POST   | `/tasks`                                       | Create a task or a step                                                        |
+| tasks            | DELETE | `/tasks/{id}`                                  | Delete a task and its children                                                 |
+| tasks            | GET    | `/tasks/{id}`                                  | Get a task with its children, tags, progress and AI fields                     |
+| tasks            | PATCH  | `/tasks/{id}`                                  | Update a task                                                                  |
+| tasks            | POST   | `/tasks/{id}/breakdown`                        | Request an AI breakdown                                                        |
+| tasks            | POST   | `/tasks/{id}/suggestions/accept-all`           | Accept every suggested step                                                    |
+| tasks            | POST   | `/tasks/{id}/suggestions/dismiss-all`          | Dismiss every suggested step                                                   |
+| tasks            | PUT    | `/tasks/{id}/tags`                             | Replace the task's tag set                                                     |
 
 ## Tables (`src/db/schema.ts`)
 
@@ -77,6 +81,11 @@ _Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
 
+### 1.5.0 - 2026-09-11
+
+- `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-…
+- A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the pars…
+
 ### 1.4.0 - 2026-09-11
 
 - `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at mo…
@@ -85,7 +94,3 @@ _Nothing unreleased._
 
 - `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation se…
 - Docs gate Rule D: every run of `scripts/docs-check.sh`, in both `--hook` and `--ci` mode, regenerates the product map i…
-
-### 1.2.0 - 2026-09-10
-
-- A theme preference on the account. `users.theme` is a new `theme_preference` column (`light`, `dark`, `system`, default…

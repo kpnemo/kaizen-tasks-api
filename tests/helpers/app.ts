@@ -26,9 +26,8 @@ export interface TestContext {
   close(): Promise<void>;
 }
 
-type ExtraDeps = Partial<
-  Omit<AppDeps, "config" | "db" | "redis" | "queue" | "model" | "interviewModel">
->;
+/** `redis` may be overridden too, e.g. with a client that fails every command. */
+type ExtraDeps = Partial<Omit<AppDeps, "config" | "db" | "queue" | "model" | "interviewModel">>;
 
 /** A full app over the real test database and Redis, with a fake queue and a fake model. */
 export async function createTestApp(
@@ -37,7 +36,7 @@ export async function createTestApp(
 ): Promise<TestContext> {
   const config: Config = { ...loadConfig(process.env), ...overrides };
   const { db, sql } = createDb(config.DATABASE_URL, { max: 2 });
-  const redis = createRedis(config.REDIS_URL);
+  const redis = extra.redis ?? createRedis(config.REDIS_URL);
   const queue = new FakeQueue();
   const model = new FakeBreakdownModel();
   const interviewModel = new FakeInterviewModel();

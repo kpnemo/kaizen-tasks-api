@@ -27,12 +27,24 @@ export const RateLimitDetailsSchema = z
   })
   .openapi("RateLimitDetails");
 
+export const ForbiddenDetailsSchema = z
+  .object({
+    reason: z
+      .enum(["passphrase"])
+      .describe(
+        "Why a FORBIDDEN was answered when a reason is safe to show: a wrong deploy passphrase",
+      ),
+  })
+  .openapi("ForbiddenDetails");
+
 export const ErrorEnvelopeSchema = z
   .object({
     error: z.object({
       code: z.enum(ERROR_CODES),
       message: z.string(),
-      details: z.union([z.array(ValidationDetailSchema), RateLimitDetailsSchema]).optional(),
+      details: z
+        .union([z.array(ValidationDetailSchema), RateLimitDetailsSchema, ForbiddenDetailsSchema])
+        .optional(),
       requestId: z.string(),
     }),
   })
