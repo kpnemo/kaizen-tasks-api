@@ -1,6 +1,6 @@
 {
   "name": "kaizen-tasks-api",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "Kaizen Tasks API: tasks broken into small steps by an AI assistant, with the human in control",
   "type": "module",

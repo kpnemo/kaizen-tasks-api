@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-11
+
 ### Added
 
 - `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation section explains the docs gate's four rules, when to regenerate the map, and how narrow Rule D's promise is.
