@@ -29,6 +29,7 @@ const EXPECTED_ENDPOINTS: Array<[string, string]> = [
   ["post", "/feature-requests/conversation"],
   ["post", "/feature-requests/conversation/{id}/messages"],
   ["get", "/pipeline"],
+  ["post", "/pipeline/issues/{number}/deploy-staging"],
   ["post", "/admin/seed-reset"],
   ["get", "/health"],
   ["get", "/openapi.json"],

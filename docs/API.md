@@ -288,6 +288,39 @@ Auth: bearer access token
 | 502 | UPSTREAM_ERROR | ErrorEnvelope |
 | 503 | UNAVAILABLE | ErrorEnvelope |
 
+## POST /pipeline/issues/{number}/deploy-staging
+
+Merge an issue's green pull requests into develop
+
+Facilitators only. Guards in order: the session email is on FACILITATOR_EMAILS (else FORBIDDEN), the caller is not locked out (five wrong passphrases in ten minutes: RATE_LIMITED with `details.resetAt`, checked before the comparison), the passphrase matches in constant time (else FORBIDDEN with `details.reason: "passphrase"`); Redis down is UNAVAILABLE. Then the action lock (CONFLICT while another action or a ship run is in progress), a fresh read of the issue's open pull requests across the api, web and harness repositories, and CONFLICT naming the first that is not green (open, not draft, base develop, no conflicts, `ci` completed successfully on the current head). Merges in order api, web, harness, squash, passing the inspected head SHA. A failure mid-list stops the list and answers 200 with `remaining` filled, so the next press finishes it; a moved head on the first merge is CONFLICT. Labels are the staging-label workflow's job.
+
+Auth: bearer access token
+
+**Parameters**
+
+| Name | In | Type | Required | Description |
+|---|---|---|---|---|
+| number | path | integer | yes | Harness issue number |
+
+**Request body** (`application/json`)
+
+| Field | Type | Required |
+|---|---|---|
+| passphrase | string | yes |
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | What merged and what did not | object |
+| 400 | VALIDATION_ERROR | ErrorEnvelope |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 403 | FORBIDDEN | ErrorEnvelope |
+| 409 | CONFLICT | ErrorEnvelope |
+| 429 | RATE_LIMITED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
 ## GET /tags
 
 List the user's tags

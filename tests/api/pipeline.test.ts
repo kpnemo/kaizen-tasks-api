@@ -1,3 +1,4 @@
+import type { Redis } from "ioredis";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestApp, type TestContext } from "../helpers/app.js";
@@ -7,6 +8,7 @@ import {
   FACILITATOR_EMAIL,
   FakePipelineGitHub,
   HARNESS,
+  PASSPHRASE,
   PIPELINE_ENV,
   WEB,
   fakeFetch,
@@ -52,7 +54,12 @@ afterAll(async () => {
 beforeEach(() => {
   seedWorld(gh, new Date());
   gh.calls = [];
+  gh.merges = [];
+  gh.dispatches = [];
+  gh.posted = [];
+  gh.jobs = {};
   gh.failure = null;
+  gh.mergeFailure = () => undefined;
   resetEnvironments();
 });
 
@@ -358,5 +365,253 @@ describe("GET /pipeline", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.nextVersion).toBeNull();
     expect(res.body.data.nextVersionError).toBe("versions differ, fix by hand");
+  });
+});
+
+/** A Redis whose every command fails; `quit` resolves so the test app can close. */
+function brokenRedis(): Redis {
+  return new Proxy({} as Record<string, unknown>, {
+    get(_target, prop) {
+      if (prop === "then") return undefined;
+      if (prop === "quit") return () => Promise.resolve("OK");
+      return () => Promise.reject(new Error("redis down"));
+    },
+  }) as unknown as Redis;
+}
+
+/** Issue 24 at implementing with one open, green pull request in each repository. */
+function seedDeployable(): void {
+  gh.issues.push(
+    issue({ number: 24, title: "Bulk accept", labels: ["feature-request", "implementing"] }),
+  );
+  gh.pulls[API]!.push(pull(API, { number: 40, headRef: "feat/24-bulk-accept" }));
+  gh.pulls[WEB]!.push(pull(WEB, { number: 41, headRef: "feat/24-bulk-accept" }));
+  gh.pulls[HARNESS]!.push(pull(HARNESS, { number: 50, headRef: "feat/24-bulk-accept" }));
+  gh.checks[`${API}@head-kaizen-tasks-api-40`] = [green()];
+  gh.checks[`${WEB}@head-kaizen-tasks-web-41`] = [green()];
+  gh.checks[`${HARNESS}@head-kaizen-tasks-assembly-line-50`] = [green()];
+}
+
+const DEPLOY = (n: number) => `${URL}/issues/${n}/deploy-staging`;
+
+describe("POST /pipeline/issues/:number/deploy-staging", () => {
+  beforeEach(seedDeployable);
+
+  it("validates the body and the issue number", async () => {
+    const user = await facilitator();
+    const noBody = await request(configured.server).post(DEPLOY(24)).set(auth(user.token)).send({});
+    expect(noBody.status).toBe(400);
+    expect(noBody.body.error.details.map((d: { path: string }) => d.path)).toContain(
+      "body.passphrase",
+    );
+    const badNumber = await request(configured.server)
+      .post(`${URL}/issues/abc/deploy-staging`)
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(badNumber.status).toBe(400);
+  });
+
+  it("is FORBIDDEN for a non-facilitator, before any GitHub call", async () => {
+    const user = await viewer();
+    const res = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(res.body.error.details).toBeUndefined();
+    expect(gh.calls).toEqual([]);
+  });
+
+  it("is FORBIDDEN with details.reason passphrase on a wrong passphrase, and RATE_LIMITED after five", async () => {
+    const user = await facilitator();
+    for (let i = 0; i < 5; i++) {
+      const res = await request(configured.server)
+        .post(DEPLOY(24))
+        .set(auth(user.token))
+        .send({ passphrase: "wrong-passphrase-" + i });
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatchObject({
+        code: "FORBIDDEN",
+        details: { reason: "passphrase" },
+      });
+    }
+    // The lockout is read before the comparison: the right passphrase is still refused.
+    const locked = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(locked.status).toBe(429);
+    expect(locked.body.error.code).toBe("RATE_LIMITED");
+    expect(Date.parse(locked.body.error.details.resetAt)).toBeGreaterThan(Date.now());
+    expect(gh.calls).toEqual([]);
+    // Per user: another facilitator is not locked out.
+    const other = await registerUser(configured.server, { email: "second@example.com" });
+    const ok = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(other.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(ok.status).toBe(200);
+  });
+
+  it("is UNAVAILABLE when Redis is down", async () => {
+    const user = await facilitator();
+    const broken = await createTestApp(PIPELINE_ENV, {
+      pipelineGithub: gh,
+      fetchImpl: fakeFetch(envAnswers),
+      redis: brokenRedis(),
+    });
+    try {
+      const res = await request(broken.server)
+        .post(DEPLOY(24))
+        .set(auth(user.token))
+        .send({ passphrase: PASSPHRASE });
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe("UNAVAILABLE");
+      expect(gh.calls).toEqual([]);
+      const snapshot = await request(broken.server).get(URL).set(auth(user.token));
+      expect(snapshot.status).toBe(503);
+    } finally {
+      await broken.close();
+    }
+  });
+
+  it("merges every green PR api → web → harness with the inspected head sha, and invalidates the snapshot", async () => {
+    const user = await facilitator();
+    const issue24 = (res: request.Response) =>
+      res.body.data.issues.find((i: { number: number }) => i.number === 24);
+    const before = await request(configured.server).get(URL).set(auth(user.token));
+    expect(issue24(before).pullRequests.map((p: { state: string }) => p.state)).toEqual([
+      "open",
+      "open",
+      "open",
+    ]);
+    expect(await configured.redis.get("pipeline:snapshot")).not.toBeNull();
+
+    const res = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      merged: [
+        { repo: "api", number: 40, sha: "merged-kaizen-tasks-api-40" },
+        { repo: "web", number: 41, sha: "merged-kaizen-tasks-web-41" },
+        { repo: "harness", number: 50, sha: "merged-kaizen-tasks-assembly-line-50" },
+      ],
+      remaining: [],
+    });
+    expect(gh.merges).toEqual([
+      { repo: API, number: 40, sha: "head-kaizen-tasks-api-40", method: "squash" },
+      { repo: WEB, number: 41, sha: "head-kaizen-tasks-web-41", method: "squash" },
+      { repo: HARNESS, number: 50, sha: "head-kaizen-tasks-assembly-line-50", method: "squash" },
+    ]);
+    expect(await configured.redis.get("pipeline:snapshot")).toBeNull();
+    expect(await configured.redis.get("pipeline:action")).toBeNull();
+
+    const after = await request(configured.server).get(URL).set(auth(user.token));
+    expect(issue24(after).pullRequests.map((p: { state: string }) => p.state)).toEqual([
+      "merged",
+      "merged",
+      "merged",
+    ]);
+  });
+
+  it("refuses with CONFLICT naming the first PR that is not green", async () => {
+    gh.checks[`${WEB}@head-kaizen-tasks-web-41`] = [running()];
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("CONFLICT");
+    expect(res.body.error.message).toBe("web #41 checks are running");
+    expect(gh.merges).toEqual([]);
+  });
+
+  it("refuses with CONFLICT when the issue has no open pull request", async () => {
+    const user = await facilitator();
+    const res = await request(configured.server)
+      .post(DEPLOY(22))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe("#22 has no open pull requests");
+  });
+
+  it("reports partial completion when the second merge fails", async () => {
+    gh.mergeFailure = (p) =>
+      p.repo === WEB
+        ? Object.assign(new Error("Head branch was modified"), { status: 409 })
+        : undefined;
+    try {
+      const user = await facilitator();
+      const res = await request(configured.server)
+        .post(DEPLOY(24))
+        .set(auth(user.token))
+        .send({ passphrase: PASSPHRASE });
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({
+        merged: [{ repo: "api", number: 40, sha: "merged-kaizen-tasks-api-40" }],
+        remaining: [
+          { repo: "web", number: 41, reason: "moved since you looked" },
+          { repo: "harness", number: 50, reason: "not attempted" },
+        ],
+      });
+      expect(await configured.redis.get("pipeline:snapshot")).toBeNull();
+    } finally {
+      gh.mergeFailure = () => undefined;
+    }
+  });
+
+  it("answers CONFLICT when the first merge finds a moved head, with nothing merged", async () => {
+    gh.mergeFailure = (p) =>
+      p.repo === API
+        ? Object.assign(new Error("Head branch was modified"), { status: 409 })
+        : undefined;
+    try {
+      const user = await facilitator();
+      const res = await request(configured.server)
+        .post(DEPLOY(24))
+        .set(auth(user.token))
+        .send({ passphrase: PASSPHRASE });
+      expect(res.status).toBe(409);
+      expect(res.body.error.message).toBe("api #40 moved since you looked, reload");
+    } finally {
+      gh.mergeFailure = () => undefined;
+    }
+  });
+
+  it("refuses with CONFLICT while a ship run is active or another action holds the lock", async () => {
+    const user = await facilitator();
+    gh.runs = [
+      {
+        id: 950,
+        name: "ship abc 1.4.0",
+        status: "queued",
+        conclusion: null,
+        url: `https://github.com/${HARNESS}/actions/runs/950`,
+        createdAt: "2026-09-11T08:00:00Z",
+      },
+    ];
+    const shipping = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(shipping.status).toBe(409);
+    expect(shipping.body.error.message).toBe("a ship is running, wait for it to finish");
+
+    gh.runs = [];
+    await configured.redis.set("pipeline:action", "someone-else", "EX", 60);
+    const locked = await request(configured.server)
+      .post(DEPLOY(24))
+      .set(auth(user.token))
+      .send({ passphrase: PASSPHRASE });
+    expect(locked.status).toBe(409);
+    expect(locked.body.error.message).toBe("another deploy is in progress");
+    expect(gh.merges).toEqual([]);
+    // The lock belongs to the other action and is left in place.
+    expect(await configured.redis.get("pipeline:action")).toBe("someone-else");
   });
 });

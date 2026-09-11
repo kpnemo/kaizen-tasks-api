@@ -160,6 +160,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/RateLimitDetails"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ForbiddenDetails"
                   }
                 ]
               },
@@ -215,6 +218,21 @@
           "scope",
           "limit",
           "resetAt"
+        ]
+      },
+      "ForbiddenDetails": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "passphrase"
+            ],
+            "description": "Why a FORBIDDEN was answered when a reason is safe to show: a wrong deploy passphrase"
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "AuthResponse": {
@@ -1619,6 +1637,82 @@
           "status",
           "conclusion",
           "step"
+        ]
+      },
+      "DeployStagingResponse": {
+        "type": "object",
+        "properties": {
+          "merged": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "type": "string",
+                  "enum": [
+                    "api",
+                    "web",
+                    "harness"
+                  ]
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "sha": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "repo",
+                "number",
+                "sha"
+              ]
+            }
+          },
+          "remaining": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "type": "string",
+                  "enum": [
+                    "api",
+                    "web",
+                    "harness"
+                  ]
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "repo",
+                "number",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "merged",
+          "remaining"
+        ]
+      },
+      "DeployBody": {
+        "type": "object",
+        "properties": {
+          "passphrase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "passphrase"
         ]
       },
       "SeedResetResponse": {
@@ -3432,6 +3526,136 @@
           },
           "401": {
             "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "UPSTREAM_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pipeline/issues/{number}/deploy-staging": {
+      "post": {
+        "tags": [
+          "pipeline"
+        ],
+        "summary": "Merge an issue's green pull requests into develop",
+        "description": "Facilitators only. Guards in order: the session email is on FACILITATOR_EMAILS (else FORBIDDEN), the caller is not locked out (five wrong passphrases in ten minutes: RATE_LIMITED with `details.resetAt`, checked before the comparison), the passphrase matches in constant time (else FORBIDDEN with `details.reason: \"passphrase\"`); Redis down is UNAVAILABLE. Then the action lock (CONFLICT while another action or a ship run is in progress), a fresh read of the issue's open pull requests across the api, web and harness repositories, and CONFLICT naming the first that is not green (open, not draft, base develop, no conflicts, `ci` completed successfully on the current head). Merges in order api, web, harness, squash, passing the inspected head SHA. A failure mid-list stops the list and answers 200 with `remaining` filled, so the next press finishes it; a moved head on the first merge is CONFLICT. Labels are the staging-label workflow's job.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Harness issue number"
+            },
+            "required": true,
+            "description": "Harness issue number",
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What merged and what did not",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DeployStagingResponse"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED",
             "content": {
               "application/json": {
                 "schema": {

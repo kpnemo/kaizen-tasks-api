@@ -120,3 +120,50 @@ registry.registerPath({
     ...errorResponses("UNAUTHORIZED", "UPSTREAM_ERROR", "UNAVAILABLE"),
   },
 });
+
+export const IssueNumberParams = z.object({
+  number: z.coerce
+    .number()
+    .int()
+    .positive()
+    .openapi({ param: { name: "number", in: "path" }, description: "Harness issue number" }),
+});
+
+export const DeployBody = z
+  .object({ passphrase: z.string().min(1).max(200) })
+  .openapi("DeployBody");
+
+export const DeployStagingResponse = z
+  .object({
+    merged: z.array(z.object({ repo: RepoKey, number: z.number().int(), sha: z.string() })),
+    remaining: z.array(z.object({ repo: RepoKey, number: z.number().int(), reason: z.string() })),
+  })
+  .openapi("DeployStagingResponse");
+
+export type DeployStagingResult = z.infer<typeof DeployStagingResponse>;
+
+registry.registerPath({
+  method: "post",
+  path: `/pipeline/issues/{number}/deploy-staging`,
+  tags: ["pipeline"],
+  summary: "Merge an issue's green pull requests into develop",
+  description:
+    "Facilitators only. Guards in order: the session email is on FACILITATOR_EMAILS (else FORBIDDEN), the caller is not locked out (five wrong passphrases in ten minutes: RATE_LIMITED with `details.resetAt`, checked before the comparison), the passphrase matches in constant time (else FORBIDDEN with `details.reason: \"passphrase\"`); Redis down is UNAVAILABLE. Then the action lock (CONFLICT while another action or a ship run is in progress), a fresh read of the issue's open pull requests across the api, web and harness repositories, and CONFLICT naming the first that is not green (open, not draft, base develop, no conflicts, `ci` completed successfully on the current head). Merges in order api, web, harness, squash, passing the inspected head SHA. A failure mid-list stops the list and answers 200 with `remaining` filled, so the next press finishes it; a moved head on the first merge is CONFLICT. Labels are the staging-label workflow's job.",
+  security: bearerAuth,
+  request: {
+    params: IssueNumberParams,
+    body: { content: { "application/json": { schema: DeployBody } } },
+  },
+  responses: {
+    200: jsonResponse("What merged and what did not", envelope(DeployStagingResponse)),
+    ...errorResponses(
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "RATE_LIMITED",
+      "UPSTREAM_ERROR",
+      "UNAVAILABLE",
+    ),
+  },
+});

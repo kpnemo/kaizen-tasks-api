@@ -1,9 +1,11 @@
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { Redis } from "ioredis";
 import { z } from "zod";
-import { upstreamError, unavailable } from "../lib/errors.js";
+import { conflict, forbidden, rateLimited, upstreamError, unavailable } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
-import { createPipelineStore, type PipelineStore } from "../lib/pipeline-locks.js";
+import { LOCKOUT_LIMIT, createPipelineStore, type PipelineStore } from "../lib/pipeline-locks.js";
 import type {
+  DeployStagingResult,
   PipelineEnvironmentShape,
   PipelineIssueShape,
   PipelineIssueShipShape,
@@ -249,9 +251,21 @@ const VersionAnswer = z.object({ version: z.string(), commit: z.string() });
 
 // ---------------------------------------------------------------- the service
 
+export interface PipelineActor {
+  id: string;
+  email: string;
+}
+
 export interface PipelineService {
   snapshot(callerEmail: string): Promise<PipelineSnapshot>;
   canDeploy(email: string): boolean;
+  /** Allowlist, lockout (read before the comparison), constant-time passphrase; fails closed. */
+  authorize(user: PipelineActor, passphrase: string): Promise<void>;
+  deployStaging(
+    user: PipelineActor,
+    issueNumber: number,
+    passphrase: string,
+  ): Promise<DeployStagingResult>;
 }
 
 export interface PipelineDeps {
@@ -661,14 +675,158 @@ export function createPipelineService(deps: PipelineDeps): PipelineService {
 
   const canDeploy = (email: string) => config.facilitatorEmails.has(email.trim().toLowerCase());
 
+  const expectedPassphrase = Buffer.from(config.passphrase, "utf8");
+  function passphraseMatches(given: string): boolean {
+    const bytes = Buffer.from(given, "utf8");
+    return bytes.length === expectedPassphrase.length && timingSafeEqual(bytes, expectedPassphrase);
+  }
+
+  async function authorize(user: PipelineActor, passphrase: string): Promise<void> {
+    if (!canDeploy(user.email)) throw forbidden("Not a facilitator");
+    const lockout = await withRedis(() => store.lockout(user.id));
+    if (lockout.count >= LOCKOUT_LIMIT) {
+      throw rateLimited({
+        scope: "user",
+        limit: LOCKOUT_LIMIT,
+        resetAt: new Date(now().getTime() + Math.max(lockout.ttlSeconds, 0) * 1000).toISOString(),
+      });
+    }
+    if (!passphraseMatches(passphrase)) {
+      const failure = await withRedis(() => store.recordFailure(user.id));
+      logger.warn({ userId: user.id, failures: failure.count }, "pipeline passphrase rejected");
+      throw forbidden("Wrong passphrase", { reason: "passphrase" });
+    }
+  }
+
+  /** One facilitator action at a time; the lock is released whatever the outcome. */
+  async function withActionLock<T>(requestId: string, fn: () => Promise<T>): Promise<T> {
+    if (!(await withRedis(() => store.tryActionLock(requestId)))) {
+      throw conflict("another deploy is in progress");
+    }
+    try {
+      return await fn();
+    } finally {
+      await store.releaseActionLock(requestId).catch(() => undefined);
+    }
+  }
+
+  /** A GitHub read that fails is UPSTREAM_ERROR; the log carries status and name, never the body. */
+  async function githubRead<T>(what: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      logger.error(describeFailure(err), `pipeline github read failed: ${what}`);
+      throw upstreamError(`Could not read ${what} from GitHub`);
+    }
+  }
+
+  async function refuseWhileShipping(): Promise<void> {
+    const runs = await githubRead("the ship runs", listRuns);
+    if (runs.some((run) => runStatusOf(run.status) !== "completed")) {
+      throw conflict("a ship is running, wait for it to finish");
+    }
+  }
+
+  async function deployStaging(
+    user: PipelineActor,
+    issueNumber: number,
+    passphrase: string,
+  ): Promise<DeployStagingResult> {
+    await authorize(user, passphrase);
+    const requestId = randomUUID();
+    return withActionLock(requestId, async () => {
+      await refuseWhileShipping();
+      // Fresh from GitHub, never the cache: the open pull requests, then each one's current head,
+      // mergeable state and check runs, all inspected before anything merges.
+      const candidates = await githubRead("the pull requests", async () => {
+        const lists = await Promise.all(REPO_ORDER.map((repo) => listPulls(repo)));
+        return REPO_ORDER.flatMap((repo, i) =>
+          matchPullsToIssue(lists[i]!, issueNumber)
+            .filter((pull) => pull.state === "open" && !pull.merged)
+            .map((pull) => ({ repo, number: pull.number })),
+        );
+      });
+      if (candidates.length === 0) throw conflict(`#${issueNumber} has no open pull requests`);
+      const inspected = await githubRead("the pull requests", () =>
+        Promise.all(
+          candidates.map(async ({ repo, number }) => {
+            const pull = await github.getPull({ repo: PIPELINE_REPOS[repo], number });
+            const runs = await github.checkRuns({ repo: PIPELINE_REPOS[repo], ref: pull.headSha });
+            return { repo, pull, verdict: isGreen(pull, runs, "develop") };
+          }),
+        ),
+      );
+      const notGreen = inspected.find((entry) => !entry.verdict.green);
+      if (notGreen && !notGreen.verdict.green) {
+        throw conflict(`${notGreen.repo} #${notGreen.pull.number} ${notGreen.verdict.reason}`);
+      }
+
+      const merged: DeployStagingResult["merged"] = [];
+      const remaining: DeployStagingResult["remaining"] = [];
+      let firstFailure: { repo: RepoKey; number: number; status?: number } | null = null;
+      for (const { repo, pull } of inspected) {
+        if (remaining.length > 0) {
+          remaining.push({ repo, number: pull.number, reason: "not attempted" });
+          continue;
+        }
+        try {
+          const result = await github.mergePull({
+            repo: PIPELINE_REPOS[repo],
+            number: pull.number,
+            sha: pull.headSha,
+            method: "squash",
+          });
+          merged.push({ repo, number: pull.number, sha: result.sha });
+        } catch (err) {
+          const failure = describeFailure(err);
+          logger.error({ ...failure, repo, number: pull.number }, "pipeline merge failed");
+          firstFailure = { repo, number: pull.number, status: failure.status };
+          remaining.push({ repo, number: pull.number, reason: mergeFailureReason(failure.status) });
+        }
+      }
+      await withRedis(() => store.invalidate());
+      logger.info(
+        {
+          userId: user.id,
+          issue: issueNumber,
+          action: "deploy-staging",
+          requestId,
+          merged: merged.map((m) => `${m.repo}#${m.number}`),
+          remaining: remaining.map((r) => `${r.repo}#${r.number}`),
+        },
+        "pipeline deploy to staging",
+      );
+      // Nothing merged and the first merge refused: a clean refusal, not a partial success.
+      if (merged.length === 0 && firstFailure) {
+        const { repo, number, status } = firstFailure as {
+          repo: RepoKey;
+          number: number;
+          status?: number;
+        };
+        if (status === 409) throw conflict(`${repo} #${number} moved since you looked, reload`);
+        if (status === 405) throw conflict(`${repo} #${number} is not mergeable, reload`);
+        throw upstreamError(`Could not merge ${repo} #${number}`);
+      }
+      return { merged, remaining };
+    });
+  }
+
   return {
     canDeploy,
+    authorize,
+    deployStaging,
     async snapshot(callerEmail) {
       const cached = await withRedis(() => store.readSnapshot());
       const shared = cached ? (JSON.parse(cached) as SharedSnapshot) : await refreshOrWait();
       return { ...shared, canDeploy: canDeploy(callerEmail) };
     },
   };
+}
+
+function mergeFailureReason(status: number | undefined): string {
+  if (status === 409) return "moved since you looked";
+  if (status === 405) return "not mergeable";
+  return status === undefined ? "merge failed" : `merge failed (${status})`;
 }
 
 function readVersion(packageJson: string): string {
