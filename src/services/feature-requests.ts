@@ -38,16 +38,20 @@ export interface GitHubIssues {
   }): Promise<GitHubIssueListItem[]>;
 }
 
+/** Every GitHub call gets its own deadline. `request.timeout` is ignored by the installed fetch
+ *  transport (review, 2026-09-11), so the bound is an AbortSignal per call. */
+const GITHUB_DEADLINE_MS = 10_000;
+const deadline = () => ({ request: { signal: AbortSignal.timeout(GITHUB_DEADLINE_MS) } });
+
 export function createOctokitIssues(token: string): GitHubIssues {
-  // request.timeout (ms, Node only) keeps a hanging GitHub call from stalling a request.
-  const octokit = new Octokit({ auth: token, request: { timeout: 10_000 } });
+  const octokit = new Octokit({ auth: token });
   return {
     async create(params) {
-      const { data } = await octokit.rest.issues.create(params);
+      const { data } = await octokit.rest.issues.create({ ...params, ...deadline() });
       return { number: data.number, html_url: data.html_url };
     },
     async list(params) {
-      const { data } = await octokit.rest.issues.listForRepo(params);
+      const { data } = await octokit.rest.issues.listForRepo({ ...params, ...deadline() });
       // The issues API returns pull requests too; they carry `pull_request`.
       return data
         .filter((issue) => !issue.pull_request)
@@ -170,8 +174,13 @@ export function createFeatureRequestsService(deps: {
       typeof err === "object" && err !== null && "status" in err
         ? (err as { status?: number }).status
         : undefined;
-    const message = err instanceof Error ? err.message : String(err);
-    deps.logger.error({ status, repo: deps.repo, message }, logMessage);
+    // An HTTP failure is logged by status and error name only: Octokit folds the response body
+    // into `.message`, so the message itself could carry upstream text. A transport failure (no
+    // status: timeout, DNS, reset) has no body, and its message is what explains it.
+    const name = err instanceof Error ? err.name : typeof err;
+    const message =
+      status === undefined ? (err instanceof Error ? err.message : String(err)) : undefined;
+    deps.logger.error({ status, name, repo: deps.repo, message }, logMessage);
     return upstreamError(userMessage);
   }
 
