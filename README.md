@@ -60,34 +60,35 @@ The API service has no public domain of its own; the web service proxies `/api/*
 Every path below is relative to the base `/api/v1`. The generated reference with request and
 response shapes is `docs/API.md`; the contract itself is `openapi.json`.
 
-| Route                                               | Auth   | What it does                                                        |
-| --------------------------------------------------- | ------ | ------------------------------------------------------------------- |
-| `GET /health`                                       | none   | Status, commit, version, database and Redis checks, feature flags   |
-| `GET /openapi.json`                                 | none   | The committed contract                                              |
-| `POST /auth/register`                               | none   | Create an account, return an access token and a refresh cookie      |
-| `POST /auth/login`                                  | none   | Sign in                                                             |
-| `POST /auth/refresh`                                | cookie | Rotate the refresh token                                            |
-| `POST /auth/logout`                                 | cookie | Revoke the refresh token                                            |
-| `GET /auth/me`                                      | bearer | The signed-in user                                                  |
-| `PATCH /auth/me`                                    | bearer | Save the signed-in user's theme preference                          |
-| `GET /tasks`                                        | bearer | Keyset page of tasks                                                |
-| `POST /tasks`                                       | bearer | Create a task and enqueue its breakdown                             |
-| `GET /tasks/{id}`                                   | bearer | One task with its children                                          |
-| `PATCH /tasks/{id}`                                 | bearer | Edit, reorder, or move a suggestion through its states              |
-| `DELETE /tasks/{id}`                                | bearer | Delete a task and its children                                      |
-| `POST /tasks/{id}/breakdown`                        | bearer | Ask the assistant for steps                                         |
-| `POST /tasks/{id}/suggestions/accept-all`           | bearer | Accept every suggested child                                        |
-| `POST /tasks/{id}/suggestions/dismiss-all`          | bearer | Dismiss every suggested child                                       |
-| `PUT /tasks/{id}/tags`                              | bearer | Replace a task's tag set                                            |
-| `GET /tags`                                         | bearer | The user's tags                                                     |
-| `POST /tags`                                        | bearer | Create a tag                                                        |
-| `PATCH /tags/{id}`                                  | bearer | Rename or recolor a tag                                             |
-| `DELETE /tags/{id}`                                 | bearer | Delete a tag                                                        |
-| `POST /feature-requests`                            | bearer | File a GitHub issue, optionally attaching an interview              |
-| `GET /feature-requests/conversation`                | bearer | The caller's open interview, or `NOT_FOUND`                         |
-| `POST /feature-requests/conversation`               | bearer | Start a new interview, abandoning any live one                      |
-| `POST /feature-requests/conversation/{id}/messages` | bearer | One turn, streamed as `text/event-stream`                           |
-| `POST /admin/seed-reset`                            | token  | Recreate the demo fixtures (mounted only when `ADMIN_TOKEN` is set) |
+| Route                                               | Auth   | What it does                                                                |
+| --------------------------------------------------- | ------ | --------------------------------------------------------------------------- |
+| `GET /health`                                       | none   | Status, commit, version, database and Redis checks, feature flags           |
+| `GET /openapi.json`                                 | none   | The committed contract                                                      |
+| `POST /auth/register`                               | none   | Create an account, return an access token and a refresh cookie              |
+| `POST /auth/login`                                  | none   | Sign in                                                                     |
+| `POST /auth/refresh`                                | cookie | Rotate the refresh token                                                    |
+| `POST /auth/logout`                                 | cookie | Revoke the refresh token                                                    |
+| `GET /auth/me`                                      | bearer | The signed-in user                                                          |
+| `PATCH /auth/me`                                    | bearer | Save the signed-in user's theme preference                                  |
+| `GET /tasks`                                        | bearer | Keyset page of tasks                                                        |
+| `POST /tasks`                                       | bearer | Create a task and enqueue its breakdown                                     |
+| `GET /tasks/{id}`                                   | bearer | One task with its children                                                  |
+| `PATCH /tasks/{id}`                                 | bearer | Edit, reorder, or move a suggestion through its states                      |
+| `DELETE /tasks/{id}`                                | bearer | Delete a task and its children                                              |
+| `POST /tasks/{id}/breakdown`                        | bearer | Ask the assistant for steps                                                 |
+| `POST /tasks/{id}/suggestions/accept-all`           | bearer | Accept every suggested child                                                |
+| `POST /tasks/{id}/suggestions/dismiss-all`          | bearer | Dismiss every suggested child                                               |
+| `PUT /tasks/{id}/tags`                              | bearer | Replace a task's tag set                                                    |
+| `GET /tags`                                         | bearer | The user's tags                                                             |
+| `POST /tags`                                        | bearer | Create a tag                                                                |
+| `PATCH /tags/{id}`                                  | bearer | Rename or recolor a tag                                                     |
+| `DELETE /tags/{id}`                                 | bearer | Delete a tag                                                                |
+| `POST /feature-requests`                            | bearer | File a GitHub issue, optionally attaching an interview                      |
+| `GET /feature-requests`                             | bearer | The requests filed so far, open first then closed, with stage and readiness |
+| `GET /feature-requests/conversation`                | bearer | The caller's open interview, or `NOT_FOUND`                                 |
+| `POST /feature-requests/conversation`               | bearer | Start a new interview, abandoning any live one                              |
+| `POST /feature-requests/conversation/{id}/messages` | bearer | One turn, streamed as `text/event-stream`                                   |
+| `POST /admin/seed-reset`                            | token  | Recreate the demo fixtures (mounted only when `ADMIN_TOKEN` is set)         |
 
 The four `feature-requests` routes are mounted only when `GITHUB_TOKEN` and `GITHUB_REPO` are set,
 which is exactly when `GET /health` reports `features.featureRequests: true`.

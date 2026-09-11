@@ -31,6 +31,7 @@ Paths are relative to the `/api/v1` server prefix that the contract declares.
 | auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                      |
 | auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token     |
 | auth             | POST   | `/auth/register`                               | Register a new user                                        |
+| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                  |
 | feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                   |
 | feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation               |
 | feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                         |
@@ -76,6 +77,10 @@ _Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
 
+### 1.4.0 - 2026-09-11
+
+- `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at mo…
+
 ### 1.3.0 - 2026-09-11
 
 - `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation se…
@@ -84,8 +89,3 @@ _Nothing unreleased._
 ### 1.2.0 - 2026-09-10
 
 - A theme preference on the account. `users.theme` is a new `theme_preference` column (`light`, `dark`, `system`, default…
-
-### 1.1.1 - 2026-09-10
-
-- The interview system prompt states in one sentence that the reply text comes first, as plain text, and that a turn whic…
-- A turn the model answers with the `report_turn` call and no prose is no longer thrown away. Against the real provider t…

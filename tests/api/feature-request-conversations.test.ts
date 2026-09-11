@@ -25,6 +25,9 @@ const requestBody = {
 };
 
 class FakeIssues implements GitHubIssues {
+  async list(): ReturnType<GitHubIssues["list"]> {
+    return [];
+  }
   calls: Parameters<GitHubIssues["create"]>[0][] = [];
   async create(params: Parameters<GitHubIssues["create"]>[0]) {
     this.calls.push(params);
