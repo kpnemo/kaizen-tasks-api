@@ -31,6 +31,7 @@ Paths are relative to the `/api/v1` server prefix that the contract declares.
 | auth             | PATCH  | `/auth/me`                                     | Update the current user's preferences                      |
 | auth             | POST   | `/auth/refresh`                                | Rotate the refresh cookie and issue a new access token     |
 | auth             | POST   | `/auth/register`                               | Register a new user                                        |
+| feature-requests | GET    | `/feature-requests`                            | List the feature requests filed to GitHub                  |
 | feature-requests | POST   | `/feature-requests`                            | File a feature request as a GitHub issue                   |
 | feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation               |
 | feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                         |
@@ -72,7 +73,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-_Nothing unreleased._
+- `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at most 50 per group), each with a `stage` derived from the lifecycle labels (shipped, staging, implementing, triaged, else closed or new) and a `readiness` computed from the triage labels. The GitHub port gains `list`; a GitHub failure is `UPSTREAM_ERROR` as for filing. (#22)
 
 ## Recent releases (history, not current behavior)
 

@@ -20,6 +20,34 @@ export const FeatureRequestResponse = z
 
 export type FeatureRequestInput = z.infer<typeof FeatureRequestBody>;
 
+export const FeatureRequestSummary = z
+  .object({
+    number: z.number().int(),
+    title: z.string(),
+    state: z.enum(["open", "closed"]),
+    stage: z.enum(["new", "triaged", "implementing", "staging", "shipped", "closed"]),
+    readiness: z.number().int().nullable(),
+    labels: z.array(z.string()),
+    url: z.url(),
+    createdAt: z.string(),
+    closedAt: z.string().nullable(),
+  })
+  .openapi("FeatureRequestSummary");
+
+registry.registerPath({
+  method: "get",
+  path: `/feature-requests`,
+  tags: ["feature-requests"],
+  summary: "List the feature requests filed to GitHub",
+  description:
+    "Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. Issues labelled `feature-request`, open first then closed, newest first within each group, at most 50 per group. `stage` is the first lifecycle label in the order shipped, staging, implementing, triaged, else `closed` or `new`; `readiness` is the rubric score from the clarity, complexity and risk labels, null when any is missing.",
+  security: bearerAuth,
+  responses: {
+    200: jsonResponse("Feature requests", envelope(z.array(FeatureRequestSummary))),
+    ...errorResponses("UNAUTHORIZED", "UPSTREAM_ERROR"),
+  },
+});
+
 registry.registerPath({
   method: "post",
   path: `/feature-requests`,

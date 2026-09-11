@@ -136,6 +136,22 @@ Auth: none
 | 400 | VALIDATION_ERROR | ErrorEnvelope |
 | 409 | CONFLICT | ErrorEnvelope |
 
+## GET /feature-requests
+
+List the feature requests filed to GitHub
+
+Mounted only when GITHUB_TOKEN and GITHUB_REPO are configured. Issues labelled `feature-request`, open first then closed, newest first within each group, at most 50 per group. `stage` is the first lifecycle label in the order shipped, staging, implementing, triaged, else `closed` or `new`; `readiness` is the rubric score from the clarity, complexity and risk labels, null when any is missing.
+
+Auth: bearer access token
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | Feature requests | object |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+
 ## POST /feature-requests
 
 File a feature request as a GitHub issue

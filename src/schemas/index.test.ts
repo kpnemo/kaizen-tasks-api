@@ -23,6 +23,7 @@ const EXPECTED_ENDPOINTS: Array<[string, string]> = [
   ["post", "/tags"],
   ["patch", "/tags/{id}"],
   ["delete", "/tags/{id}"],
+  ["get", "/feature-requests"],
   ["post", "/feature-requests"],
   ["get", "/feature-requests/conversation"],
   ["post", "/feature-requests/conversation"],

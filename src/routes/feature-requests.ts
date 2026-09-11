@@ -57,6 +57,10 @@ export function featureRequestsRouter(
     }
   });
 
+  router.get("/", async (_req, res) => {
+    sendData(res, await service.list());
+  });
+
   router.post("/", validate(submitSchemas), async (req, res) => {
     const { body } = validated<typeof submitSchemas>(res);
     sendData(res, await service.submit(currentUser(req).id, body), { status: 201 });
