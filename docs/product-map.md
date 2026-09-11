@@ -36,6 +36,7 @@ Paths are relative to the `/api/v1` server prefix that the contract declares.
 | feature-requests | GET    | `/feature-requests/conversation`               | Get the caller's open interview conversation               |
 | feature-requests | POST   | `/feature-requests/conversation`               | Start a new interview conversation                         |
 | feature-requests | POST   | `/feature-requests/conversation/{id}/messages` | Send one answer and stream the assistant's reply           |
+| pipeline         | GET    | `/pipeline`                                    | One snapshot of the delivery pipeline                      |
 | system           | GET    | `/health`                                      | Health check with the running commit SHA                   |
 | system           | GET    | `/openapi.json`                                | This OpenAPI document                                      |
 | tags             | GET    | `/tags`                                        | List the user's tags                                       |
@@ -74,6 +75,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 ## Unreleased changes (`CHANGELOG.md`)
 
 - Pipeline control room, API half (`docs/superpowers/specs/2026-09-11-pipeline-control-room-design.md`): five new settings (`PIPELINE_GITHUB_TOKEN`, `FACILITATOR_EMAILS`, `DEPLOY_PASSPHRASE`, `STAGING_WEB_URL`, `PRODUCTION_WEB_URL`), a second GitHub port built from `PIPELINE_GITHUB_TOKEN` alone (never `GITHUB_TOKEN`) with a 10-second deadline on every call, and `features.pipeline` in `GET /health`, true exactly when all five are set and the allowlist is non-empty, which is also when the `/pipeline` routes are mounted.
+- `GET /pipeline`: one snapshot for the control room. Environments (staging and production read server-side from `/api/v1/health` and `/version.json` with a 5-second timeout; an unreachable half is reported, never fatal), branch heads, the open `feature-request` and `bug` issues plus those shipped in the last 14 days, each with its pull requests across the api, web and harness repositories (matched locally by `feat/<n>-`, `fix/<n>-` or a `docs/` head naming the issue; pulls are listed once per repo), `checks` per open head (`green` only when every required check completed successfully), `onStaging` by comparing each app-repo merge commit with the commit staging serves, `productionReady`, the newest ship marker joined with the ship workflow's runs, the next release version from both `package.json`s and `[Unreleased]` sections (`nextVersionError` names the conflict), and `ship` with the active run and its current step. The shared part is cached in Redis for 10 seconds and rebuilt by one request at a time; a GitHub failure serves the last-good copy (up to an hour) with `stale: true` and `staleReason`, or `UPSTREAM_ERROR` when there is none; `canDeploy` is computed per caller from `FACILITATOR_EMAILS`, outside the cache. Redis down is `UNAVAILABLE`.
 
 ## Recent releases (history, not current behavior)
 

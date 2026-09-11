@@ -25,6 +25,9 @@
       "name": "feature-requests"
     },
     {
+      "name": "pipeline"
+    },
+    {
       "name": "admin"
     },
     {
@@ -1151,6 +1154,471 @@
         },
         "required": [
           "content"
+        ]
+      },
+      "PipelineSnapshot": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "staleReason": {
+            "type": "string"
+          },
+          "canDeploy": {
+            "type": "boolean"
+          },
+          "nextVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextVersionError": {
+            "type": "string"
+          },
+          "ship": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "run": {
+                "$ref": "#/components/schemas/PipelineShipRun"
+              }
+            },
+            "required": [
+              "active",
+              "run"
+            ]
+          },
+          "environments": {
+            "type": "object",
+            "properties": {
+              "staging": {
+                "$ref": "#/components/schemas/PipelineEnvironment"
+              },
+              "production": {
+                "$ref": "#/components/schemas/PipelineEnvironment"
+              }
+            },
+            "required": [
+              "staging",
+              "production"
+            ]
+          },
+          "branches": {
+            "type": "object",
+            "properties": {
+              "api": {
+                "type": "object",
+                "properties": {
+                  "develop": {
+                    "type": "string"
+                  },
+                  "main": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "develop",
+                  "main"
+                ]
+              },
+              "web": {
+                "type": "object",
+                "properties": {
+                  "develop": {
+                    "type": "string"
+                  },
+                  "main": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "develop",
+                  "main"
+                ]
+              }
+            },
+            "required": [
+              "api",
+              "web"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineIssue"
+            }
+          }
+        },
+        "required": [
+          "generatedAt",
+          "stale",
+          "canDeploy",
+          "nextVersion",
+          "ship",
+          "environments",
+          "branches",
+          "issues"
+        ]
+      },
+      "PipelineShipRun": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "success",
+              "failure",
+              "cancelled",
+              "timed_out",
+              null
+            ]
+          },
+          "step": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "requestId",
+          "version",
+          "status",
+          "conclusion",
+          "step",
+          "issues",
+          "createdAt"
+        ]
+      },
+      "PipelineEnvironment": {
+        "type": "object",
+        "properties": {
+          "api": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "db": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed"
+                ]
+              },
+              "redis": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "commit",
+              "db",
+              "redis"
+            ]
+          },
+          "web": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "commit"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "current",
+              "deploying",
+              "unreachable"
+            ]
+          }
+        },
+        "required": [
+          "api",
+          "web",
+          "state"
+        ]
+      },
+      "PipelineIssue": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "feature-request",
+              "bug"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "triaged",
+              "implementing",
+              "staging",
+              "shipped",
+              "closed"
+            ]
+          },
+          "readiness": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelinePullRequest"
+            }
+          },
+          "onStaging": {
+            "type": "boolean"
+          },
+          "productionReady": {
+            "type": "boolean"
+          },
+          "ship": {
+            "$ref": "#/components/schemas/PipelineIssueShip"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "kind",
+          "state",
+          "stage",
+          "readiness",
+          "url",
+          "labels",
+          "createdAt",
+          "closedAt",
+          "pullRequests",
+          "onStaging",
+          "productionReady",
+          "ship"
+        ]
+      },
+      "PipelinePullRequest": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "enum": [
+              "api",
+              "web",
+              "harness"
+            ]
+          },
+          "number": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed"
+            ]
+          },
+          "checks": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "pending",
+              "green",
+              "red",
+              null
+            ]
+          },
+          "mergeSha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headSha": {
+            "type": "string"
+          },
+          "draft": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "number",
+          "url",
+          "state",
+          "checks",
+          "mergeSha",
+          "headSha",
+          "draft"
+        ]
+      },
+      "PipelineIssueShip": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "runUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed",
+              "unknown"
+            ]
+          },
+          "conclusion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "success",
+              "failure",
+              "cancelled",
+              "timed_out",
+              null
+            ]
+          },
+          "step": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "version",
+          "runUrl",
+          "done",
+          "status",
+          "conclusion",
+          "step"
         ]
       },
       "SeedResetResponse": {
@@ -2906,6 +3374,74 @@
           },
           "429": {
             "description": "RATE_LIMITED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pipeline": {
+      "get": {
+        "tags": [
+          "pipeline"
+        ],
+        "summary": "One snapshot of the delivery pipeline",
+        "description": "Mounted only when PIPELINE_GITHUB_TOKEN, FACILITATOR_EMAILS, DEPLOY_PASSPHRASE, STAGING_WEB_URL and PRODUCTION_WEB_URL are all set (`features.pipeline` in /health). Environments, branch heads, the open feature-request and bug issues plus those shipped in the last 14 days with their pull requests across the api, web and harness repositories, `onStaging` by comparing merge commits with what staging serves, the next release version from both changelogs, and the ship workflow's state. The shared part is cached for 10 seconds and rebuilt by one request at a time; when GitHub cannot be read the last-good snapshot (up to an hour old) is served with `stale: true`. `canDeploy` is computed per caller.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PipelineSnapshot"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "UPSTREAM_ERROR",
             "content": {
               "application/json": {
                 "schema": {

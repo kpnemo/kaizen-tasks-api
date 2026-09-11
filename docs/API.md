@@ -271,6 +271,23 @@ Auth: none
 |---|---|---|
 | 200 | The committed openapi.json | object |
 
+## GET /pipeline
+
+One snapshot of the delivery pipeline
+
+Mounted only when PIPELINE_GITHUB_TOKEN, FACILITATOR_EMAILS, DEPLOY_PASSPHRASE, STAGING_WEB_URL and PRODUCTION_WEB_URL are all set (`features.pipeline` in /health). Environments, branch heads, the open feature-request and bug issues plus those shipped in the last 14 days with their pull requests across the api, web and harness repositories, `onStaging` by comparing merge commits with what staging serves, the next release version from both changelogs, and the ship workflow's state. The shared part is cached for 10 seconds and rebuilt by one request at a time; when GitHub cannot be read the last-good snapshot (up to an hour old) is served with `stale: true`. `canDeploy` is computed per caller.
+
+Auth: bearer access token
+
+**Responses**
+
+| Status | Description | Body |
+|---|---|---|
+| 200 | The snapshot | object |
+| 401 | UNAUTHORIZED | ErrorEnvelope |
+| 502 | UPSTREAM_ERROR | ErrorEnvelope |
+| 503 | UNAVAILABLE | ErrorEnvelope |
+
 ## GET /tags
 
 List the user's tags
