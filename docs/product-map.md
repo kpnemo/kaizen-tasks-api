@@ -72,11 +72,14 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-- `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation section explains the docs gate's four rules, when to regenerate the map, and how narrow Rule D's promise is.
-- Docs gate Rule D: every run of `scripts/docs-check.sh`, in both `--hook` and `--ci` mode, regenerates the product map into a temporary file and compares it with the committed one. It runs before and independently of the "no code or architectural changes" early return and has no trigger list, so a missing map, a generator failure or any drift fails the check. Each says what to do: drift points at `npm run product-map`, a crash carries the generator's own last stderr line, and a missing map asks for the file to be restored first, because the generator rebuilds only the half below the marker and cannot invent the header. What it guarantees is narrow and worth stating: the generated half matches this checkout, while the hand-written header stays prose a person reviewed.
-- `docs/product-map.md` and `npm run product-map` (`scripts/product-map.mjs`): a product map for agents that interview a product owner about a request. A hand-written header above the `<!-- product-map:generated -->` marker says who uses the app, the core loop, the AI features and the conventions that shape requests; everything below it is generated from `openapi.json` (endpoint table), `src/db/schema.ts` (tables with their TypeScript column keys, read with the TypeScript compiler API: `pgTable` is resolved through the file's own imports of `drizzle-orm/pg-core`, so a named, aliased or namespace import is followed, and any other call that looks like a table definition fails with a file and line instead of being dropped), `CHANGELOG.md` (`[Unreleased]` in full, the last three releases trimmed) and `docs/adr/` (number and title). Table cells escape `|` so a summary containing one cannot truncate its row, and a release bullet cut at 120 characters drops a half-open code span rather than closing one, so the map never shows a path the changelog did not write. The output is sorted, timestamp-free and Prettier-formatted, so regenerating an unchanged tree is byte-identical; `--sources` prints the files it reads and `--out FILE` writes elsewhere.
+_Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
+
+### 1.3.0 - 2026-09-11
+
+- `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation se…
+- Docs gate Rule D: every run of `scripts/docs-check.sh`, in both `--hook` and `--ci` mode, regenerates the product map i…
 
 ### 1.2.0 - 2026-09-10
 
@@ -86,8 +89,3 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 - The interview system prompt states in one sentence that the reply text comes first, as plain text, and that a turn whic…
 - A turn the model answers with the `report_turn` call and no prose is no longer thrown away. Against the real provider t…
-
-### 1.1.0 - 2026-09-10
-
-- Contract for the feature-request interview: `GET`/`POST /api/v1/feature-requests/conversation` and…
-- `feature_request_conversations` table (additive migration `0001`) holding one assistant-led interview per user: status…
