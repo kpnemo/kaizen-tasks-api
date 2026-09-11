@@ -93,10 +93,14 @@
             "properties": {
               "featureRequests": {
                 "type": "boolean"
+              },
+              "pipeline": {
+                "type": "boolean"
               }
             },
             "required": [
-              "featureRequests"
+              "featureRequests",
+              "pipeline"
             ]
           }
         },

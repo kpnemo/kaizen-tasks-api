@@ -144,17 +144,23 @@ describe("HealthSchema", () => {
     version: "1.0.0",
     env: "test",
     checks: { db: "ok", redis: "ok" },
-    features: { featureRequests: true },
+    features: { featureRequests: true, pipeline: false },
   };
 
   it("accepts a valid health payload", () => {
     expect(HealthSchema.safeParse(validHealth).success).toBe(true);
   });
 
-  it("requires features.featureRequests as a boolean", () => {
+  it("requires features.featureRequests and features.pipeline as booleans", () => {
     expect(HealthSchema.safeParse({ ...validHealth, features: {} }).success).toBe(false);
     expect(
-      HealthSchema.safeParse({ ...validHealth, features: { featureRequests: "yes" } }).success,
+      HealthSchema.safeParse({ ...validHealth, features: { featureRequests: true } }).success,
+    ).toBe(false);
+    expect(
+      HealthSchema.safeParse({
+        ...validHealth,
+        features: { featureRequests: "yes", pipeline: false },
+      }).success,
     ).toBe(false);
   });
 });

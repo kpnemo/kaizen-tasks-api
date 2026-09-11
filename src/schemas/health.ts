@@ -13,8 +13,9 @@ export const HealthSchema = z
       .describe("package.json version of the running build; the web app prints it in its footer"),
     env: z.enum(["development", "test", "staging", "production"]),
     checks: z.object({ db: CheckState, redis: CheckState }),
-    // Master plan section 4: true exactly when POST /feature-requests is mounted.
-    features: z.object({ featureRequests: z.boolean() }),
+    // Master plan section 4: `featureRequests` is true exactly when POST /feature-requests is
+    // mounted; `pipeline` exactly when the /pipeline routes are (the five pipeline settings).
+    features: z.object({ featureRequests: z.boolean(), pipeline: z.boolean() }),
   })
   .openapi("Health");
 

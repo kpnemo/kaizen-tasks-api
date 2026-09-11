@@ -19,6 +19,7 @@ import { healthRouter, type HealthFeatures, type HealthProbes } from "./routes/h
 import { adminRouter } from "./routes/admin.js";
 import { featureRequestsRouter } from "./routes/feature-requests.js";
 import { openapiRouter } from "./routes/openapi.js";
+import { pipelineRouter } from "./routes/pipeline.js";
 import { tagsRouter } from "./routes/tags.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { createAdminService } from "./services/admin.js";
@@ -29,6 +30,8 @@ import {
   createOctokitIssues,
   type GitHubIssues,
 } from "./services/feature-requests.js";
+import { createPipelineService, type PipelineConfig } from "./services/pipeline.js";
+import { createOctokitPipeline, type PipelineGitHub } from "./services/pipeline-github.js";
 import { createTagsService } from "./services/tags.js";
 import { createTasksService } from "./services/tasks.js";
 
@@ -47,6 +50,10 @@ export interface AppDeps {
   probes?: Partial<HealthProbes>;
   /** Test injection for the GitHub port. Production builds one from GITHUB_TOKEN. */
   github?: GitHubIssues;
+  /** Test injection for the pipeline's GitHub port. Production builds one from PIPELINE_GITHUB_TOKEN. */
+  pipelineGithub?: PipelineGitHub;
+  /** Test injection for the pipeline's environment reads. Production uses the global fetch. */
+  fetchImpl?: typeof fetch;
 }
 
 export const JSON_BODY_LIMIT = "64kb";
@@ -63,6 +70,36 @@ export function featureRequestsConfigOf(
     : undefined;
 }
 
+/**
+ * Defined exactly when the five pipeline settings are present and the allowlist is non-empty.
+ * The pipeline routes are mounted on this same value, so health's `features.pipeline` and the
+ * mount never disagree. Emails are lower-cased here; the session email is lower-cased at the check.
+ */
+export function pipelineConfigOf(config: Config): PipelineConfig | undefined {
+  const emails = new Set(
+    (config.FACILITATOR_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => email.length > 0),
+  );
+  if (
+    !config.PIPELINE_GITHUB_TOKEN ||
+    !config.DEPLOY_PASSPHRASE ||
+    !config.STAGING_WEB_URL ||
+    !config.PRODUCTION_WEB_URL ||
+    emails.size === 0
+  ) {
+    return undefined;
+  }
+  return {
+    token: config.PIPELINE_GITHUB_TOKEN,
+    facilitatorEmails: emails,
+    passphrase: config.DEPLOY_PASSPHRASE,
+    stagingUrl: config.STAGING_WEB_URL.replace(/\/+$/, ""),
+    productionUrl: config.PRODUCTION_WEB_URL.replace(/\/+$/, ""),
+  };
+}
+
 export function createApp(deps: AppDeps): Express {
   const { config, db, redis, queue, logger } = deps;
   const probes: HealthProbes = {
@@ -75,7 +112,11 @@ export function createApp(deps: AppDeps): Express {
     ...deps.probes,
   };
   const featureRequestsConfig = featureRequestsConfigOf(config);
-  const features: HealthFeatures = { featureRequests: featureRequestsConfig !== undefined };
+  const pipelineConfig = pipelineConfigOf(config);
+  const features: HealthFeatures = {
+    featureRequests: featureRequestsConfig !== undefined,
+    pipeline: pipelineConfig !== undefined,
+  };
 
   const app = express();
   app.disable("x-powered-by");
@@ -117,6 +158,16 @@ export function createApp(deps: AppDeps): Express {
       requireAuth(config),
       featureRequestsRouter(featureRequests, conversations),
     );
+  }
+  if (pipelineConfig) {
+    const pipeline = createPipelineService({
+      github: deps.pipelineGithub ?? createOctokitPipeline(pipelineConfig.token),
+      redis,
+      fetchImpl: deps.fetchImpl ?? globalThis.fetch,
+      config: pipelineConfig,
+      logger,
+    });
+    api.use("/pipeline", requireAuth(config), pipelineRouter(pipeline));
   }
   if (config.ADMIN_TOKEN) {
     api.use(

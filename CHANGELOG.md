@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Pipeline control room, API half (`docs/superpowers/specs/2026-09-11-pipeline-control-room-design.md`): five new settings (`PIPELINE_GITHUB_TOKEN`, `FACILITATOR_EMAILS`, `DEPLOY_PASSPHRASE`, `STAGING_WEB_URL`, `PRODUCTION_WEB_URL`), a second GitHub port built from `PIPELINE_GITHUB_TOKEN` alone (never `GITHUB_TOKEN`) with a 10-second deadline on every call, and `features.pipeline` in `GET /health`, true exactly when all five are set and the allowlist is non-empty, which is also when the `/pipeline` routes are mounted.
+
 ## [1.4.0] - 2026-09-11
 
 ### Added

@@ -12,6 +12,7 @@ export interface HealthProbes {
 /** Optional routes the web app can switch on. Reported so the client needs no probing. */
 export interface HealthFeatures {
   featureRequests: boolean;
+  pipeline: boolean;
 }
 
 async function probe(fn: () => Promise<void>): Promise<"ok" | "failed"> {
