@@ -271,6 +271,21 @@ describe("GET /pipeline", () => {
     expect(res.body.data.issues[0].onStaging).toBe(true);
   });
 
+  it("treats a staging issue with no pull requests as on staging and production-ready", async () => {
+    // Work that landed without pull requests referencing the issue (the 2026-09-11 rework) is
+    // tracked by an issue labelled staging by hand; with nothing to compare, the label decides,
+    // exactly as the ship workflow's preflight does.
+    gh.issues.push(
+      issue({ number: 28, title: "Pipeline control room", labels: ["feature-request", "staging"] }),
+    );
+    const user = await viewer();
+    const res = await request(configured.server).get(URL).set(auth(user.token));
+    expect(res.status).toBe(200);
+    const row = res.body.data.issues.find((i: { number: number }) => i.number === 28);
+    expect(row).toMatchObject({ stage: "staging", onStaging: true, productionReady: true });
+    expect(row.pullRequests).toEqual([]);
+  });
+
   it("derives production readiness from served commits, not from the staging label", async () => {
     gh.compares[`${API}:c4ec3f4c4ec3f4c4ec3f4c4ec3f4c4ec3f4c4ec3f4...merged-kaizen-tasks-api-18`] =
       "ahead";
