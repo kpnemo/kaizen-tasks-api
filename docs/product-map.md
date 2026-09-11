@@ -81,6 +81,8 @@ _Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
 
+### 1.6.0 - 2026-09-11
+
 ### 1.5.0 - 2026-09-11
 
 - `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-…
@@ -89,8 +91,3 @@ _Nothing unreleased._
 ### 1.4.0 - 2026-09-11
 
 - `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at mo…
-
-### 1.3.0 - 2026-09-11
-
-- `npm run product-map` is a step in the `add-api-endpoint` and `release-notes` skills, and the README's Documentation se…
-- Docs gate Rule D: every run of `scripts/docs-check.sh`, in both `--hook` and `--ci` mode, regenerates the product map i…
