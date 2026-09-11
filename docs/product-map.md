@@ -73,9 +73,13 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-- `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at most 50 per group), each with a `stage` derived from the lifecycle labels (shipped, staging, implementing, triaged, else closed or new) and a `readiness` computed from the triage labels. The GitHub port gains `list`; a GitHub failure is `UPSTREAM_ERROR` as for filing. (#22)
+_Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
+
+### 1.4.0 - 2026-09-11
+
+- `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at mo…
 
 ### 1.3.0 - 2026-09-11
 
@@ -85,8 +89,3 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 ### 1.2.0 - 2026-09-10
 
 - A theme preference on the account. `users.theme` is a new `theme_preference` column (`light`, `dark`, `system`, default…
-
-### 1.1.1 - 2026-09-10
-
-- The interview system prompt states in one sentence that the reply text comes first, as plain text, and that a turn whic…
-- A turn the model answers with the `report_turn` call and no prose is no longer thrown away. Against the real provider t…

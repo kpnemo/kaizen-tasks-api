@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-11
+
 ### Added
 
 - `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at most 50 per group), each with a `stage` derived from the lifecycle labels (shipped, staging, implementing, triaged, else closed or new) and a `readiness` computed from the triage labels. The GitHub port gains `list`; a GitHub failure is `UPSTREAM_ERROR` as for filing. (#22)
