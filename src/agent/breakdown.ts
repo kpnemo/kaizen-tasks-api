@@ -58,8 +58,13 @@ export async function breakdownTask(
   const first = await askOnce(input, model);
   if (first.steps.length <= MAX_STEPS) return first;
   try {
-    return await askOnce({ ...input, maxSteps: MAX_STEPS }, model);
-  } catch {
+    const second = await askOnce({ ...input, maxSteps: MAX_STEPS }, model);
+    return second.steps.length === 0 ? first : second;
+  } catch (err) {
+    // ADR 0008: any failure of the re-ask (refusal, invalid output, outage, or a bug) keeps the
+    // first answer; the user gets steps rather than a failure. breakdownTask is pure and has no
+    // logger, so the reason is not recorded here.
+    void err;
     return first;
   }
 }

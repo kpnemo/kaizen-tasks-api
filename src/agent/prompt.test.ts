@@ -12,6 +12,7 @@ describe("system prompt", () => {
     expect(prompt).toContain("small enough to do as it is");
     expect(prompt).toContain("never more than fifty");
     expect(prompt).toContain("maxSteps");
+    expect(prompt.indexOf("Judge first")).toBeLessThan(prompt.indexOf("first physical action"));
     expect(loadSystemPrompt()).toBe(prompt);
   });
 });

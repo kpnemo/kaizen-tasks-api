@@ -123,6 +123,13 @@ describe("breakdownTask re-ask", () => {
     const model = new FakeBreakdownModel({ script: [ok(0)] });
     expect(await breakdownTask(input, model)).toEqual({ steps: [], tagSuggestions: [] });
   });
+
+  it("keeps the first answer when the re-ask returns no steps", async () => {
+    const model = new FakeBreakdownModel({ script: [ok(60), ok(0)] });
+    const result = await breakdownTask(input, model);
+    expect(result.steps).toHaveLength(60);
+    expect(model.calls).toHaveLength(2);
+  });
 });
 
 describe("shouldSkipBreakdown", () => {

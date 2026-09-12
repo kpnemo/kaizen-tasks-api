@@ -20,10 +20,13 @@ the prompt's instructions and the output contract change, so this is recorded he
 
 ## Decision
 
-1. **The prompt sizes the breakdown.** Rule 5 of `breakdown.system.md` becomes: judge how much
-   work the task is first; return no steps when the task is small enough to do as it is; otherwise
-   return only the steps the task needs, never more than fifty. The output contract says "zero to
-   fifty". The reasoning steps and every other constraint stay as they are.
+1. **The prompt sizes the breakdown.** `breakdown.system.md`'s "How to reason" section leads with
+   the size judgement as its first step and gates the rest on it: judge how much work the task is
+   before anything else; return no steps, and stop, when the task is small enough to do as it is;
+   otherwise work through the remaining reasoning steps, which end by returning only the steps the
+   task needs, never more than fifty. The output contract says "zero to fifty". The reasoning steps
+   keep their content and order relative to each other, only re-numbered to make room for the
+   judgement at the front.
 2. **The output schema no longer bounds the count.** `src/schemas/breakdown.ts` drops `MIN_STEPS`,
    keeps `MAX_STEPS = 50` as the _soft_ ceiling, and the zod `steps` array carries `.min(0)` and a
    loose parse bound (`.max(200)`) so an oversize answer parses and can be counted instead of
@@ -32,9 +35,10 @@ the prompt's instructions and the output contract change, so this is recorded he
    counts the distinct steps after cleaning. Above `MAX_STEPS` it calls the model once more with
    `maxSteps: 50` on the input (`BreakdownInput` gains an optional `maxSteps`; the user message
    carries it and the prompt tells the model to respect it). The second answer is final: no
-   truncation, every distinct step is kept. `postValidate` no longer truncates and no longer throws
-   below a minimum. This is the one exception to ADR 0003's single call per attempt; BullMQ still
-   owns retries for failures.
+   truncation, every distinct step is kept, unless it holds no steps, in which case the first
+   answer is kept: a task the assistant just proposed sixty steps for is not small enough to do as
+   is. `postValidate` no longer truncates and no longer throws below a minimum. This is the one
+   exception to ADR 0003's single call per attempt; BullMQ still owns retries for failures.
 4. **No steps is a skip, not a failure.** `aiSkipReasonEnum` in `src/db/schema.ts` gains the
    additive value `no_steps_needed` (`ALTER TYPE ... ADD VALUE`, ADR 0004). When the final answer
    has zero steps, `processBreakdownJob` in `src/jobs/processors/breakdown.ts` writes
