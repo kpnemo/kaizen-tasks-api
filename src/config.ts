@@ -17,6 +17,12 @@ export const configSchema = z
     AI_STALE_MINUTES: int.positive().default(10),
     /** Interview turns per user per hour (spec 3.6). Its own budget, separate from breakdowns. */
     INTERVIEW_HOURLY_LIMIT: int.positive().default(60),
+    /** The interview's own model and effort (spec 3.1). AI_MODEL stays the breakdown's. */
+    INTERVIEW_MODEL: z.string().min(1).default("claude-fable-5-1"),
+    INTERVIEW_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
+    /** Git ref of kpnemo/kaizen-tasks-web the product context is fetched from; production sets main. */
+    PRODUCT_CONTEXT_REF: z.string().min(1).default("develop"),
+    PRODUCT_CONTEXT_REFRESH_MINUTES: int.positive().default(10),
     ADMIN_TOKEN: z.string().min(32).optional(),
     APP_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
     PORT: int.min(1).max(65535).default(3000),
@@ -47,6 +53,8 @@ export const configSchema = z
   });
 
 export type Config = z.infer<typeof configSchema>;
+
+export type InterviewEffort = Config["INTERVIEW_EFFORT"];
 
 export class ConfigError extends Error {
   readonly problems: string[];
