@@ -130,11 +130,13 @@ aborts the model stream here.
 The model seam is `InterviewModel.respond(input, onDelta, signal) -> { kind: ok | invalid }`. The
 Anthropic adapter uses `client.beta.messages.stream` on `INTERVIEW_MODEL` (default
 `claude-fable-5-1`) with `output_config.effort` from `INTERVIEW_EFFORT` (default `medium`), the beta
-header `server-side-fallback-2026-07-01` and `fallbacks: "default"` so an overloaded Fable is served
-by Anthropic's fallback rather than failing the turn, `max_tokens` 16000 (thinking tokens count
-toward it), `maxRetries: 0` and a 90-second timeout (`INTERVIEW_TIMEOUT_MS`). The breakdown agent
-keeps its own `AI_MODEL`. Three system blocks are marked `cache_control: { type: "ephemeral" }`:
-the instructions `src/agent/prompts/interview.system.md`, the rubric `src/agent/prompts/readiness.md`
+header `server-side-fallback-2026-07-01` and `fallbacks: "default"` so a refusal from the primary
+model (the safety classifier) is served by Anthropic's fallback rather than failing the turn — not
+overload: with `maxRetries: 0` an overloaded turn still fails and the route reports it — `max_tokens`
+16000 (thinking tokens count toward it) and a 90-second timeout (`INTERVIEW_TIMEOUT_MS`). The
+breakdown agent keeps its own `AI_MODEL`. Three system blocks are marked
+`cache_control: { type: "ephemeral" }`: the instructions `src/agent/prompts/interview.system.md`,
+the rubric `src/agent/prompts/readiness.md`
 and the product context (the API map from disk plus the web map and UI conventions fetched at
 runtime, ADR 0007). The rubric block is a byte-identical vendored copy of the assembly line's
 readiness rubric — the prompt embeds the rubric rather than restating it, so the in-app assistant,

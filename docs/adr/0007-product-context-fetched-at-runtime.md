@@ -24,7 +24,7 @@ startup and every `PRODUCT_CONTEXT_REFRESH_MINUTES`, without a token (public rep
 sections (`## Recent releases`, `## Unreleased changes`) are dropped. The three documents form the
 third cached system block; a failed fetch keeps the previous pair, logs one warning, and the block
 says `unavailable (fetch failed)` for the missing document. Staging reads `develop`, production
-reads `main`.
+reads `main`. The ref is declared in `.railway/railway.ts` as `production ? "main" : "develop"`, so a `railway config apply` carries it and a dashboard-only value cannot be dropped by the next apply.
 
 ## Consequences
 

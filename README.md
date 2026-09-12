@@ -206,9 +206,9 @@ breakdown budget.
 
 `INTERVIEW_MODEL` (default `claude-fable-5-1`) is the model the interview runs on; the breakdown
 agent keeps its own `AI_MODEL`. `INTERVIEW_EFFORT` (default `medium`, one of `low`, `medium`,
-`high`) sets the model's thinking effort for an interview turn. `PRODUCT_CONTEXT_REF` (default
-`develop`) is the branch of `kpnemo/kaizen-tasks-web` the product map and UI conventions are fetched
-from — production sets `main`. `PRODUCT_CONTEXT_REFRESH_MINUTES` (default `10`) is how often that
-pair is re-fetched; a failed fetch keeps the previous copy (ADR 0007).
+`high`, `xhigh`, `max`) sets the model's thinking effort for an interview turn. `PRODUCT_CONTEXT_REF`
+(default `develop`) is the branch of `kpnemo/kaizen-tasks-web` the product map and UI conventions
+are fetched from — production sets `main`. `PRODUCT_CONTEXT_REFRESH_MINUTES` (default `10`) is how
+often that pair is re-fetched; a failed fetch keeps the previous copy (ADR 0007).
 
 All of them are Railway variables and take effect on restart without a deploy.

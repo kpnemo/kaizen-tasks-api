@@ -22,7 +22,9 @@ export const INTERVIEW_MAX_OUTPUT_TOKENS = 16_000;
 /** Fable turns run longer than Sonnet's; the 15 s `: ping` covers the wait (spec 3.4). */
 export const INTERVIEW_TIMEOUT_MS = 90_000;
 
-/** Server-side fallback: a busy primary is served by the next model in the default chain. */
+/** Server-side fallback: a refusal from the primary (the safety classifier) is served by the
+ * next model in the default chain — not overload: with `maxRetries: 0` an overloaded turn still
+ * fails and the route reports it. */
 export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export const REPORT_TURN_TOOL_NAME = "report_turn";
