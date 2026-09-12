@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FAKE_INTERVIEW_SCORE } from "../../src/agent/interview/fake-interview-model.js";
-import { SKIPPED_CONTENT } from "../../src/lib/interview-constants.js";
+import { FINISHED_CONTENT, SKIPPED_CONTENT } from "../../src/lib/interview-constants.js";
 import { findOwnedConversation } from "../../src/repositories/feature-request-conversations.js";
 import type { GitHubIssues } from "../../src/services/feature-requests.js";
 import { createTestApp, type TestContext } from "../helpers/app.js";
@@ -161,7 +161,7 @@ function sendTurn(
   context: TestContext,
   token: string,
   id: string,
-  body: { content: string; skip?: boolean },
+  body: { content: string; skip?: boolean; finish?: boolean },
 ) {
   return request(context.server).post(`${CONVERSATION}/${id}/messages`).set(auth(token)).send(body);
 }
@@ -249,6 +249,47 @@ describe("POST /feature-requests/conversation/{id}/messages", () => {
     expect(row.messages[1]).toMatchObject({ content: SKIPPED_CONTENT, skipped: true });
     expect(row.questionCount).toBe(1);
     expect(ctx.interviewModel.calls.at(-1)?.skippedLast).toBe(true);
+  });
+
+  it("persists the recommended answer on the assistant's question", async () => {
+    const user = await registerUser(ctx.server);
+    const id = await startConversation(ctx, user.token);
+    const res = await sendTurn(ctx, user.token, id, {
+      content: "Supervisors cannot see the drag.",
+    });
+    const state = parseSse(res.text).find((e) => e.event === "state")!.data as {
+      conversation: { messages: Array<Record<string, unknown>> };
+    };
+    const asked = state.conversation.messages.at(-1)!;
+    expect(asked.options).toContain(asked.recommended);
+  });
+
+  it("finish ends the interview as ready without counting a question", async () => {
+    const user = await registerUser(ctx.server);
+    const id = await startConversation(ctx, user.token);
+    await sendTurn(ctx, user.token, id, { content: "Supervisors cannot see the drag." });
+    const res = await sendTurn(ctx, user.token, id, { content: FINISHED_CONTENT, finish: true });
+    expect(res.status).toBe(200);
+    const state = parseSse(res.text).find((e) => e.event === "state")!.data as {
+      conversation: Record<string, unknown>;
+    };
+    expect(state.conversation.status).toBe("ready");
+    expect(state.conversation.questionCount).toBe(1);
+    const messages = state.conversation.messages as Array<Record<string, unknown>>;
+    expect(messages.at(-2)).toMatchObject({
+      role: "user",
+      content: FINISHED_CONTENT,
+      finished: true,
+    });
+    expect(messages.at(-1)).not.toHaveProperty("options");
+  });
+
+  it("rejects skip together with finish", async () => {
+    const user = await registerUser(ctx.server);
+    const id = await startConversation(ctx, user.token);
+    const res = await sendTurn(ctx, user.token, id, { content: "x", skip: true, finish: true });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("is 404 for another user's conversation, with a JSON envelope and no stream", async () => {

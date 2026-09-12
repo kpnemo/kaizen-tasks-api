@@ -233,6 +233,7 @@ Auth: bearer access token
 |---|---|---|
 | content | string | yes |
 | skip | boolean | no |
+| finish | boolean | no |
 
 **Responses**
 

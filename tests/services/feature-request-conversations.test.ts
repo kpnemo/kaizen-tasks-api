@@ -109,7 +109,7 @@ const askingModel = (reply: string): InterviewModel => ({
       kind: "ok",
       turn: {
         reply,
-        question: { text: "Anything else?", options: ["a", "b", "c"] },
+        question: { text: "Anything else?", options: ["a", "b", "c"], recommended: "a" },
         draft: EMPTY_DRAFT,
         score: lowScore,
         done: false,
@@ -366,7 +366,7 @@ describe("turn", () => {
           kind: "ok",
           turn: {
             reply: "Noted.",
-            question: { text: "Anything else?", options: ["a", "b", "c"] },
+            question: { text: "Anything else?", options: ["a", "b", "c"], recommended: "a" },
             draft: EMPTY_DRAFT,
             // clarity 3, complexity 2, risk 2 is 3 * 2 + 4 + 4 = 14. The model claims 20.
             score: { ...lowScore, readiness: 20 },
@@ -486,7 +486,7 @@ describe("two turns racing", () => {
           kind: "ok",
           turn: {
             reply: "Thinking.",
-            question: { text: "Who?", options: ["a", "b", "c"] },
+            question: { text: "Who?", options: ["a", "b", "c"], recommended: "a" },
             draft: EMPTY_DRAFT,
             score: lowScore,
             done: false,
@@ -741,7 +741,7 @@ describe("turn fails after the stream started", () => {
           kind: "ok",
           turn: {
             reply: "half a sentence",
-            question: { text: "Who?", options: ["a", "b", "c"] },
+            question: { text: "Who?", options: ["a", "b", "c"], recommended: "a" },
             draft: EMPTY_DRAFT,
             score: {
               clarity: 2,

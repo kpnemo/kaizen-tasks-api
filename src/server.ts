@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterviewModel } from "./agent/interview/model.js";
+import { githubRawSource, ProductContextLoader } from "./agent/interview/product-context.js";
 import { interviewPromptPath, rubricPath } from "./agent/interview/prompt.js";
 import { createBreakdownModel } from "./agent/model.js";
 import { promptPath } from "./agent/prompt.js";
@@ -76,10 +77,26 @@ async function main(): Promise<void> {
     model: config.AI_MODEL,
     apiKey: config.ANTHROPIC_API_KEY,
   });
+
+  // 6a. Product context for the interview (spec 3.2): the API map from disk, the web documents
+  // from GitHub raw at PRODUCT_CONTEXT_REF, refreshed on a timer. Skipped with the fake provider.
+  const productContext = new ProductContextLoader(githubRawSource(config.PRODUCT_CONTEXT_REF), {
+    refreshMs: config.PRODUCT_CONTEXT_REFRESH_MINUTES * 60_000,
+    log: logger,
+  });
+  if (config.AI_MODEL_PROVIDER === "anthropic") {
+    await productContext.start();
+    logger.info(
+      { ref: config.PRODUCT_CONTEXT_REF, fetchedAt: productContext.current().fetchedAt },
+      "product context loaded",
+    );
+  }
   const interviewModel = createInterviewModel({
     provider: config.AI_MODEL_PROVIDER,
-    model: config.AI_MODEL,
+    model: config.INTERVIEW_MODEL,
+    effort: config.INTERVIEW_EFFORT,
     apiKey: config.ANTHROPIC_API_KEY,
+    context: () => productContext.current(),
   });
   const queueConnection = createRedis(config.REDIS_URL);
   queueConnection.on("error", (err) =>
@@ -97,7 +114,12 @@ async function main(): Promise<void> {
     worker = startBreakdownWorker({ connection: workerConnection, db, model, logger });
     reconciler = startReconciler({ db, staleMinutes: config.AI_STALE_MINUTES, logger });
     logger.info(
-      { provider: config.AI_MODEL_PROVIDER, model: config.AI_MODEL },
+      {
+        provider: config.AI_MODEL_PROVIDER,
+        model: config.AI_MODEL,
+        interviewModel: config.INTERVIEW_MODEL,
+        interviewEffort: config.INTERVIEW_EFFORT,
+      },
       "worker and reconciler started",
     );
   }
@@ -129,6 +151,7 @@ async function main(): Promise<void> {
     server.close(() => {
       void (async () => {
         reconciler?.stop();
+        productContext.stop();
         await worker?.close();
         await queue.close();
         await Promise.all([workerConnection?.quit(), queueConnection.quit(), redis.quit()]);

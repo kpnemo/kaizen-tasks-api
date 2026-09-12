@@ -1,11 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import * as constants from "../lib/interview-constants.js";
 import {
   ConversationEventSchema,
+  ConversationMessageSchema,
   ConversationSchema,
   ConversationTurnBody,
   EMPTY_DRAFT,
   FeatureRequestDraftSchema,
+  FINISHED_CONTENT,
+  InterviewQuestionSchema,
   MAX_TURN_CONTENT,
   ReportTurnSchema,
   RubricScoreSchema,
@@ -13,6 +17,8 @@ import {
 } from "./feature-request-conversations.js";
 import { FeatureRequestBody } from "./feature-requests.js";
 import { generateOpenApiDocument } from "./index.js";
+
+const ISO = "2026-09-10T09:00:00.000Z";
 
 const score = {
   clarity: 4,
@@ -64,6 +70,43 @@ describe("ConversationTurnBody", () => {
     expect(ConversationTurnBody.parse({ content: SKIPPED_CONTENT, skip: true }).skip).toBe(true);
     expect(ConversationTurnBody.parse({ content: "a" }).skip).toBeUndefined();
     expect(ConversationTurnBody.safeParse({ skip: true }).success).toBe(false);
+  });
+
+  it("takes an optional finish flag and rejects finish together with skip", () => {
+    expect(ConversationTurnBody.parse({ content: FINISHED_CONTENT, finish: true }).finish).toBe(
+      true,
+    );
+    expect(
+      ConversationTurnBody.safeParse({ content: FINISHED_CONTENT, finish: true, skip: true })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("InterviewQuestionSchema", () => {
+  it("requires a recommended answer alongside the options", () => {
+    expect(
+      InterviewQuestionSchema.safeParse({ text: "Who?", options: ["A", "B"], recommended: "A" })
+        .success,
+    ).toBe(true);
+    expect(InterviewQuestionSchema.safeParse({ text: "Who?", options: ["A", "B"] }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("ConversationMessageSchema", () => {
+  it("parses rows stored before recommended and finished existed", () => {
+    const old = { id: randomUUID(), role: "assistant", content: "Who?", at: ISO, options: ["A"] };
+    expect(ConversationMessageSchema.parse(old).recommended).toBeUndefined();
+    const finished = {
+      id: randomUUID(),
+      role: "user",
+      content: FINISHED_CONTENT,
+      at: ISO,
+      finished: true,
+    };
+    expect(ConversationMessageSchema.parse(finished).finished).toBe(true);
   });
 });
 
@@ -123,7 +166,11 @@ describe("ConversationEventSchema", () => {
 describe("ReportTurnSchema", () => {
   it("accepts a question turn and a done turn", () => {
     const asking = {
-      question: { text: "Who is the user?", options: ["A supervisor", "An agent", "A planner"] },
+      question: {
+        text: "Who is the user?",
+        options: ["A supervisor", "An agent", "A planner"],
+        recommended: "A supervisor",
+      },
       draft: EMPTY_DRAFT,
       score,
       done: false,
@@ -135,7 +182,7 @@ describe("ReportTurnSchema", () => {
 
   it("requires one to four options", () => {
     const withOptions = (options: string[]) => ({
-      question: { text: "Who?", options },
+      question: { text: "Who?", options, recommended: options[0] },
       draft: EMPTY_DRAFT,
       score,
       done: false,

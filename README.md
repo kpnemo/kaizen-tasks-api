@@ -151,6 +151,13 @@ with that conversation's `conversationId` appends the self-score and the transcr
 marks the conversation `filed`. Interview turns have their own hourly budget,
 `INTERVIEW_HOURLY_LIMIT`.
 
+The assistant reads the product context before it asks anything — the API's own endpoint table plus
+the web app's screens and UI conventions — so it never asks what the product maps already answer. It
+opens by saying what it understood from the request and pre-filling the draft, and every question
+after that carries a recommended answer alongside its options, so the PM can agree in one click.
+"Finish with what we have" ends the interview early: the draft is scored and the conversation
+becomes `ready` without another question.
+
 ## Pipeline
 
 The pipeline control room (`/pipeline` in the web app) reads one snapshot from `GET /api/v1/pipeline`
@@ -195,4 +202,13 @@ CI runs the check as a warning step. Never edit the copy by hand: it lives under
 `UNAVAILABLE` before the stream starts. `AI_RATE_LIMIT_PER_HOUR` and `AI_GLOBAL_LIMIT_PER_HOUR`
 bound breakdowns per user and per environment per hour. `INTERVIEW_HOURLY_LIMIT` (default 60) bounds
 interview turns per user per hour on its own Redis counter, so an interview never spends the
-breakdown budget. All four are Railway variables and take effect on restart without a deploy.
+breakdown budget.
+
+`INTERVIEW_MODEL` (default `claude-fable-5-1`) is the model the interview runs on; the breakdown
+agent keeps its own `AI_MODEL`. `INTERVIEW_EFFORT` (default `medium`, one of `low`, `medium`,
+`high`, `xhigh`, `max`) sets the model's thinking effort for an interview turn. `PRODUCT_CONTEXT_REF`
+(default `develop`) is the branch of `kpnemo/kaizen-tasks-web` the product map and UI conventions
+are fetched from — production sets `main`. `PRODUCT_CONTEXT_REFRESH_MINUTES` (default `10`) is how
+often that pair is re-fetched; a failed fetch keeps the previous copy (ADR 0007).
+
+All of them are Railway variables and take effect on restart without a deploy.
