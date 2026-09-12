@@ -19,6 +19,8 @@ export interface InterviewInput {
   questionCount: number;
   /** True when the PM pressed "Skip this question" instead of answering. */
   skippedLast: boolean;
+  /** True when the PM pressed "Finish with what we have". */
+  finishedLast: boolean;
 }
 
 export interface InterviewTurn {

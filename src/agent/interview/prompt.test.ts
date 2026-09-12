@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import { EMPTY_DRAFT } from "../../lib/interview-constants.js";
 import type { ConversationMessage } from "../../schemas/feature-request-conversations.js";
 import type { InterviewInput } from "./model.js";
+import type { ProductContext } from "./product-context.js";
 import {
+  FINISH_TURN_CONTENT,
   interviewPromptPath,
   loadInterviewSystemPrompt,
   loadRubric,
   questionCountLine,
+  renderProductContext,
   rubricPath,
   rubricVersion,
   SKIPPED_TURN_CONTENT,
@@ -29,8 +32,22 @@ const message = (
 });
 
 function input(messages: ConversationMessage[], skippedLast = false): InterviewInput {
-  return { messages, draft: EMPTY_DRAFT, score: null, questionCount: 1, skippedLast };
+  return {
+    messages,
+    draft: EMPTY_DRAFT,
+    score: null,
+    questionCount: 1,
+    skippedLast,
+    finishedLast: false,
+  };
 }
+
+const context: ProductContext = {
+  api: "## Endpoints\n\n| tasks | GET | `/tasks` | List tasks |\n",
+  web: "## Screens\n\n| `/tasks` | `TaskListPage` |\n\n## App shell\n\n| `ThemeToggle` | header |\n",
+  conventions: "## shadcn first\n\nUse the primitives.\n",
+  fetchedAt: "2026-09-12T00:00:00.000Z",
+};
 
 describe("the interview system prompt", () => {
   const prompt = loadInterviewSystemPrompt();
@@ -40,7 +57,7 @@ describe("the interview system prompt", () => {
     expect(prompt.trim().length).toBeGreaterThan(0);
   });
 
-  it("states the turn contract, the ladder, the cap and the draft rules", () => {
+  it("states the turn contract, the opening turn, question choice, finishing and the draft rules", () => {
     for (const phrase of [
       "report_turn",
       "exactly one question",
@@ -49,16 +66,20 @@ describe("the interview system prompt", () => {
       "you must not ask a ninth question",
       "`stillMissing` is EMPTY when the request is ready",
       "Whenever `done` is true, `question` must be null",
-      "User and moment",
-      "Observable behavior",
-      "Done criteria",
-      "Out of scope",
-      "Complexity and risk probes",
+      "product context",
+      "Never ask what it answers",
+      "## The opening turn",
+      "## Choosing the question",
+      "`recommended`",
+      "## Finishing",
+      "The PM asked to finish the interview with what you have.",
       "clarity is 4 or higher",
-      "stillMissing",
       "release-note line",
     ]) {
-      expect(prompt, phrase).toContain(phrase);
+      expect(prompt).toContain(phrase);
+    }
+    for (const gone of ["User and moment", "Complexity and risk probes", "Work down this list"]) {
+      expect(prompt).not.toContain(gone);
     }
   });
 
@@ -111,19 +132,31 @@ describe("the vendored rubric", () => {
 });
 
 describe("systemBlocks", () => {
-  it("is the prompt then the rubric, both cached", () => {
-    const blocks = systemBlocks();
-    expect(blocks).toHaveLength(2);
-    expect(blocks[0]).toEqual({
-      type: "text",
-      text: loadInterviewSystemPrompt(),
-      cache_control: { type: "ephemeral" },
+  it("returns three cached blocks: instructions, rubric, product context", () => {
+    const blocks = systemBlocks(context);
+    expect(blocks).toHaveLength(3);
+    for (const block of blocks) expect(block.cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[0]!.text).toBe(loadInterviewSystemPrompt());
+    expect(blocks[1]!.text).toBe(loadRubric());
+    expect(blocks[2]!.text).toContain("# Product context (what exists today)");
+    expect(blocks[2]!.text).toContain("## API: kpnemo/kaizen-tasks-api");
+    expect(blocks[2]!.text).toContain("| tasks | GET |");
+    expect(blocks[2]!.text).toContain("## Web app: kpnemo/kaizen-tasks-web");
+    expect(blocks[2]!.text).toContain("`TaskListPage`");
+    expect(blocks[2]!.text).toContain("## UI conventions");
+    expect(blocks[2]!.text).toContain("Use the primitives.");
+  });
+
+  it("says when the web documents are unavailable", () => {
+    const text = renderProductContext({
+      ...context,
+      web: null,
+      conventions: null,
+      fetchedAt: null,
     });
-    expect(blocks[1]).toEqual({
-      type: "text",
-      text: loadRubric(),
-      cache_control: { type: "ephemeral" },
-    });
+    expect(text).toContain("Web product map: unavailable (fetch failed)");
+    expect(text).toContain("UI conventions: unavailable (fetch failed)");
+    expect(text).toContain("| tasks | GET |");
   });
 });
 
@@ -175,5 +208,13 @@ describe("transcriptMessages", () => {
     );
     expect(messages[2]).toEqual({ role: "user", content: SKIPPED_TURN_CONTENT });
     expect(messages.at(-2)).toEqual({ role: "user", content: "A supervisor." });
+  });
+
+  it("maps a finished turn to the finish marker the prompt names", () => {
+    const messages = transcriptMessages({
+      ...input([message("assistant", "Who?"), message("user", "Finish with what we have")]),
+      finishedLast: true,
+    });
+    expect(messages.at(-2)).toEqual({ role: "user", content: FINISH_TURN_CONTENT });
   });
 });
