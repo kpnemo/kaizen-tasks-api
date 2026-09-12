@@ -78,10 +78,14 @@ describe("loadConfig", () => {
     expect(config.INTERVIEW_EFFORT).toBe("medium");
     expect(config.PRODUCT_CONTEXT_REF).toBe("develop");
     expect(config.PRODUCT_CONTEXT_REFRESH_MINUTES).toBe(10);
-    expect(loadConfig({ ...valid, INTERVIEW_MODEL: "claude-opus-5" }).INTERVIEW_MODEL).toBe("claude-opus-5");
+    expect(loadConfig({ ...valid, INTERVIEW_MODEL: "claude-opus-5" }).INTERVIEW_MODEL).toBe(
+      "claude-opus-5",
+    );
     expect(loadConfig({ ...valid, INTERVIEW_EFFORT: "high" }).INTERVIEW_EFFORT).toBe("high");
     expect(() => loadConfig({ ...valid, INTERVIEW_EFFORT: "turbo" })).toThrow(ConfigError);
-    expect(() => loadConfig({ ...valid, PRODUCT_CONTEXT_REFRESH_MINUTES: "0" })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, PRODUCT_CONTEXT_REFRESH_MINUTES: "0" })).toThrow(
+      ConfigError,
+    );
   });
 
   it("marks cookies secure outside development and test", () => {

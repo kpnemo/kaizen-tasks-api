@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Interview: reads the product context (API map, web map, UI conventions) before asking; opens by confirming what it understood; every question carries a recommended answer; "Finish with what we have" ends the interview early; runs on `INTERVIEW_MODEL` (default `claude-fable-5-1`) with `INTERVIEW_EFFORT` (#31, ADR 0007).
 - Interview contract (spec `2026-09-12-issue-31-context-aware-interview`, task 1 of 9): `InterviewQuestionSchema` gains `recommended`, the option the assistant would pick; `ConversationMessageSchema` gains `recommended` and `finished`; `ConversationTurnBody` gains `finish`, which cannot be sent together with `skip`; `FINISHED_CONTENT` ("Finish with what we have") joins `SKIPPED_CONTENT` in `src/lib/interview-constants.ts`. Contract only — the fake model and the Anthropic adapter are updated to match in later tasks of the same plan.
 
 ## [1.6.0] - 2026-09-11

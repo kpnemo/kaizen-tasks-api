@@ -195,4 +195,13 @@ CI runs the check as a warning step. Never edit the copy by hand: it lives under
 `UNAVAILABLE` before the stream starts. `AI_RATE_LIMIT_PER_HOUR` and `AI_GLOBAL_LIMIT_PER_HOUR`
 bound breakdowns per user and per environment per hour. `INTERVIEW_HOURLY_LIMIT` (default 60) bounds
 interview turns per user per hour on its own Redis counter, so an interview never spends the
-breakdown budget. All four are Railway variables and take effect on restart without a deploy.
+breakdown budget.
+
+`INTERVIEW_MODEL` (default `claude-fable-5-1`) is the model the interview runs on; the breakdown
+agent keeps its own `AI_MODEL`. `INTERVIEW_EFFORT` (default `medium`, one of `low`, `medium`,
+`high`) sets the model's thinking effort for an interview turn. `PRODUCT_CONTEXT_REF` (default
+`develop`) is the branch of `kpnemo/kaizen-tasks-web` the product map and UI conventions are fetched
+from — production sets `main`. `PRODUCT_CONTEXT_REFRESH_MINUTES` (default `10`) is how often that
+pair is re-fetched; a failed fetch keeps the previous copy (ADR 0007).
+
+All of them are Railway variables and take effect on restart without a deploy.
