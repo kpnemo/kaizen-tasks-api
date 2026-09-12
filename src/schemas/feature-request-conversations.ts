@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../lib/errors.js";
-import { EMPTY_DRAFT, SKIPPED_CONTENT } from "../lib/interview-constants.js";
+import { EMPTY_DRAFT, FINISHED_CONTENT, SKIPPED_CONTENT } from "../lib/interview-constants.js";
 import { envelope, errorResponses, IdParams, jsonResponse } from "./common.js";
 import { bearerAuth, registry } from "./registry.js";
 
 // Re-exported so contract consumers and tests reach them through the schema module, while the one
 // definition stays in lib and no service ever imports a runtime value from schemas.
-export { EMPTY_DRAFT, SKIPPED_CONTENT };
+export { EMPTY_DRAFT, FINISHED_CONTENT, SKIPPED_CONTENT };
 
 export const MAX_TURN_CONTENT = 2000;
 
@@ -22,6 +22,10 @@ export const ConversationMessageSchema = z
     at: z.iso.datetime(),
     /** Present on an assistant message that asked a question: the chips the web renders. */
     options: z.array(z.string()).optional(),
+    /** Present on an assistant message that asked a question: the option the assistant recommends. */
+    recommended: z.string().optional(),
+    /** Present on the user message that ended the interview early (spec 3.5). */
+    finished: z.boolean().optional(),
     /** Present on a user message the PM skipped. */
     skipped: z.boolean().optional(),
   })
@@ -73,6 +77,12 @@ export const ConversationTurnBody = z
   .object({
     content: z.string().trim().min(1).max(MAX_TURN_CONTENT),
     skip: z.boolean().optional(),
+    /** Ends the interview with the draft as it stands; content is ignored (spec 3.5). */
+    finish: z.boolean().optional(),
+  })
+  .refine((body) => !(body.skip === true && body.finish === true), {
+    message: "skip and finish cannot both be true",
+    path: ["finish"],
   })
   .openapi("ConversationTurnBody");
 
@@ -111,6 +121,8 @@ export const InterviewQuestionSchema = z.object({
   /** Three or four in practice; at least one so a question can never arrive with no chips, at
    * most four so a long list cannot overflow the chips row. */
   options: z.array(z.string()).min(1).max(4),
+  /** The answer the assistant would give; must be one of `options` word for word (checked by the adapter). */
+  recommended: z.string(),
 });
 
 /**
