@@ -110,8 +110,8 @@ describe("AnthropicBreakdownModel.complete via a fake client", () => {
   });
 
   it("returns invalid when the response carries no parsed output", async () => {
-    // Simulates the SDK's own schema validation failing (e.g. two steps when MIN_STEPS is
-    // three): by the time `complete()` sees the response, that shows up as a null parsed_output.
+    // Simulates the SDK's own schema validation failing (e.g. a step without a title): by the
+    // time `complete()` sees the response, that shows up as a null parsed_output.
     const parse = fakeParse().mockResolvedValue({
       stop_reason: "end_turn",
       stop_details: null,

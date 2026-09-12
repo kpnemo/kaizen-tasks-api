@@ -1,9 +1,9 @@
 # Product map: Kaizen Tasks API
 
 The generated part below the marker matches this checkout; the header is prose reviewed by a person.
-Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes three to
-seven small steps, and the user accepts, edits or dismisses each one, so a person decides what
-lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
+Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes as many
+small steps as the task needs, none to fifty, and the user accepts, edits or dismisses each one, so
+a person decides what lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
 client from the `openapi.json` committed here. Tags are user-scoped and connect related tasks.
 
 Two AI features live here: the breakdown job (every write guarded by a generation id; per-user
@@ -75,10 +75,11 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 - 0005: Interview agent for feature requests
 - 0006: Store the theme preference on the user row
 - 0007: Fetch the product context for the interview at runtime
+- 0008: Size the breakdown to the task, with one in-band re-ask above fifty steps
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-_Nothing unreleased._
+- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result over fifty is asked for once more with a limit of fifty and the second answer is kept in full. A task the assistant judges small enough to do as it is is skipped with the new reason `no_steps_needed` (#34, ADR 0008).
 
 ## Recent releases (history, not current behavior)
 

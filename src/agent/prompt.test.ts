@@ -8,7 +8,11 @@ describe("system prompt", () => {
     for (const heading of ["## Role", "## How to reason", "## Constraints", "## Output contract"]) {
       expect(prompt).toContain(heading);
     }
-    expect(prompt).toContain("Stop at seven");
+    expect(prompt).not.toContain("Stop at seven");
+    expect(prompt).toContain("small enough to do as it is");
+    expect(prompt).toContain("never more than fifty");
+    expect(prompt).toContain("maxSteps");
+    expect(prompt.indexOf("Judge first")).toBeLessThan(prompt.indexOf("first physical action"));
     expect(loadSystemPrompt()).toBe(prompt);
   });
 });

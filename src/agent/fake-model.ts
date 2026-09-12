@@ -30,15 +30,22 @@ export const FAKE_BREAKDOWN_RESULT: BreakdownResult = {
 export class FakeBreakdownModel implements BreakdownModel {
   mode: FakeMode;
   result: BreakdownResult;
+  /** Outcomes consumed one per call, in order, before `mode` applies. */
+  readonly script: BreakdownOutcome[];
   readonly calls: BreakdownInput[] = [];
 
-  constructor(options: { mode?: FakeMode; result?: BreakdownResult } = {}) {
+  constructor(
+    options: { mode?: FakeMode; result?: BreakdownResult; script?: BreakdownOutcome[] } = {},
+  ) {
     this.mode = options.mode ?? "ok";
     this.result = options.result ?? FAKE_BREAKDOWN_RESULT;
+    this.script = [...(options.script ?? [])];
   }
 
   async complete(input: BreakdownInput): Promise<BreakdownOutcome> {
     this.calls.push(input);
+    const scripted = this.script.shift();
+    if (scripted) return structuredClone(scripted);
     switch (this.mode) {
       case "refuse":
         return { kind: "refused", reason: "Fake refusal" };

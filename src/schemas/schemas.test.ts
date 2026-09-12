@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { LoginBody, RegisterBody } from "./auth.js";
+import { BreakdownSchema } from "./breakdown.js";
 import { ErrorEnvelopeSchema } from "./common.js";
 import { HealthSchema } from "./health.js";
 import {
@@ -22,7 +23,11 @@ function omit(obj: Record<string, unknown>, key: string): Record<string, unknown
 const ENUM_CASES = [
   ["task_status", TaskStatusSchema, ["todo", "in_progress", "done"]],
   ["ai_status", AiStatusSchema, ["pending", "running", "done", "failed", "skipped"]],
-  ["ai_skip_reason", AiSkipReasonSchema, ["too_short", "rate_limited", "ai_disabled"]],
+  [
+    "ai_skip_reason",
+    AiSkipReasonSchema,
+    ["too_short", "rate_limited", "ai_disabled", "no_steps_needed"],
+  ],
   ["task_origin", TaskOriginSchema, ["user", "ai"]],
   ["suggestion_state", SuggestionStateSchema, ["suggested", "accepted", "dismissed"]],
 ] as const;
@@ -195,5 +200,14 @@ describe("LoginBody", () => {
 
   it("rejects a password shorter than the minimum", () => {
     expect(LoginBody.safeParse({ email: "a@example.com", password: "" }).success).toBe(false);
+  });
+});
+
+describe("BreakdownSchema", () => {
+  const step = { title: "Do a thing", rationale: "because" };
+  it("accepts zero steps and fifty-one steps", () => {
+    expect(BreakdownSchema.safeParse({ steps: [], tagSuggestions: [] }).success).toBe(true);
+    const many = Array.from({ length: 51 }, () => step);
+    expect(BreakdownSchema.safeParse({ steps: many, tagSuggestions: [] }).success).toBe(true);
   });
 });

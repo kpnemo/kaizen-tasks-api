@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result over fifty is asked for once more with a limit of fifty and the second answer is kept in full. A task the assistant judges small enough to do as it is is skipped with the new reason `no_steps_needed` (#34, ADR 0008).
+
 ## [1.7.0] - 2026-09-12
 
 ### Added
