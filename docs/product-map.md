@@ -79,17 +79,16 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result over fifty is asked for once more with a limit of fifty and the second answer is kept in full. A task the assistant judges small enough to do as it is is skipped with the new reason `no_steps_needed` (#34, ADR 0008).
+_Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
+
+### 1.8.0 - 2026-09-12
+
+- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result…
 
 ### 1.7.0 - 2026-09-12
 
 - Interview: reads the product context (API map, web map, UI conventions) before asking; opens by confirming what it unde…
 
 ### 1.6.0 - 2026-09-11
-
-### 1.5.0 - 2026-09-11
-
-- `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-…
-- A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the pars…
