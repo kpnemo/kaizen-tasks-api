@@ -1,9 +1,4 @@
-import {
-  MAX_STEPS,
-  MAX_TAG_SUGGESTIONS,
-  MIN_STEPS,
-  type BreakdownResult,
-} from "../schemas/breakdown.js";
+import { MAX_TAG_SUGGESTIONS, type BreakdownResult } from "../schemas/breakdown.js";
 import { BreakdownInvalid, BreakdownRefused } from "./errors.js";
 import type { BreakdownInput, BreakdownModel } from "./model.js";
 
@@ -18,7 +13,7 @@ export function shouldSkipBreakdown(
   return words < MIN_TITLE_WORDS && (description ?? "").trim().length === 0;
 }
 
-/** Trim, drop empties, deduplicate case-insensitively, cap at seven steps and three tags, require three steps. */
+/** Trim, drop empties, deduplicate case-insensitively, keep every distinct step, cap tag suggestions at three. */
 export function postValidate(raw: BreakdownResult): BreakdownResult {
   const seenTitles = new Set<string>();
   const steps: BreakdownResult["steps"] = [];
@@ -29,12 +24,6 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
     if (seenTitles.has(key)) continue;
     seenTitles.add(key);
     steps.push({ title, rationale: step.rationale.trim() });
-    if (steps.length === MAX_STEPS) break;
-  }
-  if (steps.length < MIN_STEPS) {
-    throw new BreakdownInvalid(
-      `expected at least ${MIN_STEPS} distinct steps, got ${steps.length}`,
-    );
   }
 
   const seenTags = new Set<string>();

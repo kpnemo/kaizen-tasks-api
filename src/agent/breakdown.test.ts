@@ -48,20 +48,23 @@ describe("postValidate", () => {
     expect(result.tagSuggestions).toEqual(["Travel", "work"]);
   });
 
-  it("drops empty titles and rejects fewer than three distinct steps", () => {
-    expect(() =>
-      postValidate({
-        steps: [step("   "), step("One"), step("one"), step("Two")],
-        tagSuggestions: [],
-      }),
-    ).toThrow(BreakdownInvalid);
+  it("drops empty titles and keeps a result with no steps", () => {
+    const result = postValidate({
+      steps: [step("   "), step("One"), step("one")],
+      tagSuggestions: [],
+    });
+    expect(result.steps.map((s) => s.title)).toEqual(["One"]);
+    expect(postValidate({ steps: [], tagSuggestions: ["a"] })).toEqual({
+      steps: [],
+      tagSuggestions: ["a"],
+    });
   });
 
-  it("caps steps at seven and tag suggestions at three", () => {
-    const many = Array.from({ length: 9 }, (_, i) => step(`Step ${i + 1}`));
+  it("keeps twenty distinct steps and caps tag suggestions at three", () => {
+    const many = Array.from({ length: 20 }, (_, i) => step(`Step ${i + 1}`));
     const result = postValidate({ steps: many, tagSuggestions: ["a", "b", "c", "d"] });
-    expect(result.steps).toHaveLength(7);
-    expect(result.steps[6]?.title).toBe("Step 7");
+    expect(result.steps).toHaveLength(20);
+    expect(result.steps[19]?.title).toBe("Step 20");
     expect(result.tagSuggestions).toEqual(["a", "b", "c"]);
   });
 });

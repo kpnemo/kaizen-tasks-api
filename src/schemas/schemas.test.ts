@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { LoginBody, RegisterBody } from "./auth.js";
+import { BreakdownSchema } from "./breakdown.js";
 import { ErrorEnvelopeSchema } from "./common.js";
 import { HealthSchema } from "./health.js";
 import {
@@ -195,5 +196,14 @@ describe("LoginBody", () => {
 
   it("rejects a password shorter than the minimum", () => {
     expect(LoginBody.safeParse({ email: "a@example.com", password: "" }).success).toBe(false);
+  });
+});
+
+describe("BreakdownSchema", () => {
+  const step = { title: "Do a thing", rationale: "because" };
+  it("accepts zero steps and fifty-one steps", () => {
+    expect(BreakdownSchema.safeParse({ steps: [], tagSuggestions: [] }).success).toBe(true);
+    const many = Array.from({ length: 51 }, () => step);
+    expect(BreakdownSchema.safeParse({ steps: many, tagSuggestions: [] }).success).toBe(true);
   });
 });
