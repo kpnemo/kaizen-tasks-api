@@ -1,4 +1,4 @@
-import { MAX_TAG_SUGGESTIONS, type BreakdownResult } from "../schemas/breakdown.js";
+import { MAX_STEPS, MAX_TAG_SUGGESTIONS, type BreakdownResult } from "../schemas/breakdown.js";
 import { BreakdownInvalid, BreakdownRefused } from "./errors.js";
 import type { BreakdownInput, BreakdownModel } from "./model.js";
 
@@ -40,13 +40,26 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
   return { steps, tagSuggestions };
 }
 
-/** Pure orchestration: call the model, translate outcomes into errors, post-validate. */
-export async function breakdownTask(
-  input: BreakdownInput,
-  model: BreakdownModel,
-): Promise<BreakdownResult> {
+async function askOnce(input: BreakdownInput, model: BreakdownModel): Promise<BreakdownResult> {
   const outcome = await model.complete(input);
   if (outcome.kind === "refused") throw new BreakdownRefused(outcome.reason);
   if (outcome.kind === "invalid") throw new BreakdownInvalid(outcome.reason);
   return postValidate(outcome.result);
+}
+
+/**
+ * Pure orchestration (ADR 0008): call the model; above MAX_STEPS ask once more with that limit
+ * and keep whatever comes back, the first answer when the re-ask fails. No truncation.
+ */
+export async function breakdownTask(
+  input: BreakdownInput,
+  model: BreakdownModel,
+): Promise<BreakdownResult> {
+  const first = await askOnce(input, model);
+  if (first.steps.length <= MAX_STEPS) return first;
+  try {
+    return await askOnce({ ...input, maxSteps: MAX_STEPS }, model);
+  } catch {
+    return first;
+  }
 }

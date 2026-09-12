@@ -83,6 +83,48 @@ describe("breakdownTask outcomes", () => {
   });
 });
 
+const manySteps = (n: number) => Array.from({ length: n }, (_, i) => step(`Step ${i + 1}`));
+const ok = (n: number) => ({
+  kind: "ok" as const,
+  result: { steps: manySteps(n), tagSuggestions: [] },
+});
+
+describe("breakdownTask re-ask", () => {
+  it("re-asks once with maxSteps fifty when the first answer has more than fifty steps", async () => {
+    const model = new FakeBreakdownModel({ script: [ok(60), ok(45)] });
+    const result = await breakdownTask(input, model);
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[0]).toEqual(input);
+    expect(model.calls[1]).toEqual({ ...input, maxSteps: 50 });
+    expect(result.steps).toHaveLength(45);
+  });
+
+  it("does not re-ask when the first answer has fifty steps", async () => {
+    const model = new FakeBreakdownModel({ script: [ok(50)] });
+    expect((await breakdownTask(input, model)).steps).toHaveLength(50);
+    expect(model.calls).toHaveLength(1);
+  });
+
+  it("keeps every step when the second answer is still over fifty", async () => {
+    const model = new FakeBreakdownModel({ script: [ok(60), ok(60)] });
+    expect((await breakdownTask(input, model)).steps).toHaveLength(60);
+    expect(model.calls).toHaveLength(2);
+  });
+
+  it("keeps the first answer when the re-ask fails", async () => {
+    const invalid = { kind: "invalid" as const, reason: "garbage" };
+    const model = new FakeBreakdownModel({ script: [ok(60), invalid] });
+    expect((await breakdownTask(input, model)).steps).toHaveLength(60);
+    const outage = new FakeBreakdownModel({ script: [ok(60)], mode: "retryable-error" });
+    expect((await breakdownTask(input, outage)).steps).toHaveLength(60);
+  });
+
+  it("returns no steps when the model returns none", async () => {
+    const model = new FakeBreakdownModel({ script: [ok(0)] });
+    expect(await breakdownTask(input, model)).toEqual({ steps: [], tagSuggestions: [] });
+  });
+});
+
 describe("shouldSkipBreakdown", () => {
   it("skips when the title has fewer than three words and the description is empty", () => {
     expect(shouldSkipBreakdown("Buy milk", "")).toBe(true);
