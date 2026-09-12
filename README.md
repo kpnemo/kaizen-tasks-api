@@ -151,6 +151,13 @@ with that conversation's `conversationId` appends the self-score and the transcr
 marks the conversation `filed`. Interview turns have their own hourly budget,
 `INTERVIEW_HOURLY_LIMIT`.
 
+The assistant reads the product context before it asks anything — the API's own endpoint table plus
+the web app's screens and UI conventions — so it never asks what the product maps already answer. It
+opens by saying what it understood from the request and pre-filling the draft, and every question
+after that carries a recommended answer alongside its options, so the PM can agree in one click.
+"Finish with what we have" ends the interview early: the draft is scored and the conversation
+becomes `ready` without another question.
+
 ## Pipeline
 
 The pipeline control room (`/pipeline` in the web app) reads one snapshot from `GET /api/v1/pipeline`
