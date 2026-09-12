@@ -31,6 +31,7 @@ export const aiSkipReasonEnum = pgEnum("ai_skip_reason", [
   "too_short",
   "rate_limited",
   "ai_disabled",
+  "no_steps_needed",
 ]);
 export const taskOriginEnum = pgEnum("task_origin", ["user", "ai"]);
 export const suggestionStateEnum = pgEnum("suggestion_state", [

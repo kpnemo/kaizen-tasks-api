@@ -8,7 +8,7 @@ export const AiStatusSchema = z
   .enum(["pending", "running", "done", "failed", "skipped"])
   .openapi("AiStatus");
 export const AiSkipReasonSchema = z
-  .enum(["too_short", "rate_limited", "ai_disabled"])
+  .enum(["too_short", "rate_limited", "ai_disabled", "no_steps_needed"])
   .openapi("AiSkipReason");
 export const TaskOriginSchema = z.enum(["user", "ai"]).openapi("TaskOrigin");
 export const SuggestionStateSchema = z

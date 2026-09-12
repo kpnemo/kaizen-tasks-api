@@ -9,6 +9,8 @@ export interface BreakdownInput {
   existingSteps: string[];
   tags: string[];
   openTasks: string[];
+  /** Set on the one re-ask: the model must return at most this many steps. */
+  maxSteps?: number;
 }
 
 export type BreakdownOutcome =

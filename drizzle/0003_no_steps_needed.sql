@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ai_skip_reason" ADD VALUE 'no_steps_needed';

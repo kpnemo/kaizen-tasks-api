@@ -1,9 +1,4 @@
-import {
-  MAX_STEPS,
-  MAX_TAG_SUGGESTIONS,
-  MIN_STEPS,
-  type BreakdownResult,
-} from "../schemas/breakdown.js";
+import { MAX_STEPS, MAX_TAG_SUGGESTIONS, type BreakdownResult } from "../schemas/breakdown.js";
 import { BreakdownInvalid, BreakdownRefused } from "./errors.js";
 import type { BreakdownInput, BreakdownModel } from "./model.js";
 
@@ -18,7 +13,7 @@ export function shouldSkipBreakdown(
   return words < MIN_TITLE_WORDS && (description ?? "").trim().length === 0;
 }
 
-/** Trim, drop empties, deduplicate case-insensitively, cap at seven steps and three tags, require three steps. */
+/** Trim, drop empties, deduplicate case-insensitively, keep every distinct step, cap tag suggestions at three. */
 export function postValidate(raw: BreakdownResult): BreakdownResult {
   const seenTitles = new Set<string>();
   const steps: BreakdownResult["steps"] = [];
@@ -29,12 +24,6 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
     if (seenTitles.has(key)) continue;
     seenTitles.add(key);
     steps.push({ title, rationale: step.rationale.trim() });
-    if (steps.length === MAX_STEPS) break;
-  }
-  if (steps.length < MIN_STEPS) {
-    throw new BreakdownInvalid(
-      `expected at least ${MIN_STEPS} distinct steps, got ${steps.length}`,
-    );
   }
 
   const seenTags = new Set<string>();
@@ -51,13 +40,31 @@ export function postValidate(raw: BreakdownResult): BreakdownResult {
   return { steps, tagSuggestions };
 }
 
-/** Pure orchestration: call the model, translate outcomes into errors, post-validate. */
-export async function breakdownTask(
-  input: BreakdownInput,
-  model: BreakdownModel,
-): Promise<BreakdownResult> {
+async function askOnce(input: BreakdownInput, model: BreakdownModel): Promise<BreakdownResult> {
   const outcome = await model.complete(input);
   if (outcome.kind === "refused") throw new BreakdownRefused(outcome.reason);
   if (outcome.kind === "invalid") throw new BreakdownInvalid(outcome.reason);
   return postValidate(outcome.result);
+}
+
+/**
+ * Pure orchestration (ADR 0008): call the model; above MAX_STEPS ask once more with that limit
+ * and keep whatever comes back, the first answer when the re-ask fails. No truncation.
+ */
+export async function breakdownTask(
+  input: BreakdownInput,
+  model: BreakdownModel,
+): Promise<BreakdownResult> {
+  const first = await askOnce(input, model);
+  if (first.steps.length <= MAX_STEPS) return first;
+  try {
+    const second = await askOnce({ ...input, maxSteps: MAX_STEPS }, model);
+    return second.steps.length === 0 ? first : second;
+  } catch (err) {
+    // ADR 0008: any failure of the re-ask (refusal, invalid output, outage, or a bug) keeps the
+    // first answer; the user gets steps rather than a failure. breakdownTask is pure and has no
+    // logger, so the reason is not recorded here.
+    void err;
+    return first;
+  }
 }

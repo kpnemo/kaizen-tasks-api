@@ -1,9 +1,9 @@
 # Product map: Kaizen Tasks API
 
 The generated part below the marker matches this checkout; the header is prose reviewed by a person.
-Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes three to
-seven small steps, and the user accepts, edits or dismisses each one, so a person decides what
-lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
+Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes as many
+small steps as the task needs, none to fifty, and the user accepts, edits or dismisses each one, so
+a person decides what lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
 client from the `openapi.json` committed here. Tags are user-scoped and connect related tasks.
 
 Two AI features live here: the breakdown job (every write guarded by a generation id; per-user
@@ -75,6 +75,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 - 0005: Interview agent for feature requests
 - 0006: Store the theme preference on the user row
 - 0007: Fetch the product context for the interview at runtime
+- 0008: Size the breakdown to the task, with one in-band re-ask above fifty steps
 
 ## Unreleased changes (`CHANGELOG.md`)
 
@@ -82,13 +83,12 @@ _Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
 
+### 1.8.0 - 2026-09-12
+
+- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result…
+
 ### 1.7.0 - 2026-09-12
 
 - Interview: reads the product context (API map, web map, UI conventions) before asking; opens by confirming what it unde…
 
 ### 1.6.0 - 2026-09-11
-
-### 1.5.0 - 2026-09-11
-
-- `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-…
-- A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the pars…

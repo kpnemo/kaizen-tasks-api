@@ -543,6 +543,7 @@
           "too_short",
           "rate_limited",
           "ai_disabled",
+          "no_steps_needed",
           null
         ]
       },
