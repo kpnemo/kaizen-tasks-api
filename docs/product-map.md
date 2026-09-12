@@ -75,6 +75,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 - 0005: Interview agent for feature requests
 - 0006: Store the theme preference on the user row
 - 0007: Fetch the product context for the interview at runtime
+- 0008: Size the breakdown to the task, with one in-band re-ask above fifty steps
 
 ## Unreleased changes (`CHANGELOG.md`)
 
