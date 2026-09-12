@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DRAFT } from "../lib/interview-constants.js";
+import { EMPTY_DRAFT, FINISHED_CONTENT } from "../lib/interview-constants.js";
 import type {
   Conversation,
   ConversationMessage,
@@ -84,5 +84,26 @@ describe("renderRefinementSection", () => {
     const section = renderRefinementSection({ ...base, score: null }, "1");
     expect(section).toContain("_The assistant did not score this request._");
     expect(section).not.toContain("| Self-score |");
+  });
+
+  it("says the draft was proposed by the assistant and prints the finish turn", () => {
+    const finished = {
+      ...base,
+      messages: [
+        ...base.messages,
+        {
+          id: "u-fin",
+          role: "user" as const,
+          content: FINISHED_CONTENT,
+          at: base.createdAt,
+          finished: true,
+        },
+      ],
+    };
+    const section = renderRefinementSection(finished, "1");
+    expect(section).toContain(
+      "Draft proposed by the assistant from the product context and corrected by the PM.",
+    );
+    expect(section).toContain("- **PM:** Finish with what we have");
   });
 });

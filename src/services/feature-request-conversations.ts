@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { MODEL_TIMEOUT_MS } from "../agent/anthropic-model.js";
 import { ModelNonRetryableError, ModelRetryableError } from "../agent/errors.js";
+import { INTERVIEW_TIMEOUT_MS } from "../agent/interview/anthropic-interview-model.js";
 import { MAX_INTERVIEW_QUESTIONS, type InterviewModel } from "../agent/interview/model.js";
 import { rubricVersion } from "../agent/interview/prompt.js";
 import type { Db } from "../db/client.js";
@@ -16,7 +16,7 @@ import {
 import type { Logger } from "../lib/logger.js";
 import type { RateLimiter } from "../lib/rate-limit.js";
 import type { SseSink } from "../lib/sse.js";
-import { EMPTY_DRAFT, SKIPPED_CONTENT } from "../lib/interview-constants.js";
+import { EMPTY_DRAFT, FINISHED_CONTENT, SKIPPED_CONTENT } from "../lib/interview-constants.js";
 import {
   abandonLiveConversations,
   findLiveConversation,
@@ -77,6 +77,8 @@ export function renderRefinementSection(conversation: Conversation, version: str
     `Rubric version: ${version}`,
     "",
     ...scoreBlock,
+    "",
+    "Draft proposed by the assistant from the product context and corrected by the PM.",
     "",
     `**Interview** (${asked} question${asked === 1 ? "" : "s"})`,
     "",
@@ -142,12 +144,12 @@ export function createFeatureRequestConversationsService(deps: {
   model: InterviewModel;
   rateLimiter: RateLimiter;
   logger: Logger;
-  /** Per-turn deadline. Defaults to the breakdown's 45 s; a test passes milliseconds. */
+  /** Per-turn deadline. Defaults to the interview's own 90 s; a test passes milliseconds. */
   turnTimeoutMs?: number;
   now?: () => Date;
 }): FeatureRequestConversationsService {
   const now = deps.now ?? ((): Date => new Date());
-  const turnTimeoutMs = deps.turnTimeoutMs ?? MODEL_TIMEOUT_MS;
+  const turnTimeoutMs = deps.turnTimeoutMs ?? INTERVIEW_TIMEOUT_MS;
   const message = (
     role: "assistant" | "user",
     content: string,
@@ -194,10 +196,11 @@ export function createFeatureRequestConversationsService(deps: {
       }
 
       const skipped = input.skip === true;
+      const finished = input.finish === true;
       const userMessage = message(
         "user",
-        skipped ? SKIPPED_CONTENT : input.content,
-        skipped ? { skipped: true } : {},
+        finished ? FINISHED_CONTENT : skipped ? SKIPPED_CONTENT : input.content,
+        finished ? { finished: true } : skipped ? { skipped: true } : {},
       );
       const messages = [...row.messages, userMessage];
       const before = toConversation(row);
@@ -218,6 +221,7 @@ export function createFeatureRequestConversationsService(deps: {
         score: before.score,
         questionCount: row.questionCount,
         skippedLast: skipped,
+        finishedLast: finished,
       };
       let streamed = false;
       const onDelta = (text: string): void => {
@@ -255,6 +259,16 @@ export function createFeatureRequestConversationsService(deps: {
           return;
         }
         const { turn } = outcome;
+        // A finish turn must end the interview. A question here would leave chips on a closed
+        // conversation, so it is unusable, like a ninth question.
+        if (finished && (turn.question !== null || !turn.done)) {
+          deps.logger.warn({ conversationId: row.id }, "interview asked on a finish turn");
+          sink.event("error", {
+            code: "UPSTREAM_ERROR",
+            message: `The assistant could not finish that turn. ${RESEND}`,
+          });
+          return;
+        }
         const questionCount = row.questionCount + (turn.question ? 1 : 0);
         // The prompt is told to finish at the cap. If it asks anyway, the turn is unusable: the PM
         // would be shown chips on a question that can never be answered. Persist nothing.
@@ -272,7 +286,9 @@ export function createFeatureRequestConversationsService(deps: {
         const assistantMessage = message(
           "assistant",
           turn.reply,
-          turn.question ? { options: turn.question.options } : {},
+          turn.question
+            ? { options: turn.question.options, recommended: turn.question.recommended }
+            : {},
         );
         // Last guard before the only write: if the PM has gone or the deadline passed while the
         // reply was being assembled, this turn must leave no trace.
