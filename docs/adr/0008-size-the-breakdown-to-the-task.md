@@ -25,7 +25,7 @@ the prompt's instructions and the output contract change, so this is recorded he
    return only the steps the task needs, never more than fifty. The output contract says "zero to
    fifty". The reasoning steps and every other constraint stay as they are.
 2. **The output schema no longer bounds the count.** `src/schemas/breakdown.ts` drops `MIN_STEPS`,
-   keeps `MAX_STEPS = 50` as the *soft* ceiling, and the zod `steps` array carries `.min(0)` and a
+   keeps `MAX_STEPS = 50` as the _soft_ ceiling, and the zod `steps` array carries `.min(0)` and a
    loose parse bound (`.max(200)`) so an oversize answer parses and can be counted instead of
    failing schema validation. An empty `steps` array is a valid answer meaning "no steps needed".
 3. **One in-band re-ask, then take what comes.** `breakdownTask` in `src/agent/breakdown.ts`

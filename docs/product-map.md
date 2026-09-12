@@ -79,7 +79,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 
 ## Unreleased changes (`CHANGELOG.md`)
 
-_Nothing unreleased._
+- The breakdown proposes as many steps as the task needs, from none to fifty, instead of a fixed three to seven; a result over fifty is asked for once more with a limit of fifty and the second answer is kept in full. A task the assistant judges small enough to do as it is is skipped with the new reason `no_steps_needed` (#34, ADR 0008).
 
 ## Recent releases (history, not current behavior)
 
