@@ -1,6 +1,6 @@
 # 0008: Size the breakdown to the task, with one in-band re-ask above fifty steps
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-12
 
 ## Context

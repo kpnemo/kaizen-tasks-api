@@ -110,6 +110,17 @@ describe("real BullMQ worker", () => {
     expect(failed?.aiError).toBe(AI_ERROR_MESSAGES.refused);
   });
 
+  it("marks the task skipped with no_steps_needed when the assistant returns no steps", async () => {
+    const user = await registerUser(ctx.server);
+    model.script.push({ kind: "ok", result: { steps: [], tagSuggestions: ["errands"] } });
+    startWorker();
+    const task = await service.create(user.userId, { title: "Water the office plants" });
+    const skipped = await waitFor(row(task.id, user.userId), (t) => t?.aiStatus === "skipped");
+    expect(skipped?.aiSkipReason).toBe("no_steps_needed");
+    expect(skipped?.aiTagSuggestions).toEqual(["errands"]);
+    expect(await listChildren(ctx.db, task.id)).toHaveLength(0);
+  });
+
   it("regenerate replaces suggested children and keeps an accepted one", async () => {
     const user = await registerUser(ctx.server);
     startWorker();

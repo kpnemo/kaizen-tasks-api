@@ -104,9 +104,30 @@ export async function processBreakdownJob(
     return;
   }
 
-  // 5. Persist in one guarded transaction. Tag names already on the task are not suggested again.
+  // Tag names already on the task are not suggested again.
   const onTask = new Set((taskTagMap.get(task.id) ?? []).map((t) => t.name.toLowerCase()));
   const tagSuggestions = result.tagSuggestions.filter((name) => !onTask.has(name.toLowerCase()));
+
+  // 4b. No steps needed (ADR 0008): a skip, not a failure. Tag suggestions are still kept.
+  if (result.steps.length === 0) {
+    await db.transaction(async (tx) => {
+      await replaceSuggestedChildren(tx, {
+        taskId: task.id,
+        userId: data.userId,
+        generationId: data.generationId,
+        steps: [],
+        tagSuggestions,
+      });
+      await updateAiState(tx, task.id, data.generationId, {
+        aiStatus: "skipped",
+        aiSkipReason: "no_steps_needed",
+      });
+    });
+    log.info({ tagSuggestions: tagSuggestions.length }, "skipped: no steps needed");
+    return;
+  }
+
+  // 5. Persist in one guarded transaction.
   const written = await db.transaction((tx) =>
     replaceSuggestedChildren(tx, {
       taskId: task.id,

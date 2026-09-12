@@ -1,9 +1,9 @@
 # Product map: Kaizen Tasks API
 
 The generated part below the marker matches this checkout; the header is prose reviewed by a person.
-Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes three to
-seven small steps, and the user accepts, edits or dismisses each one, so a person decides what
-lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
+Kaizen Tasks is a personal task manager: a user writes a task, an AI assistant proposes as many
+small steps as the task needs, none to fifty, and the user accepts, edits or dismisses each one, so
+a person decides what lands. This repository is the backend; `kpnemo/kaizen-tasks-web` is the web app and builds its typed
 client from the `openapi.json` committed here. Tags are user-scoped and connect related tasks.
 
 Two AI features live here: the breakdown job (every write guarded by a generation id; per-user

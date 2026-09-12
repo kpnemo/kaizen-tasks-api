@@ -23,7 +23,11 @@ function omit(obj: Record<string, unknown>, key: string): Record<string, unknown
 const ENUM_CASES = [
   ["task_status", TaskStatusSchema, ["todo", "in_progress", "done"]],
   ["ai_status", AiStatusSchema, ["pending", "running", "done", "failed", "skipped"]],
-  ["ai_skip_reason", AiSkipReasonSchema, ["too_short", "rate_limited", "ai_disabled"]],
+  [
+    "ai_skip_reason",
+    AiSkipReasonSchema,
+    ["too_short", "rate_limited", "ai_disabled", "no_steps_needed"],
+  ],
   ["task_origin", TaskOriginSchema, ["user", "ai"]],
   ["suggestion_state", SuggestionStateSchema, ["suggested", "accepted", "dismissed"]],
 ] as const;

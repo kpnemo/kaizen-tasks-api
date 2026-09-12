@@ -22,6 +22,13 @@
       "when": 1789024453811,
       "tag": "0002_user_theme_preference",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789217461646,
+      "tag": "0003_no_steps_needed",
+      "breakpoints": true
     }
   ]
 }
