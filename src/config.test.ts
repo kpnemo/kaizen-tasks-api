@@ -72,6 +72,22 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...valid, INTERVIEW_HOURLY_LIMIT: "x" })).toThrow(ConfigError);
   });
 
+  it("gives the interview its own model, effort and product-context settings", () => {
+    const config = loadConfig(valid);
+    expect(config.INTERVIEW_MODEL).toBe("claude-fable-5-1");
+    expect(config.INTERVIEW_EFFORT).toBe("medium");
+    expect(config.PRODUCT_CONTEXT_REF).toBe("develop");
+    expect(config.PRODUCT_CONTEXT_REFRESH_MINUTES).toBe(10);
+    expect(loadConfig({ ...valid, INTERVIEW_MODEL: "claude-opus-5" }).INTERVIEW_MODEL).toBe(
+      "claude-opus-5",
+    );
+    expect(loadConfig({ ...valid, INTERVIEW_EFFORT: "high" }).INTERVIEW_EFFORT).toBe("high");
+    expect(() => loadConfig({ ...valid, INTERVIEW_EFFORT: "turbo" })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, PRODUCT_CONTEXT_REFRESH_MINUTES: "0" })).toThrow(
+      ConfigError,
+    );
+  });
+
   it("marks cookies secure outside development and test", () => {
     expect(isSecureCookieEnv(loadConfig(valid))).toBe(false);
     expect(isSecureCookieEnv(loadConfig({ ...valid, APP_ENV: "test" }))).toBe(false);

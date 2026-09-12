@@ -913,6 +913,12 @@
               "type": "string"
             }
           },
+          "recommended": {
+            "type": "string"
+          },
+          "finished": {
+            "type": "boolean"
+          },
           "skipped": {
             "type": "boolean"
           }
@@ -1167,6 +1173,9 @@
             "maxLength": 2000
           },
           "skip": {
+            "type": "boolean"
+          },
+          "finish": {
             "type": "boolean"
           }
         },

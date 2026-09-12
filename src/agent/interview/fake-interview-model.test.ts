@@ -4,6 +4,7 @@ import { EMPTY_DRAFT } from "../../lib/interview-constants.js";
 import type { ConversationMessage } from "../../schemas/feature-request-conversations.js";
 import {
   FAKE_INTERVIEW_SCORE,
+  FINISHED_REPLY,
   FakeInterviewModel,
   splitIntoThree,
 } from "./fake-interview-model.js";
@@ -39,6 +40,7 @@ function inputAt(questionCount: number, upTo: number, skippedLast = false): Inte
     score: null,
     questionCount,
     skippedLast,
+    finishedLast: false,
   };
 }
 
@@ -168,6 +170,7 @@ describe("FakeInterviewModel", () => {
         score: null,
         questionCount: 3,
         skippedLast: false,
+        finishedLast: false,
       },
       vi.fn(),
       new AbortController().signal,
@@ -245,5 +248,27 @@ describe("FakeInterviewModel", () => {
     const promise = model.respond(inputAt(0, 2), vi.fn(), controller.signal);
     controller.abort();
     await expect(promise).rejects.toThrow(/abort/i);
+  });
+
+  it("recommends the first option of every scripted question", async () => {
+    const model = new FakeInterviewModel();
+    const outcome = await model.respond(inputAt(0, 2), () => {}, new AbortController().signal);
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(outcome.turn.question?.recommended).toBe(outcome.turn.question?.options[0]);
+  });
+
+  it("ends the interview on a finish turn without asking", async () => {
+    const model = new FakeInterviewModel();
+    const outcome = await model.respond(
+      { ...inputAt(1, 4), finishedLast: true },
+      () => {},
+      new AbortController().signal,
+    );
+    expect(outcome.kind).toBe("ok");
+    if (outcome.kind !== "ok") return;
+    expect(outcome.turn.done).toBe(true);
+    expect(outcome.turn.question).toBeNull();
+    expect(outcome.turn.reply).toBe(FINISHED_REPLY);
   });
 });

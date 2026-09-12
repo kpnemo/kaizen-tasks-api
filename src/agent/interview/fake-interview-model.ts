@@ -94,6 +94,7 @@ const SCRIPT: ScriptedTurn[] = [
         "An agent during a call",
         "A workforce planner on Monday",
       ],
+      recommended: "A team supervisor before a coaching session",
     },
   },
   {
@@ -105,6 +106,7 @@ const SCRIPT: ScriptedTurn[] = [
         "A banner at the top of the team page",
         "A short summary above the existing table",
       ],
+      recommended: "A list of agents with the contact reasons where they score below the team",
     },
   },
   {
@@ -116,12 +118,17 @@ const SCRIPT: ScriptedTurn[] = [
         "An agent with no data reads Not enough data instead of being blank",
         "Changing the date range refreshes the numbers without a reload",
       ],
+      recommended: "Opening the page for a team of 12 shows all 12 agents within 2 seconds",
     },
   },
 ];
 
 const DONE_REPLY =
   "That is enough to file it: the request now names the user, the behavior and three checkable criteria.";
+
+/** The closing reply when the PM presses "Finish with what we have" mid-interview. */
+export const FINISHED_REPLY =
+  "Stopping here as asked: the draft carries everything said so far. Review and file it.";
 
 /** Three pieces whose concatenation is exactly the input, split on word boundaries. */
 export function splitIntoThree(text: string): [string, string, string] {
@@ -239,6 +246,25 @@ export class FakeInterviewModel implements InterviewModel {
   ): Promise<InterviewOutcome> {
     this.calls.push(input);
     const mode = this.modes.shift() ?? this.mode;
+    if (input.finishedLast) {
+      for (const chunk of splitIntoThree(FINISHED_REPLY)) {
+        if (this.delayMs > 0) await sleep(this.delayMs, signal);
+        if (signal.aborted) throw abortError(signal);
+        onDelta(chunk);
+      }
+      if (mode === "invalid") return { kind: "invalid", reason: "Fake invalid turn" };
+      return {
+        kind: "ok",
+        turn: {
+          reply: FINISHED_REPLY,
+          question: null,
+          draft: draftFrom(input),
+          score: fakeInterviewScore(input.questionCount),
+          done: true,
+          stillMissing: [],
+        },
+      };
+    }
     const scripted = SCRIPT[input.questionCount];
     const reply = scripted?.reply ?? DONE_REPLY;
     for (const chunk of splitIntoThree(reply)) {

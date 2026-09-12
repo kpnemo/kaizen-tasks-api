@@ -34,6 +34,7 @@ export default defineRailway((ctx) => {
       AI_ENABLED: "true",
       AI_STALE_MINUTES: "3",
       INTERVIEW_HOURLY_LIMIT: "60",
+      PRODUCT_CONTEXT_REF: production ? "main" : "develop",
       SEED_DEMO_USER: "true",
       LOG_LEVEL: "info",
       // Secrets are pasted by Mike in the dashboard and never written here.

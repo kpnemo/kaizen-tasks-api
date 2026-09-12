@@ -128,17 +128,28 @@ would stop Caddy cancelling the upstream request on a client disconnect — the 
 aborts the model stream here.
 
 The model seam is `InterviewModel.respond(input, onDelta, signal) -> { kind: ok | invalid }`. The
-Anthropic adapter uses `client.messages.stream` with the same model as the breakdown (`AI_MODEL`),
-`max_tokens` 4000, `maxRetries: 0` and the same 45-second timeout, and two system blocks marked
-`cache_control: { type: "ephemeral" }`: `src/agent/prompts/interview.system.md` and
-`src/agent/prompts/readiness.md`. The second is a byte-identical vendored copy of the assembly
-line's readiness rubric — the prompt embeds the rubric rather than restating it, so the in-app
-assistant, the product manager's `refine-request` skill and engineering's triage all score from one
-text; `scripts/sync-rubric.sh` copies it and CI warns on a version drift. Structured state comes
-back through one `report_turn` tool whose `input_schema` is generated from the zod schema of an
-interview turn, so the reply stays plain prose and the state stays machine-checked; a missing or
-schema-invalid tool call is `invalid`, final, never retried. The fake adapter replays a scripted
-four-turn interview and can be told to return `invalid`.
+Anthropic adapter uses `client.beta.messages.stream` on `INTERVIEW_MODEL` (default
+`claude-fable-5-1`) with `output_config.effort` from `INTERVIEW_EFFORT` (default `medium`), the beta
+header `server-side-fallback-2026-07-01` and `fallbacks: "default"` so a refusal from the primary
+model (the safety classifier) is served by Anthropic's fallback rather than failing the turn — not
+overload: with `maxRetries: 0` an overloaded turn still fails and the route reports it — `max_tokens`
+16000 (thinking tokens count toward it) and a 90-second timeout (`INTERVIEW_TIMEOUT_MS`). The
+breakdown agent keeps its own `AI_MODEL`. Three system blocks are marked
+`cache_control: { type: "ephemeral" }`: the instructions `src/agent/prompts/interview.system.md`,
+the rubric `src/agent/prompts/readiness.md`
+and the product context (the API map from disk plus the web map and UI conventions fetched at
+runtime, ADR 0007). The rubric block is a byte-identical vendored copy of the assembly line's
+readiness rubric — the prompt embeds the rubric rather than restating it, so the in-app assistant,
+the product manager's `refine-request` skill and engineering's triage all score from one text;
+`scripts/sync-rubric.sh` copies it and CI warns on a version drift. Structured state comes back
+through one `report_turn` tool whose `input_schema` is generated from the zod schema of an interview
+turn, so the reply stays plain prose and the state stays machine-checked; a missing or
+schema-invalid tool call is `invalid`, final, never retried, and so is a question whose
+`recommended` answer is not one of its own `options`. A turn sent with `finish: true` stores
+`FINISHED_CONTENT` ("Finish with what we have") as the PM's message, shows the model
+`FINISH_TURN_CONTENT` instead, counts no question, and ends the conversation at status `ready`. The
+fake adapter replays a scripted four-turn interview, recommends an option, honours `finish`, and can
+be told to return `invalid`.
 
 Rate limit: `ratelimit:interview:<userId>:<YYYYMMDDHH>` (default 60 per hour, `INTERVIEW_HOURLY_LIMIT`),
 a second limiter instance with its own key prefix and budget, so interviews never spend the

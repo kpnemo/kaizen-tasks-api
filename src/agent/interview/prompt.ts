@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { TRANSCRIPT_OPENER } from "../../lib/interview-constants.js";
 import { MAX_INTERVIEW_QUESTIONS, type InterviewInput } from "./model.js";
+import type { ProductContext } from "./product-context.js";
 
 export { TRANSCRIPT_OPENER };
 
@@ -14,6 +15,12 @@ export const RUBRIC_URL = new URL("../prompts/readiness.md", import.meta.url);
 
 /** What the model sees instead of "(skipped)" so it moves on instead of re-asking. */
 export const SKIPPED_TURN_CONTENT = "The PM skipped this question.";
+
+/** What the model sees for the finish turn (spec 3.3, "Finishing"). */
+export const FINISH_TURN_CONTENT = "The PM asked to finish the interview with what you have.";
+
+export const WEB_MAP_UNAVAILABLE = "Web product map: unavailable (fetch failed)";
+export const CONVENTIONS_UNAVAILABLE = "UI conventions: unavailable (fetch failed)";
 
 /** The cap is a fact the model is told, not one it has to count off the transcript. */
 export function questionCountLine(questionCount: number): string {
@@ -70,14 +77,35 @@ export function rubricVersion(): string {
   return version;
 }
 
+/** The third system block (spec 3.3): the product as the maps describe it today. */
+export function renderProductContext(context: ProductContext): string {
+  return [
+    "# Product context (what exists today)",
+    "",
+    "## API: kpnemo/kaizen-tasks-api",
+    "",
+    context.api.trim(),
+    "",
+    "## Web app: kpnemo/kaizen-tasks-web",
+    "",
+    context.web?.trim() ?? WEB_MAP_UNAVAILABLE,
+    "",
+    "## UI conventions",
+    "",
+    context.conventions?.trim() ?? CONVENTIONS_UNAVAILABLE,
+    "",
+  ].join("\n");
+}
+
 /**
- * Two cached system blocks: the instructions, then the rubric they refer to. Both are frozen for
- * the life of a deploy, so every turn of every conversation reads the same cached prefix.
+ * Three cached system blocks: the instructions, the rubric they refer to, and the product context.
+ * The first two are frozen for the life of a deploy; the third changes only when a map changes.
  */
-export function systemBlocks(): CachedSystemBlock[] {
+export function systemBlocks(context: ProductContext): CachedSystemBlock[] {
   return [
     { type: "text", text: loadInterviewSystemPrompt(), cache_control: { type: "ephemeral" } },
     { type: "text", text: loadRubric(), cache_control: { type: "ephemeral" } },
+    { type: "text", text: renderProductContext(context), cache_control: { type: "ephemeral" } },
   ];
 }
 
@@ -90,10 +118,15 @@ export function systemBlocks(): CachedSystemBlock[] {
 export function transcriptMessages(input: InterviewInput): TranscriptMessage[] {
   const lastIndex = input.messages.length - 1;
   const mapped = input.messages.map((message, index): TranscriptMessage => {
-    const skipped =
-      message.skipped === true ||
-      (input.skippedLast && index === lastIndex && message.role === "user");
-    return { role: message.role, content: skipped ? SKIPPED_TURN_CONTENT : message.content };
+    const isLastUser = index === lastIndex && message.role === "user";
+    const skipped = message.skipped === true || (input.skippedLast && isLastUser);
+    const finished = message.finished === true || (input.finishedLast && isLastUser);
+    const content = finished
+      ? FINISH_TURN_CONTENT
+      : skipped
+        ? SKIPPED_TURN_CONTENT
+        : message.content;
+    return { role: message.role, content };
   });
   return [
     { role: "user", content: TRANSCRIPT_OPENER },

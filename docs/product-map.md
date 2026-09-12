@@ -74,6 +74,7 @@ Column entries are the TypeScript property keys of each `pgTable`, not the SQL c
 - 0004: Migrations are additive only
 - 0005: Interview agent for feature requests
 - 0006: Store the theme preference on the user row
+- 0007: Fetch the product context for the interview at runtime
 
 ## Unreleased changes (`CHANGELOG.md`)
 
@@ -81,13 +82,13 @@ _Nothing unreleased._
 
 ## Recent releases (history, not current behavior)
 
+### 1.7.0 - 2026-09-12
+
+- Interview: reads the product context (API map, web map, UI conventions) before asking; opens by confirming what it unde…
+
 ### 1.6.0 - 2026-09-11
 
 ### 1.5.0 - 2026-09-11
 
 - `GET /pipeline`: an open issue labelled `staging` that has no pull requests at all counts as on staging and production-…
 - A malformed JSON body is answered `VALIDATION_ERROR` "Malformed JSON body" with no details and nothing logged; the pars…
-
-### 1.4.0 - 2026-09-11
-
-- `GET /feature-requests`: the requests filed to GitHub, open first then closed and newest first within each group (at mo…

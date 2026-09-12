@@ -4,8 +4,10 @@ import type {
   InterviewQuestion,
   RubricScore,
 } from "../../schemas/feature-request-conversations.js";
+import type { InterviewEffort } from "../../config.js";
 import { AnthropicInterviewModel } from "./anthropic-interview-model.js";
 import { FAKE_INTERVIEW_DELAY_MS, FakeInterviewModel } from "./fake-interview-model.js";
+import type { ProductContext } from "./product-context.js";
 
 /** Eight questions, then the assistant stops asking (spec 2, refine-request Step 4). */
 export const MAX_INTERVIEW_QUESTIONS = 8;
@@ -19,6 +21,8 @@ export interface InterviewInput {
   questionCount: number;
   /** True when the PM pressed "Skip this question" instead of answering. */
   skippedLast: boolean;
+  /** True when the PM pressed "Finish with what we have". */
+  finishedLast: boolean;
 }
 
 export interface InterviewTurn {
@@ -50,7 +54,10 @@ export interface InterviewModel {
 export interface InterviewModelSelection {
   provider: "anthropic" | "fake";
   model: string;
+  effort: InterviewEffort;
   apiKey?: string;
+  /** A getter, so a refreshed product context reaches the next turn without a restart. */
+  context: () => ProductContext;
 }
 
 /** Picks the adapter from config once at startup, like `createBreakdownModel`. */
@@ -61,5 +68,10 @@ export function createInterviewModel(selection: InterviewModelSelection): Interv
   if (!selection.apiKey) {
     throw new Error("ANTHROPIC_API_KEY is required when AI_MODEL_PROVIDER=anthropic");
   }
-  return new AnthropicInterviewModel({ apiKey: selection.apiKey, model: selection.model });
+  return new AnthropicInterviewModel({
+    apiKey: selection.apiKey,
+    model: selection.model,
+    effort: selection.effort,
+    context: selection.context,
+  });
 }
