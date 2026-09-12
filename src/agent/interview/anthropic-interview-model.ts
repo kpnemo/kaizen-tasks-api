@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { ReportTurnSchema } from "../../schemas/feature-request-conversations.js";
-import { MODEL_TIMEOUT_MS, toModelError } from "../anthropic-model.js";
+import { toModelError } from "../anthropic-model.js";
+import type { InterviewEffort } from "../../config.js";
 import type {
   InterviewDelta,
   InterviewInput,
@@ -10,12 +11,19 @@ import type {
   InterviewTurn,
 } from "./model.js";
 import { systemBlocks, transcriptMessages, type CachedSystemBlock } from "./prompt.js";
+import type { ProductContext } from "./product-context.js";
 
 /** What `report_turn` carries: an `InterviewTurn` minus the prose the adapter streams. */
 type ReportTurnState = Omit<InterviewTurn, "reply">;
 
-/** One short reply plus one tool call. The 45s client timeout still bounds the turn (spec 3.3). */
-export const INTERVIEW_MAX_OUTPUT_TOKENS = 4000;
+/** Thinking tokens count toward max_tokens, and Fable always thinks (spec 3.4). */
+export const INTERVIEW_MAX_OUTPUT_TOKENS = 16_000;
+
+/** Fable turns run longer than Sonnet's; the 15 s `: ping` covers the wait (spec 3.4). */
+export const INTERVIEW_TIMEOUT_MS = 90_000;
+
+/** Server-side fallback: a busy primary is served by the next model in the default chain. */
+export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export const REPORT_TURN_TOOL_NAME = "report_turn";
 
@@ -31,12 +39,29 @@ export function reportTurnJsonSchema(): Record<string, unknown> {
   return schema;
 }
 
-export function reportTurnTool(): Anthropic.Tool {
+export function reportTurnTool(): Anthropic.Beta.BetaTool {
   return {
     name: REPORT_TURN_TOOL_NAME,
     description: REPORT_TURN_DESCRIPTION,
-    input_schema: reportTurnJsonSchema() as Anthropic.Tool.InputSchema,
+    input_schema: reportTurnJsonSchema() as Anthropic.Beta.BetaTool.InputSchema,
   };
+}
+
+export interface InterviewStreamParams {
+  model: string;
+  max_tokens: number;
+  system: CachedSystemBlock[];
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  tools: Anthropic.Beta.BetaTool[];
+  tool_choice: { type: "auto" };
+  output_config: { effort: InterviewEffort };
+  betas: string[];
+  fallbacks: "default";
+}
+
+export interface InterviewMessageStream extends AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent> {
+  finalMessage(): Promise<Anthropic.Beta.BetaMessage>;
+  abort(): void;
 }
 
 /**
@@ -45,24 +70,14 @@ export function reportTurnTool(): Anthropic.Tool {
  * structurally; a fake stands in for it in tests without a socket, exactly as
  * `AnthropicMessagesClient` does for the breakdown adapter.
  */
-export interface InterviewMessageStream extends AsyncIterable<Anthropic.MessageStreamEvent> {
-  finalMessage(): Promise<Anthropic.Message>;
-  abort(): void;
-}
-
 export interface AnthropicStreamingClient {
-  messages: {
-    stream(
-      params: {
-        model: string;
-        max_tokens: number;
-        system: CachedSystemBlock[];
-        messages: Array<{ role: "user" | "assistant"; content: string }>;
-        tools: Anthropic.Tool[];
-        tool_choice: { type: "auto" };
-      },
-      options?: { signal?: AbortSignal },
-    ): InterviewMessageStream;
+  beta: {
+    messages: {
+      stream(
+        params: InterviewStreamParams,
+        options?: { signal?: AbortSignal },
+      ): InterviewMessageStream;
+    };
   };
 }
 
@@ -84,6 +99,9 @@ function disagreementIn(state: ReportTurnState): string | undefined {
   if (!state.done && state.question === null) {
     return "done was false but the turn asked no question";
   }
+  if (state.question && !state.question.options.includes(state.question.recommended)) {
+    return `recommended "${state.question.recommended}" is not one of the options`;
+  }
   return undefined;
 }
 
@@ -97,7 +115,7 @@ export const READY_REPLY = "The request is ready to review and file.";
 export const CAP_REPLY = "We have reached the question limit. Review and file what we have.";
 
 /**
- * claude-sonnet-5 frequently answers a turn with the `report_turn` call and no prose, which used to
+ * A model sometimes answers a turn with the `report_turn` call and no prose, which used to
  * cost the product manager a perfectly good turn. The state already carries everything the reply
  * would have said, so the reply is rebuilt from it: the question it just asked, or the sentence the
  * prompt's stop rules prescribe for the two ways an interview ends.
@@ -109,24 +127,24 @@ function synthesizedReply(state: ReportTurnState): string {
 
 export class AnthropicInterviewModel implements InterviewModel {
   private readonly client: AnthropicStreamingClient;
-  private readonly system: CachedSystemBlock[];
-  private readonly tool: Anthropic.Tool;
+  private readonly tool: Anthropic.Beta.BetaTool;
 
   constructor(
     private readonly options: {
       apiKey: string;
       model: string;
+      effort: InterviewEffort;
+      /** A getter, so a refreshed product context reaches the next turn without a restart. */
+      context: () => ProductContext;
       /** Test seam: an injected fake stands in for the real SDK client. Production omits it. */
       client?: AnthropicStreamingClient;
-      system?: CachedSystemBlock[];
-      tool?: Anthropic.Tool;
+      tool?: Anthropic.Beta.BetaTool;
     },
   ) {
     // One bounded attempt per turn: the route, not the SDK, decides what a failure means.
     this.client =
       options.client ??
-      new Anthropic({ apiKey: options.apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 0 });
-    this.system = options.system ?? systemBlocks();
+      new Anthropic({ apiKey: options.apiKey, timeout: INTERVIEW_TIMEOUT_MS, maxRetries: 0 });
     this.tool = options.tool ?? reportTurnTool();
   }
 
@@ -137,14 +155,17 @@ export class AnthropicInterviewModel implements InterviewModel {
   ): Promise<InterviewOutcome> {
     let reply = "";
     try {
-      const stream = this.client.messages.stream(
+      const stream = this.client.beta.messages.stream(
         {
           model: this.options.model,
           max_tokens: INTERVIEW_MAX_OUTPUT_TOKENS,
-          system: this.system,
+          system: systemBlocks(this.options.context()),
           messages: transcriptMessages(input),
           tools: [this.tool],
           tool_choice: { type: "auto" },
+          output_config: { effort: this.options.effort },
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
         },
         { signal },
       );
@@ -163,7 +184,7 @@ export class AnthropicInterviewModel implements InterviewModel {
         };
       }
       const calls = message.content.filter(
-        (block): block is Anthropic.ToolUseBlock =>
+        (block): block is Anthropic.Beta.BetaToolUseBlock =>
           block.type === "tool_use" && block.name === REPORT_TURN_TOOL_NAME,
       );
       if (calls.length !== 1) {

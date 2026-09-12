@@ -7,6 +7,7 @@ import { ModelNonRetryableError, ModelRetryableError } from "../errors.js";
 import {
   AnthropicInterviewModel,
   CAP_REPLY,
+  FALLBACK_BETA,
   INTERVIEW_MAX_OUTPUT_TOKENS,
   READY_REPLY,
   REPORT_TURN_TOOL_NAME,
@@ -16,6 +17,14 @@ import {
   type InterviewMessageStream,
 } from "./anthropic-interview-model.js";
 import type { InterviewInput } from "./model.js";
+import type { ProductContext } from "./product-context.js";
+
+const CONTEXT: ProductContext = {
+  api: "## Endpoints\n",
+  web: null,
+  conventions: null,
+  fetchedAt: null,
+};
 
 function sdkError<T extends object>(proto: T, props: Record<string, unknown>): T {
   return Object.assign(Object.create(proto) as T, { message: "sdk error", ...props });
@@ -37,12 +46,14 @@ const input: InterviewInput = {
   score: null,
   questionCount: 0,
   skippedLast: false,
+  finishedLast: false,
 };
 
 const turnPayload = {
   question: {
     text: "Who is the user, and at what moment does this happen?",
     options: ["A team supervisor before a coaching session", "An agent during a call"],
+    recommended: "A team supervisor before a coaching session",
   },
   draft: { ...EMPTY_DRAFT, problem: "Supervisors cannot see the drag." },
   score: {
@@ -57,18 +68,22 @@ const turnPayload = {
   stillMissing: [],
 };
 
-const textDelta = (text: string): Anthropic.MessageStreamEvent => ({
-  type: "content_block_delta",
-  index: 0,
-  delta: { type: "text_delta", text },
-});
+const textDelta = (text: string): Anthropic.Beta.BetaRawMessageStreamEvent =>
+  ({
+    type: "content_block_delta",
+    index: 0,
+    delta: { type: "text_delta", text },
+  }) as unknown as Anthropic.Beta.BetaRawMessageStreamEvent;
 
 /**
  * A Message double: the adapter reads `stop_reason` and `content`, so the rest is not worth
  * constructing.
  */
-function assistantMessage(content: unknown[], stopReason: string = "tool_use"): Anthropic.Message {
-  return { stop_reason: stopReason, content } as unknown as Anthropic.Message;
+function assistantMessage(
+  content: unknown[],
+  stopReason: string = "tool_use",
+): Anthropic.Beta.BetaMessage {
+  return { stop_reason: stopReason, content } as unknown as Anthropic.Beta.BetaMessage;
 }
 
 function toolUse(name: string, toolInput: unknown, id = "toolu_1"): unknown {
@@ -79,17 +94,17 @@ class FakeStream implements InterviewMessageStream {
   aborts = 0;
   signal: AbortSignal | undefined;
   constructor(
-    private readonly events: Anthropic.MessageStreamEvent[],
-    private readonly final: () => Promise<Anthropic.Message>,
+    private readonly events: Anthropic.Beta.BetaRawMessageStreamEvent[],
+    private readonly final: () => Promise<Anthropic.Beta.BetaMessage>,
   ) {}
-  async *[Symbol.asyncIterator](): AsyncGenerator<Anthropic.MessageStreamEvent> {
+  async *[Symbol.asyncIterator](): AsyncGenerator<Anthropic.Beta.BetaRawMessageStreamEvent> {
     for (const event of this.events) {
       // The real SDK rejects the iteration when the request's signal fires; so does this.
       if (this.signal?.aborted === true) throw new Error("Request was aborted.");
       yield event;
     }
   }
-  finalMessage(): Promise<Anthropic.Message> {
+  finalMessage(): Promise<Anthropic.Beta.BetaMessage> {
     if (this.signal?.aborted === true) return Promise.reject(new Error("Request was aborted."));
     return this.final();
   }
@@ -99,8 +114,8 @@ class FakeStream implements InterviewMessageStream {
 }
 
 interface Call {
-  params: Parameters<AnthropicStreamingClient["messages"]["stream"]>[0];
-  options: Parameters<AnthropicStreamingClient["messages"]["stream"]>[1];
+  params: Parameters<AnthropicStreamingClient["beta"]["messages"]["stream"]>[0];
+  options: Parameters<AnthropicStreamingClient["beta"]["messages"]["stream"]>[1];
 }
 
 function clientWith(makeStream: () => InterviewMessageStream): {
@@ -114,14 +129,16 @@ function clientWith(makeStream: () => InterviewMessageStream): {
     calls,
     streams,
     client: {
-      messages: {
-        stream(params, options) {
-          calls.push({ params, options });
-          const stream = makeStream();
-          // The adapter passes the caller's signal through; the fake honours it like the SDK does.
-          if (stream instanceof FakeStream) stream.signal = options?.signal ?? undefined;
-          streams.push(stream);
-          return stream;
+      beta: {
+        messages: {
+          stream(params, options) {
+            calls.push({ params, options });
+            const stream = makeStream();
+            // The adapter passes the caller's signal through; the fake honours it like the SDK does.
+            if (stream instanceof FakeStream) stream.signal = options?.signal ?? undefined;
+            streams.push(stream);
+            return stream;
+          },
         },
       },
     },
@@ -131,9 +148,10 @@ function clientWith(makeStream: () => InterviewMessageStream): {
 function modelWith(client: AnthropicStreamingClient) {
   return new AnthropicInterviewModel({
     apiKey: "sk-test",
-    model: "claude-sonnet-5",
+    model: "claude-fable-5-1",
+    effort: "medium",
+    context: () => CONTEXT,
     client,
-    system: [{ type: "text", text: "system", cache_control: { type: "ephemeral" } }],
     tool: reportTurnTool(),
   });
 }
@@ -155,6 +173,8 @@ describe("reportTurnJsonSchema", () => {
     expect(schema.required).toEqual(
       expect.arrayContaining(["question", "draft", "score", "done", "stillMissing"]),
     );
+    // Task 1 made `recommended` a required field of the question, so the tool schema carries it.
+    expect(JSON.stringify(schema)).toContain('"recommended"');
   });
 
   it("becomes a tool named report_turn with a description", () => {
@@ -203,7 +223,7 @@ describe("AnthropicInterviewModel.respond via an injected fake client", () => {
     await modelWith(client).respond(input, vi.fn(), controller.signal);
 
     const call = calls[0];
-    expect(call?.params.model).toBe("claude-sonnet-5");
+    expect(call?.params.model).toBe("claude-fable-5-1");
     expect(call?.params.max_tokens).toBe(INTERVIEW_MAX_OUTPUT_TOKENS);
     expect(call?.params.system[0]?.cache_control).toEqual({ type: "ephemeral" });
     expect(call?.params.tools[0]?.name).toBe(REPORT_TURN_TOOL_NAME);
@@ -442,5 +462,78 @@ describe("AnthropicInterviewModel.respond via an injected fake client", () => {
       expect(err).toBeInstanceOf(expected);
       expect((err as { cause?: unknown }).cause).toBe(rejection);
     }
+  });
+});
+
+describe("the request the adapter sends", () => {
+  it("uses the interview model and effort, the fallback beta, 16000 max tokens, three system blocks and no thinking", async () => {
+    const { client, calls } = clientWith(
+      () =>
+        new FakeStream([textDelta("Hi.")], async () =>
+          assistantMessage([
+            { type: "text", text: "Hi." },
+            toolUse(REPORT_TURN_TOOL_NAME, turnPayload),
+          ]),
+        ),
+    );
+    await modelWith(client).respond(input, () => {}, new AbortController().signal);
+    const params = calls[0]!.params;
+    expect(params.model).toBe("claude-fable-5-1");
+    expect(params.output_config).toEqual({ effort: "medium" });
+    expect(params.betas).toEqual([FALLBACK_BETA]);
+    expect(params.fallbacks).toBe("default");
+    expect(params.max_tokens).toBe(INTERVIEW_MAX_OUTPUT_TOKENS);
+    expect(INTERVIEW_MAX_OUTPUT_TOKENS).toBe(16_000);
+    expect(params.system).toHaveLength(3);
+    expect(params.system[2]!.text).toContain("# Product context");
+    expect("thinking" in params).toBe(false);
+  });
+
+  it("reads the context getter on every call, so a refreshed map reaches the next turn", async () => {
+    let api = "## Endpoints\n\nfirst\n";
+    const { client, calls } = clientWith(
+      () =>
+        new FakeStream([textDelta("Hi.")], async () =>
+          assistantMessage([
+            { type: "text", text: "Hi." },
+            toolUse(REPORT_TURN_TOOL_NAME, turnPayload),
+          ]),
+        ),
+    );
+    const model = new AnthropicInterviewModel({
+      apiKey: "sk-test",
+      model: "claude-fable-5-1",
+      effort: "low",
+      client,
+      context: () => ({ api, web: null, conventions: null, fetchedAt: null }),
+    });
+    await model.respond(input, () => {}, new AbortController().signal);
+    api = "## Endpoints\n\nsecond\n";
+    await model.respond(input, () => {}, new AbortController().signal);
+    expect(calls[0]!.params.system[2]!.text).toContain("first");
+    expect(calls[1]!.params.system[2]!.text).toContain("second");
+  });
+
+  it("is invalid when recommended is not one of the options", async () => {
+    const bad = { ...turnPayload, question: { ...turnPayload.question, recommended: "Nobody" } };
+    const { client } = clientWith(
+      () =>
+        new FakeStream([textDelta("Who?")], async () =>
+          assistantMessage([{ type: "text", text: "Who?" }, toolUse(REPORT_TURN_TOOL_NAME, bad)]),
+        ),
+    );
+    const outcome = await modelWith(client).respond(input, () => {}, new AbortController().signal);
+    expect(outcome).toMatchObject({
+      kind: "invalid",
+      reason: expect.stringContaining("recommended"),
+    });
+  });
+
+  it("is invalid on a refusal stop", async () => {
+    const { client } = clientWith(
+      () => new FakeStream([], async () => assistantMessage([], "refusal")),
+    );
+    const outcome = await modelWith(client).respond(input, () => {}, new AbortController().signal);
+    expect(outcome).toMatchObject({ kind: "invalid", reason: expect.stringContaining("refusal") });
   });
 });
